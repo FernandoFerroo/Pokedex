@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 const STAT_LABELS: Record<string, string> = {
   hp: "PS",
   attack: "Ataque",
@@ -21,7 +19,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
 
   return (
     <section aria-label="Estadísticas base">
-      <h2 className="mb-3 text-base font-semibold tracking-tight">
+      <h2 className="mb-3 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
         Estadísticas base
       </h2>
       <dl className="flex flex-col gap-2.5">
@@ -33,7 +31,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
             <dt className="text-slate-500 dark:text-slate-400">
               {STAT_LABELS[stat.name] ?? stat.name}
             </dt>
-            <dd className="text-right font-semibold tabular-nums">
+            <dd className="text-right font-mono text-[13px] font-semibold tabular-nums">
               {stat.value}
             </dd>
             <dd
@@ -41,14 +39,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
               role="presentation"
             >
               <div
-                className={cn(
-                  "h-full rounded-full transition-[width] duration-500",
-                  stat.value < 50
-                    ? "bg-rose-400/90"
-                    : stat.value < 90
-                      ? "bg-amber-400/90"
-                      : "bg-emerald-500/90",
-                )}
+                className="h-full rounded-full bg-slate-800 motion-safe:animate-[bar-grow_600ms_ease-out] dark:bg-slate-200"
                 style={{
                   width: `${Math.min(100, (stat.value / MAX_BASE_STAT) * 100)}%`,
                 }}
@@ -58,7 +49,9 @@ export function StatsPanel({ stats }: StatsPanelProps) {
         ))}
         <div className="grid grid-cols-[7.5rem_2.5rem_1fr] items-center gap-2 border-t border-slate-200 pt-2 text-sm dark:border-slate-800">
           <dt className="font-medium">Total</dt>
-          <dd className="text-right font-bold tabular-nums">{total}</dd>
+          <dd className="text-right font-mono text-[13px] font-bold tabular-nums">
+            {total}
+          </dd>
           <dd />
         </div>
       </dl>

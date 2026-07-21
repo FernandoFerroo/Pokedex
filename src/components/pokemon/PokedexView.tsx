@@ -5,6 +5,7 @@ import { FilterBar } from "@/components/filters/FilterBar";
 import { PokemonCard } from "@/components/pokemon/PokemonCard";
 import { useFilters } from "@/hooks/use-filters";
 import { filterPokemon } from "@/lib/search/evolution-search";
+import { sortPokemon } from "@/lib/sort";
 import type { PokemonIndex } from "@/types/pokemon";
 
 interface PokedexViewProps {
@@ -12,18 +13,24 @@ interface PokedexViewProps {
 }
 
 export function PokedexView({ index }: PokedexViewProps) {
-  const [{ q, type, gen }, setFilters] = useFilters();
+  const [{ q, type, gen, sort }, setFilters] = useFilters();
 
   const results = useMemo(
-    () => filterPokemon(index, { query: q, type, generation: gen }),
-    [index, q, type, gen],
+    () =>
+      sortPokemon(filterPokemon(index, { query: q, type, generation: gen }), sort),
+    [index, q, type, gen, sort],
   );
 
   return (
     <div className="flex flex-col gap-4">
-      <FilterBar values={{ q, type, gen }} onChange={setFilters} />
+      <div className="sticky top-14 z-10 -mx-4 bg-slate-50/85 px-4 py-3 backdrop-blur dark:bg-slate-950/85">
+        <FilterBar values={{ q, type, gen, sort }} onChange={setFilters} />
+      </div>
 
-      <p className="text-sm text-slate-500 dark:text-slate-400" role="status">
+      <p
+        className="font-mono text-xs text-slate-500 dark:text-slate-400"
+        role="status"
+      >
         {results.length === index.entries.length
           ? `${index.entries.length} Pokémon · Generaciones I–IX`
           : `${results.length} de ${index.entries.length} Pokémon`}
@@ -37,7 +44,10 @@ export function PokedexView({ index }: PokedexViewProps) {
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <ul
+          key={`${q}|${type}|${gen}|${sort}`}
+          className="grid grid-cols-2 gap-3 motion-safe:animate-[fade-in_250ms_ease-out] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+        >
           {results.map((entry) => (
             <li key={entry.id}>
               <PokemonCard entry={entry} />

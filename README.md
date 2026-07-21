@@ -60,6 +60,7 @@ Los filtros usan [`nuqs`](https://nuqs.dev) (query params tipados). Se descartó
 - **Rendimiento del listado**: `next/image` con lazy-loading y `content-visibility: auto` en las tarjetas para que el navegador no pinte las ~1000 tarjetas fuera de viewport.
 - **Casos límite cubiertos**: especies cuya variedad por defecto tiene otro nombre de pokémon (Deoxys, Giratina, etc.) se resuelven vía `varieties`; las cadenas ramificadas se aplanan recursivamente; la descripción usa el texto en español y cae al inglés cuando PokéAPI no lo ofrece (p. ej. especies de la Gen IX).
 - **Tema claro/oscuro sin dependencias**: variante `dark` de Tailwind basada en clase (`@custom-variant`), un script inline que aplica el tema persistido antes del primer pintado y un conmutador sin estado React (los iconos se alternan por CSS), lo que evita cualquier desajuste de hidratación.
+- **Sistema de diseño sobrio**: acento monocromo (el color procede solo de las ilustraciones y de las insignias de tipo), tipografía monoespaciada para los datos (números de Pokédex, estadísticas, contadores), barra de filtros fija al hacer scroll y microinteracciones discretas (barras de estadísticas animadas, elevación al pasar el cursor, fundido del grid al filtrar) que respetan `prefers-reduced-motion`.
 
 ## Estructura
 

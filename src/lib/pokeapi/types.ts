@@ -40,12 +40,23 @@ export interface PokemonSpeciesResponse {
   name: string;
   generation: NamedAPIResource;
   evolution_chain: { url: string };
+  color: NamedAPIResource | null;
+  shape: NamedAPIResource | null;
+  habitat: NamedAPIResource | null;
+  egg_groups: NamedAPIResource[];
+  is_baby: boolean;
+  is_legendary: boolean;
+  is_mythical: boolean;
   varieties: Array<{
     is_default: boolean;
     pokemon: NamedAPIResource;
   }>;
   flavor_text_entries: Array<{
     flavor_text: string;
+    language: NamedAPIResource;
+  }>;
+  names: Array<{
+    name: string;
     language: NamedAPIResource;
   }>;
 }
@@ -64,9 +75,18 @@ export interface PokemonResponse {
     type: NamedAPIResource;
   }>;
   sprites: {
+    front_default: string | null;
+    back_default: string | null;
+    front_shiny: string | null;
+    back_shiny: string | null;
     other?: {
       "official-artwork"?: {
         front_default: string | null;
+        front_shiny: string | null;
+      };
+      home?: {
+        front_default: string | null;
+        front_shiny: string | null;
       };
     };
   };

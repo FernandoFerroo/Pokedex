@@ -16,3 +16,17 @@ html {
 html.dark {
   color-scheme: dark;
 }
+
+/* Micro-interactions (applied with `motion-safe:` variants at usage sites). */
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}

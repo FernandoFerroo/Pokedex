@@ -2,6 +2,8 @@
 
 import { Search, X } from "lucide-react";
 import { generationLabel, TYPE_LABELS_ES } from "@/lib/pokemon-meta";
+import { SORT_LABELS_ES, SORT_OPTIONS } from "@/lib/sort";
+import type { PokemonSort } from "@/types/pokemon";
 
 const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -9,6 +11,7 @@ export interface FilterValues {
   q: string;
   type: string | null;
   gen: number | null;
+  sort: PokemonSort;
 }
 
 interface FilterBarProps {
@@ -18,6 +21,7 @@ interface FilterBarProps {
     q?: string | null;
     type?: string | null;
     gen?: number | null;
+    sort?: PokemonSort | null;
   }) => void;
 }
 
@@ -26,7 +30,10 @@ const controlClasses =
 
 export function FilterBar({ values, onChange }: FilterBarProps) {
   const hasActiveFilters =
-    values.q !== "" || values.type !== null || values.gen !== null;
+    values.q !== "" ||
+    values.type !== null ||
+    values.gen !== null ||
+    values.sort !== "id-asc";
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -75,10 +82,23 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
         ))}
       </select>
 
+      <select
+        value={values.sort}
+        onChange={(e) => onChange({ sort: e.target.value as PokemonSort })}
+        aria-label="Ordenar resultados"
+        className={controlClasses}
+      >
+        {SORT_OPTIONS.map((sort) => (
+          <option key={sort} value={sort}>
+            {SORT_LABELS_ES[sort]}
+          </option>
+        ))}
+      </select>
+
       {hasActiveFilters && (
         <button
           type="button"
-          onClick={() => onChange({ q: null, type: null, gen: null })}
+          onClick={() => onChange({ q: null, type: null, gen: null, sort: null })}
           className="inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
         >
           <X size={14} />

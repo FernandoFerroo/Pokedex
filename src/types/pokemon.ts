@@ -28,3 +28,6 @@ export interface PokemonFilters {
   type: string | null;
   generation: number | null;
 }
+
+/** List ordering. `id-asc` doubles as generation order (ids are gen-grouped). */
+export type PokemonSort = "id-asc" | "id-desc" | "name-asc" | "name-desc";

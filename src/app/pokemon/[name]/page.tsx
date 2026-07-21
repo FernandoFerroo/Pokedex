@@ -70,7 +70,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
       <BackButton />
 
       <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]">
-        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="relative aspect-square w-full max-w-[280px]">
             <Image
               src={image}
@@ -112,11 +112,15 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           <dl className="flex gap-6 text-sm">
             <div>
               <dt className="text-slate-500 dark:text-slate-400">Altura</dt>
-              <dd className="font-semibold">{pokemon.height / 10} m</dd>
+              <dd className="font-mono text-[13px] font-semibold">
+                {pokemon.height / 10} m
+              </dd>
             </div>
             <div>
               <dt className="text-slate-500 dark:text-slate-400">Peso</dt>
-              <dd className="font-semibold">{pokemon.weight / 10} kg</dd>
+              <dd className="font-mono text-[13px] font-semibold">
+                {pokemon.weight / 10} kg
+              </dd>
             </div>
           </dl>
 
@@ -129,7 +133,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <EvolutionChain chain={chain} currentName={species.name} />
       </div>
     </main>

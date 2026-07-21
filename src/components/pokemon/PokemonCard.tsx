@@ -17,11 +17,11 @@ export function PokemonCard({ entry }: PokemonCardProps) {
   return (
     <Link
       href={`/pokemon/${entry.name}`}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600 [content-visibility:auto] [contain-intrinsic-size:auto_230px]"
+      className="group flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600 [content-visibility:auto] [contain-intrinsic-size:auto_230px]"
     >
       <div className="flex items-center justify-between text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">
         <span className="font-mono">{formatDexNumber(entry.id)}</span>
-        <span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-slate-500 dark:border-slate-700 dark:text-slate-400">
+        <span className="rounded-md border border-slate-200 px-1.5 py-0.5 font-mono text-slate-500 dark:border-slate-700 dark:text-slate-400">
           {generationLabel(entry.generation)}
         </span>
       </div>

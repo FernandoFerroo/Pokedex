@@ -59,6 +59,36 @@ export const TYPE_COLORS: Record<string, string> = {
     "bg-rose-500/10 text-rose-700 ring-rose-600/25 dark:bg-rose-400/10 dark:text-rose-300 dark:ring-rose-400/25",
 };
 
+/**
+ * Chart accent per type: a `text-*` pair so SVG marks can draw with
+ * `currentColor` in both themes. Same hue family as TYPE_COLORS, one step
+ * deeper in light mode so 2px strokes stay visible on white.
+ */
+export const TYPE_ACCENTS: Record<string, string> = {
+  normal: "text-neutral-500 dark:text-neutral-400",
+  fire: "text-orange-600 dark:text-orange-400",
+  water: "text-blue-600 dark:text-blue-400",
+  electric: "text-yellow-600 dark:text-yellow-400",
+  grass: "text-emerald-600 dark:text-emerald-400",
+  ice: "text-cyan-600 dark:text-cyan-400",
+  fighting: "text-red-600 dark:text-red-400",
+  poison: "text-fuchsia-600 dark:text-fuchsia-400",
+  ground: "text-amber-600 dark:text-amber-400",
+  flying: "text-sky-600 dark:text-sky-400",
+  psychic: "text-pink-600 dark:text-pink-400",
+  bug: "text-lime-600 dark:text-lime-400",
+  rock: "text-stone-500 dark:text-stone-400",
+  ghost: "text-violet-600 dark:text-violet-400",
+  dragon: "text-indigo-600 dark:text-indigo-400",
+  dark: "text-gray-600 dark:text-gray-400",
+  steel: "text-zinc-500 dark:text-zinc-400",
+  fairy: "text-rose-500 dark:text-rose-400",
+};
+
+export function typeAccent(type: string): string {
+  return TYPE_ACCENTS[type] ?? "text-slate-500 dark:text-slate-400";
+}
+
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 
 export function generationLabel(generation: number): string {
