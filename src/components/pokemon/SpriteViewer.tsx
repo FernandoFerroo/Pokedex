@@ -89,7 +89,7 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
                   alt={`${variantLabel} (${sprite.label})`}
                   fill
                   sizes="144px"
-                  className="object-contain [image-rendering:pixelated]"
+                  className="aura-sprite object-contain [image-rendering:pixelated]"
                 />
               </div>
             ))}
@@ -102,7 +102,7 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
               fill
               priority={mode === "art"}
               sizes="280px"
-              className="object-contain"
+              className="aura-sprite object-contain"
             />
           </div>
         )}

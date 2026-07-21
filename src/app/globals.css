@@ -70,3 +70,27 @@ html.dark .aura-card:hover {
     0 0 36px -4px var(--aura, transparent),
     0 0 10px -2px color-mix(in srgb, var(--aura, transparent) 80%, transparent);
 }
+
+/*
+ * Silhouette glow: drop-shadow follows the sprite's alpha channel, so the
+ * neon hugs the creature itself. Inherits `--aura` from the closest
+ * ancestor that sets it (the card or the detail artwork panel).
+ */
+.aura-sprite {
+  filter: drop-shadow(
+      0 0 4px color-mix(in srgb, var(--aura, transparent) 60%, transparent)
+    )
+    drop-shadow(
+      0 0 14px color-mix(in srgb, var(--aura, transparent) 35%, transparent)
+    );
+  transition: filter 300ms ease;
+}
+
+.aura-card:hover .aura-sprite {
+  filter: drop-shadow(
+      0 0 6px color-mix(in srgb, var(--aura, transparent) 85%, transparent)
+    )
+    drop-shadow(
+      0 0 20px color-mix(in srgb, var(--aura, transparent) 55%, transparent)
+    );
+}

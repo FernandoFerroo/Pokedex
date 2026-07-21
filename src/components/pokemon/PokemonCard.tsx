@@ -34,7 +34,7 @@ export function PokemonCard({ entry }: PokemonCardProps) {
           alt={formatName(entry.name)}
           fill
           sizes="(max-width: 640px) 40vw, 130px"
-          className="object-contain p-1 transition-transform duration-200 group-hover:scale-[1.04]"
+          className="aura-sprite object-contain p-1 transition-transform duration-200 group-hover:scale-[1.04]"
         />
       </div>
       <p className="truncate text-sm font-semibold tracking-tight">
