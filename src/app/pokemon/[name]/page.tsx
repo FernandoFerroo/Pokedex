@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { BackButton } from "@/components/pokemon/BackButton";
+import {
+  CardGallery,
+  CardGallerySkeleton,
+} from "@/components/pokemon/CardGallery";
 import { EvolutionChain } from "@/components/pokemon/EvolutionChain";
-import { StatsPanel } from "@/components/pokemon/StatsPanel";
+import { SpriteViewer } from "@/components/pokemon/SpriteViewer";
+import { StatsRadar } from "@/components/pokemon/StatsRadar";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { idFromUrl, PokeApiError, pokeFetch } from "@/lib/pokeapi/client";
 import type {
@@ -11,12 +16,14 @@ import type {
   PokemonResponse,
   PokemonSpeciesResponse,
 } from "@/lib/pokeapi/types";
+import type { CSSProperties } from "react";
 import {
   artworkUrl,
   formatDexNumber,
   formatName,
   generationFromName,
   generationLabel,
+  typeAura,
 } from "@/lib/pokemon-meta";
 
 export const revalidate = 86400;
@@ -61,26 +68,43 @@ export default async function PokemonDetailPage({ params }: PageProps) {
     species.flavor_text_entries.find((f) => f.language.name === "es") ??
     species.flavor_text_entries.find((f) => f.language.name === "en")
   )?.flavor_text.replace(/\s+/g, " ");
-  const image =
-    pokemon.sprites.other?.["official-artwork"]?.front_default ??
-    artworkUrl(pokemon.id);
+  const englishName =
+    species.names.find((n) => n.language.name === "en")?.name ??
+    formatName(species.name);
+  const sprites = pokemon.sprites;
+  const spriteSet = {
+    artwork: {
+      normal:
+        sprites.other?.["official-artwork"]?.front_default ??
+        artworkUrl(pokemon.id),
+      shiny: sprites.other?.["official-artwork"]?.front_shiny ?? null,
+    },
+    home: {
+      normal: sprites.other?.home?.front_default ?? null,
+      shiny: sprites.other?.home?.front_shiny ?? null,
+    },
+    pixel: {
+      front: sprites.front_default,
+      back: sprites.back_default,
+      frontShiny: sprites.front_shiny,
+      backShiny: sprites.back_shiny,
+    },
+  };
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <BackButton />
 
       <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]">
-        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="relative aspect-square w-full max-w-[280px]">
-            <Image
-              src={image}
-              alt={formatName(species.name)}
-              fill
-              priority
-              sizes="280px"
-              className="object-contain"
-            />
-          </div>
+        <div
+          style={
+            {
+              "--aura": typeAura(pokemon.types[0]?.type.name),
+            } as CSSProperties
+          }
+          className="aura-card rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-[#0b1120]"
+        >
+          <SpriteViewer name={formatName(species.name)} sprites={spriteSet} />
         </div>
 
         <div className="flex flex-col gap-4">
@@ -124,18 +148,31 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             </div>
           </dl>
 
-          <StatsPanel
+          <StatsRadar
             stats={pokemon.stats.map((s) => ({
               name: s.stat.name,
               value: s.base_stat,
             }))}
+            type={pokemon.types[0]?.type.name ?? "normal"}
           />
         </div>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0b1120]">
         <EvolutionChain chain={chain} currentName={species.name} />
       </div>
+
+      <section
+        aria-label="Galería de cartas del JCC"
+        className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0b1120]"
+      >
+        <h2 className="mb-4 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+          Cartas del JCC
+        </h2>
+        <Suspense fallback={<CardGallerySkeleton />}>
+          <CardGallery name={englishName} />
+        </Suspense>
+      </section>
     </main>
   );
 }

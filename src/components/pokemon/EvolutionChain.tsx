@@ -77,7 +77,7 @@ export function EvolutionChain({ chain, currentName }: EvolutionChainProps) {
                     "flex w-28 flex-col items-center gap-1 rounded-xl border p-3 text-center transition",
                     isCurrent
                       ? "border-slate-400 bg-slate-100 dark:border-slate-500 dark:bg-slate-800"
-                      : "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500",
+                      : "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-700 dark:bg-[#0b1120] dark:hover:border-slate-500",
                   );
                   return isCurrent ? (
                     <div

@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import {
   artworkUrl,
   formatDexNumber,
   formatName,
   generationLabel,
+  typeAura,
 } from "@/lib/pokemon-meta";
 import type { PokemonIndexEntry } from "@/types/pokemon";
 
@@ -17,7 +19,8 @@ export function PokemonCard({ entry }: PokemonCardProps) {
   return (
     <Link
       href={`/pokemon/${entry.name}`}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600 [content-visibility:auto] [contain-intrinsic-size:auto_230px]"
+      style={{ "--aura": typeAura(entry.types[0]) } as CSSProperties}
+      className="aura-card group flex flex-col rounded-xl border border-slate-200 bg-white p-3 motion-safe:hover:-translate-y-0.5 dark:border-slate-800/70 dark:bg-[#0b1120] [content-visibility:auto] [contain-intrinsic-size:auto_230px]"
     >
       <div className="flex items-center justify-between text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">
         <span className="font-mono">{formatDexNumber(entry.id)}</span>

@@ -30,3 +30,43 @@ html.dark {
     transform: translateY(2px);
   }
 }
+
+@keyframes radar-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+/*
+ * Neon type aura. Cards set `--aura` inline from typeAura(); this class turns
+ * it into a blurred box-shadow glow that intensifies on hover, strongest in
+ * dark mode. Unlayered on purpose so it wins over Tailwind shadow utilities.
+ */
+.aura-card {
+  box-shadow: 0 0 14px -6px
+    color-mix(in srgb, var(--aura, transparent) 45%, transparent);
+  transition:
+    box-shadow 300ms ease,
+    border-color 300ms ease,
+    translate 150ms ease;
+}
+
+.aura-card:hover {
+  border-color: color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+  box-shadow:
+    0 0 30px -6px color-mix(in srgb, var(--aura, transparent) 75%, transparent),
+    0 0 8px -3px color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+}
+
+html.dark .aura-card {
+  box-shadow: 0 0 18px -5px
+    color-mix(in srgb, var(--aura, transparent) 65%, transparent);
+}
+
+html.dark .aura-card:hover {
+  border-color: color-mix(in srgb, var(--aura, transparent) 70%, transparent);
+  box-shadow:
+    0 0 36px -4px var(--aura, transparent),
+    0 0 10px -2px color-mix(in srgb, var(--aura, transparent) 80%, transparent);
+}

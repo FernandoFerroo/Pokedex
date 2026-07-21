@@ -23,8 +23,12 @@ export const metadata: Metadata = {
     "Pokédex construida con Next.js (App Router), TypeScript y Tailwind CSS sobre PokéAPI: filtros por tipo y generación, y búsqueda por nombre y cadena evolutiva.",
 };
 
-/** Applies the persisted (or system) theme before first paint to avoid a flash. */
-const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+/**
+ * Applies the persisted theme before first paint to avoid a flash.
+ * Dark is the default experience (the neon auras shine there); an explicit
+ * user choice via the toggle always wins.
+ */
+const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",t!=="light");}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -40,7 +44,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <body className="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 dark:bg-[#020409] dark:text-slate-100">
         <NuqsAdapter>
           <Header />
           {children}

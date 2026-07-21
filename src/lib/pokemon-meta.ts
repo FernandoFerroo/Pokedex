@@ -21,6 +21,81 @@ export const TYPE_LABELS_ES: Record<string, string> = {
   fairy: "Hada",
 };
 
+/** PokéAPI slug -> Spanish label for every filterable species attribute. */
+export const COLOR_LABELS_ES: Record<string, string> = {
+  black: "Negro",
+  blue: "Azul",
+  brown: "Marrón",
+  gray: "Gris",
+  green: "Verde",
+  pink: "Rosa",
+  purple: "Morado",
+  red: "Rojo",
+  white: "Blanco",
+  yellow: "Amarillo",
+};
+
+export const HABITAT_LABELS_ES: Record<string, string> = {
+  cave: "Cueva",
+  forest: "Bosque",
+  grassland: "Pradera",
+  mountain: "Montaña",
+  rare: "Raro",
+  "rough-terrain": "Terreno agreste",
+  sea: "Mar",
+  urban: "Urbano",
+  "waters-edge": "Ribera",
+};
+
+export const SHAPE_LABELS_ES: Record<string, string> = {
+  ball: "Cabeza",
+  squiggle: "Serpentino",
+  fish: "Pez",
+  arms: "Cabeza y brazos",
+  blob: "Cabeza y base",
+  upright: "Bípedo con cola",
+  legs: "Cabeza y piernas",
+  quadruped: "Cuadrúpedo",
+  wings: "Dos alas",
+  tentacles: "Tentáculos",
+  heads: "Varios cuerpos",
+  humanoid: "Humanoide",
+  "bug-wings": "Insecto alado",
+  armor: "Insectoide",
+};
+
+export const EGG_GROUP_LABELS_ES: Record<string, string> = {
+  monster: "Monstruo",
+  water1: "Agua 1",
+  water2: "Agua 2",
+  water3: "Agua 3",
+  bug: "Bicho",
+  flying: "Volador",
+  ground: "Campo",
+  fairy: "Hada",
+  plant: "Planta",
+  humanshape: "Humanoide",
+  mineral: "Mineral",
+  indeterminate: "Amorfo",
+  ditto: "Ditto",
+  dragon: "Dragón",
+  "no-eggs": "Desconocido",
+};
+
+export const CATEGORY_LABELS_ES: Record<string, string> = {
+  normal: "Normal",
+  baby: "Bebé",
+  legendary: "Legendario",
+  mythical: "Singular",
+};
+
+export const STAGE_LABELS_ES: Record<string, string> = {
+  "1": "Básico",
+  "2": "1ª evolución",
+  "3": "2ª evolución",
+  final: "Forma final",
+};
+
 /**
  * Muted "soft badge" palette per type (tinted background + ring + readable
  * text in both themes). Full class strings so Tailwind can extract them.
@@ -87,6 +162,37 @@ export const TYPE_ACCENTS: Record<string, string> = {
 
 export function typeAccent(type: string): string {
   return TYPE_ACCENTS[type] ?? "text-slate-500 dark:text-slate-400";
+}
+
+/**
+ * Neon aura color per type, used as the `--aura` CSS variable that the
+ * `.aura-card` class turns into a glow (see globals.css). Hand-picked neon
+ * hues that read on both the near-black and the light background.
+ */
+export const TYPE_AURA: Record<string, string> = {
+  normal: "#d6d3d1",
+  fire: "#ff6b2b",
+  water: "#22d3ee",
+  electric: "#fde047",
+  grass: "#34d399",
+  ice: "#a5f3fc",
+  fighting: "#ef4444",
+  poison: "#d946ef",
+  ground: "#f59e0b",
+  flying: "#38bdf8",
+  psychic: "#f472b6",
+  bug: "#a3e635",
+  rock: "#b8a038",
+  ghost: "#8b5cf6",
+  dragon: "#a855f7",
+  dark: "#6d28d9",
+  steel: "#94a3b8",
+  fairy: "#fb7185",
+};
+
+/** Aura color for a Pokémon's primary type (neutral steel-gray fallback). */
+export function typeAura(type: string | undefined): string {
+  return (type && TYPE_AURA[type]) || "#94a3b8";
 }
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];

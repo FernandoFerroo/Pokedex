@@ -41,6 +41,23 @@ export function filterPokemon(
     (entry) =>
       (matchedBySearch === null || matchedBySearch.has(entry.name)) &&
       (filters.type === null || entry.types.includes(filters.type)) &&
-      (filters.generation === null || entry.generation === filters.generation),
+      (filters.generation === null ||
+        entry.generation === filters.generation) &&
+      (filters.color === null || entry.color === filters.color) &&
+      (filters.habitat === null || entry.habitat === filters.habitat) &&
+      (filters.shape === null || entry.shape === filters.shape) &&
+      (filters.eggGroup === null ||
+        entry.eggGroups.includes(filters.eggGroup)) &&
+      (filters.category === null || entry.category === filters.category) &&
+      matchesStage(entry, filters.stage),
   );
+}
+
+function matchesStage(
+  entry: PokemonIndexEntry,
+  stage: PokemonFilters["stage"],
+): boolean {
+  if (stage === null) return true;
+  if (stage === "final") return entry.isFinal;
+  return entry.stage === Number(stage);
 }

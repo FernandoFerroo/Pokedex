@@ -13,18 +13,37 @@ interface PokedexViewProps {
 }
 
 export function PokedexView({ index }: PokedexViewProps) {
-  const [{ q, type, gen, sort }, setFilters] = useFilters();
+  const [filters, setFilters] = useFilters();
+  const { q, type, gen, sort, color, habitat, shape, egg, cat, stage } =
+    filters;
 
   const results = useMemo(
     () =>
-      sortPokemon(filterPokemon(index, { query: q, type, generation: gen }), sort),
-    [index, q, type, gen, sort],
+      sortPokemon(
+        filterPokemon(index, {
+          query: q,
+          type,
+          generation: gen,
+          color,
+          habitat,
+          shape,
+          eggGroup: egg,
+          category: cat,
+          stage,
+        }),
+        sort,
+      ),
+    [index, q, type, gen, sort, color, habitat, shape, egg, cat, stage],
   );
+
+  const listKey = [q, type, gen, sort, color, habitat, shape, egg, cat, stage]
+    .map(String)
+    .join("|");
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-14 z-10 -mx-4 bg-slate-50/85 px-4 py-3 backdrop-blur dark:bg-slate-950/85">
-        <FilterBar values={{ q, type, gen, sort }} onChange={setFilters} />
+      <div className="sticky top-14 z-10 -mx-4 bg-slate-50/85 px-4 py-3 backdrop-blur dark:bg-[#020409]/85">
+        <FilterBar values={filters} onChange={setFilters} />
       </div>
 
       <p
@@ -40,12 +59,12 @@ export function PokedexView({ index }: PokedexViewProps) {
         <div className="rounded-xl border border-dashed border-slate-300 py-16 text-center dark:border-slate-700">
           <p className="font-medium">No se encontraron Pokémon</p>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Prueba con otro nombre o ajusta los filtros de tipo y generación.
+            Prueba con otro nombre o ajusta los filtros activos.
           </p>
         </div>
       ) : (
         <ul
-          key={`${q}|${type}|${gen}|${sort}`}
+          key={listKey}
           className="grid grid-cols-2 gap-3 motion-safe:animate-[fade-in_250ms_ease-out] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
         >
           {results.map((entry) => (
