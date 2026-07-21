@@ -88,6 +88,12 @@ export interface PokemonResponse {
         front_default: string | null;
         front_shiny: string | null;
       };
+      showdown?: {
+        front_default: string | null;
+        back_default: string | null;
+        front_shiny: string | null;
+        back_shiny: string | null;
+      };
     };
   };
 }

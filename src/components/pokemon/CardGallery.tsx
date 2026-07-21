@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { CardGrid } from "@/components/pokemon/CardGrid";
 import { fetchTcgCards } from "@/lib/tcgdex";
 
 const MAX_CARDS = 18;
@@ -30,22 +30,7 @@ export async function CardGallery({ name }: CardGalleryProps) {
 
   return (
     <div>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {visible.map((card) => (
-          <li
-            key={card.id}
-            className="group relative aspect-63/88 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm transition hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-800"
-          >
-            <Image
-              src={card.imageUrl}
-              alt={`Carta ${card.name}`}
-              fill
-              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 22vw, 160px"
-              className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-            />
-          </li>
-        ))}
-      </ul>
+      <CardGrid cards={visible} />
       {cards.length > MAX_CARDS && (
         <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
           Mostrando {MAX_CARDS} de {cards.length} cartas.

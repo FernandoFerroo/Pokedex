@@ -16,7 +16,10 @@ interface TcgdexCardBrief {
 export interface TcgCard {
   id: string;
   name: string;
+  /** Thumbnail for the grid (~245px wide). */
   imageUrl: string;
+  /** Full-size scan for the enlarged view. */
+  imageHighUrl: string;
 }
 
 function escapeRegExp(value: string): string {
@@ -50,5 +53,6 @@ export async function fetchTcgCards(name: string): Promise<TcgCard[] | null> {
       id: card.id,
       name: card.name,
       imageUrl: `${card.image}/low.webp`,
+      imageHighUrl: `${card.image}/high.webp`,
     }));
 }

@@ -44,8 +44,8 @@ html.dark {
  * dark mode. Unlayered on purpose so it wins over Tailwind shadow utilities.
  */
 .aura-card {
-  box-shadow: 0 0 14px -6px
-    color-mix(in srgb, var(--aura, transparent) 45%, transparent);
+  box-shadow: 0 0 24px -4px
+    color-mix(in srgb, var(--aura, transparent) 65%, transparent);
   transition:
     box-shadow 300ms ease,
     border-color 300ms ease,
@@ -53,22 +53,24 @@ html.dark {
 }
 
 .aura-card:hover {
-  border-color: color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+  border-color: color-mix(in srgb, var(--aura, transparent) 75%, transparent);
   box-shadow:
-    0 0 30px -6px color-mix(in srgb, var(--aura, transparent) 75%, transparent),
-    0 0 8px -3px color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+    0 0 55px -4px color-mix(in srgb, var(--aura, transparent) 90%, transparent),
+    0 0 16px -2px color-mix(in srgb, var(--aura, transparent) 70%, transparent);
 }
 
 html.dark .aura-card {
-  box-shadow: 0 0 18px -5px
-    color-mix(in srgb, var(--aura, transparent) 65%, transparent);
+  border-color: color-mix(in srgb, var(--aura, transparent) 35%, transparent);
+  box-shadow:
+    0 0 32px -3px color-mix(in srgb, var(--aura, transparent) 85%, transparent),
+    0 0 10px -2px color-mix(in srgb, var(--aura, transparent) 50%, transparent);
 }
 
 html.dark .aura-card:hover {
-  border-color: color-mix(in srgb, var(--aura, transparent) 70%, transparent);
+  border-color: var(--aura, transparent);
   box-shadow:
-    0 0 36px -4px var(--aura, transparent),
-    0 0 10px -2px color-mix(in srgb, var(--aura, transparent) 80%, transparent);
+    0 0 70px 0 var(--aura, transparent),
+    0 0 22px -2px var(--aura, transparent);
 }
 
 /*
@@ -78,19 +80,80 @@ html.dark .aura-card:hover {
  */
 .aura-sprite {
   filter: drop-shadow(
-      0 0 4px color-mix(in srgb, var(--aura, transparent) 60%, transparent)
+      0 0 6px color-mix(in srgb, var(--aura, transparent) 90%, transparent)
     )
     drop-shadow(
-      0 0 14px color-mix(in srgb, var(--aura, transparent) 35%, transparent)
+      0 0 18px color-mix(in srgb, var(--aura, transparent) 65%, transparent)
+    )
+    drop-shadow(
+      0 0 38px color-mix(in srgb, var(--aura, transparent) 45%, transparent)
     );
   transition: filter 300ms ease;
 }
 
 .aura-card:hover .aura-sprite {
-  filter: drop-shadow(
-      0 0 6px color-mix(in srgb, var(--aura, transparent) 85%, transparent)
+  filter: drop-shadow(0 0 8px var(--aura, transparent))
+    drop-shadow(
+      0 0 26px color-mix(in srgb, var(--aura, transparent) 80%, transparent)
     )
     drop-shadow(
-      0 0 20px color-mix(in srgb, var(--aura, transparent) 55%, transparent)
+      0 0 52px color-mix(in srgb, var(--aura, transparent) 60%, transparent)
     );
+}
+
+/*
+ * Holo lightbox: the enlarged TCG card tilts toward the pointer while a
+ * rainbow sheen and a glare sweep across it. Driven entirely by CSS vars
+ * (--px/--py in 0..1, --holo 0|1) set from pointer events.
+ */
+.holo-card {
+  --px: 0.5;
+  --py: 0.5;
+  --holo: 0;
+  transform: rotateY(calc((var(--px) - 0.5) * 24deg))
+    rotateX(calc((0.5 - var(--py)) * 24deg));
+  transition: transform 150ms ease-out;
+  touch-action: none;
+}
+
+.holo-card-sheen {
+  background: linear-gradient(
+    115deg,
+    transparent 22%,
+    rgba(255, 0, 132, 0.45) 35%,
+    rgba(255, 212, 0, 0.45) 45%,
+    rgba(0, 255, 178, 0.45) 55%,
+    rgba(0, 132, 255, 0.45) 65%,
+    transparent 78%
+  );
+  background-size: 300% 300%;
+  background-position: calc(var(--px) * 100%) calc(var(--py) * 100%);
+  mix-blend-mode: color-dodge;
+  opacity: calc(var(--holo) * 0.55);
+  transition: opacity 300ms ease;
+}
+
+.holo-card-glare {
+  background: radial-gradient(
+    circle at calc(var(--px) * 100%) calc(var(--py) * 100%),
+    rgba(255, 255, 255, 0.5) 0%,
+    transparent 55%
+  );
+  mix-blend-mode: overlay;
+  opacity: calc(var(--holo) * 0.9);
+  transition: opacity 300ms ease;
+}
+
+/*
+ * Draggable 3D stage: rotation lives in --rx/--ry; while dragging the
+ * transition is disabled so the model tracks the pointer 1:1, and on release
+ * it springs back upright.
+ */
+.sprite-3d {
+  transform: rotateY(var(--ry, 0deg)) rotateX(var(--rx, 0deg));
+  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+
+.sprite-3d.dragging {
+  transition: none;
 }

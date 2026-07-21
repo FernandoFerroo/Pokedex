@@ -89,6 +89,12 @@ export default async function PokemonDetailPage({ params }: PageProps) {
       frontShiny: sprites.front_shiny,
       backShiny: sprites.back_shiny,
     },
+    anim: {
+      front: sprites.other?.showdown?.front_default ?? null,
+      back: sprites.other?.showdown?.back_default ?? null,
+      frontShiny: sprites.other?.showdown?.front_shiny ?? null,
+      backShiny: sprites.other?.showdown?.back_shiny ?? null,
+    },
   };
 
   return (
