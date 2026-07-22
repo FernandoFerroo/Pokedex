@@ -94,6 +94,14 @@ export function Pagination({ current, total, onChange }: PaginationProps) {
         Página {String(current).padStart(2, "0")} /{" "}
         {String(total).padStart(2, "0")}
       </p>
+      {current < total && (
+        <p
+          aria-hidden
+          className="font-mono text-[9px] tracking-[0.2em] text-slate-600 uppercase"
+        >
+          sigue haciendo scroll ↓ para pasar de página
+        </p>
+      )}
     </nav>
   );
 }

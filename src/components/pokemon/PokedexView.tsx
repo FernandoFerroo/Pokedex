@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { FilterBar } from "@/components/filters/FilterBar";
 import type { FilterPatch } from "@/components/filters/FilterBar";
 import { Pagination } from "@/components/pokemon/Pagination";
@@ -56,6 +56,35 @@ export function PokedexView({ index }: PokedexViewProps) {
     setFilters({ page: next === 1 ? null : next });
     window.scrollTo({ top: 0 });
   };
+
+  // Wheel-through pagination: scrolling down while already at the bottom of
+  // the list flips to the next page. Refs keep the listener registered once
+  // with fresh values; the cooldown stops trackpad momentum from skipping
+  // several pages in one gesture.
+  const wheelState = useRef({ page: currentPage, total: totalPages, until: 0 });
+  const goToPageRef = useRef(goToPage);
+  useEffect(() => {
+    wheelState.current.page = currentPage;
+    wheelState.current.total = totalPages;
+    goToPageRef.current = goToPage;
+  });
+
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      const s = wheelState.current;
+      if (e.deltaY <= 0 || s.page >= s.total) return;
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 6;
+      if (!atBottom) return;
+      const now = Date.now();
+      if (now < s.until) return;
+      s.until = now + 900;
+      goToPageRef.current(s.page + 1);
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
 
   const listKey = [
     q,
