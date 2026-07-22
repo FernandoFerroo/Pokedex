@@ -26,7 +26,7 @@ npm run build    # build de producción (listo para Vercel, sin configuración e
 ### El problema: PokéAPI no da lo que pide el listado
 
 - La **generación** no está en `/pokemon/{id}`, sino en `/pokemon-species/{id}`.
-- Obtener nombre + tipos + generación de ~1300 Pokémon de forma directa serían **~2600 peticiones**.
+- Obtener nombre + tipos + generación de ~1300 Pokémon de forma directa serían **~2600 peticiones**. 
 - La **búsqueda por cadena evolutiva** necesita un mapa nombre → cadena → miembros que ningún endpoint ofrece.
 
 ### La solución: un índice compacto construido en el servidor
