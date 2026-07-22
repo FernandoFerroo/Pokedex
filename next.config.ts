@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /* Self-contained server bundle so the Docker image ships without
+     node_modules; Vercel ignores this setting. */
+  output: "standalone",
   images: {
     remotePatterns: [
       {

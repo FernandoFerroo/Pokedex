@@ -1,32 +1,70 @@
-# Pokédex — Prueba técnica
+<div align="center">
 
-Pokédex construida con **Next.js (App Router)**, **TypeScript** y **Tailwind CSS** sobre [PokéAPI](https://pokeapi.co).
+<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png" width="90" alt="Pikachu" /><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png" width="90" alt="Charizard" /><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png" width="90" alt="Gengar" />
 
-## Funcionalidades
+# ⚡ POKéDEX — Sistema Nacional
 
-- **Listado completo** (1025 especies) con nombre, generación y tipos.
-- **Filtros por tipo y generación**, combinables entre sí y con la búsqueda.
-- **Buscador en tiempo real** por nombre **y por cadena evolutiva**: buscar "pikachu" también muestra a Pichu y Raichu (las cadenas ramificadas, como la de Eevee, funcionan igual).
-- **Vista detalle** con estadísticas base, cadena evolutiva **interactiva** (cada etapa navega a su detalle), tipos, generación, imagen oficial, descripción en español, altura y peso.
-- **Persistencia de filtros** al volver del detalle: el estado vive en la URL (`/?q=pika&type=electric&gen=1`), por lo que sobrevive al botón atrás, a un refresco y se puede compartir.
-- **Modo claro y oscuro** con conmutador manual: respeta la preferencia del sistema por defecto, persiste la elección en `localStorage` y se aplica antes del primer pintado (sin *flash* de tema incorrecto).
+**Una Pokédex de neón, oscura y "gaming", construida sobre PokéAPI.**
+*1025 especies · Gen I–IX · búsqueda evolutiva en tiempo real · modelos 3D · cartas del JCC*
 
-## Puesta en marcha
+[![Next.js](https://img.shields.io/badge/Next.js_16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![PokéAPI](https://img.shields.io/badge/PokéAPI-EF4444?logo=pokemon&logoColor=white)](https://pokeapi.co)
+
+**[🔴 DEMO EN VIVO → pokedex-bin-par.vercel.app](https://pokedex-bin-par.vercel.app)**
+
+</div>
+
+---
+
+## 🚀 Puesta en marcha
+
+**Opción A — npm (desarrollo):**
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm run build    # build de producción (listo para Vercel, sin configuración extra)
 ```
 
-> La primera carga en local tarda unos segundos: el servidor agrega los datos de PokéAPI y los cachea (ver más abajo). Las cargas siguientes son instantáneas.
+**Opción B — Docker (un solo comando):**
 
-## Decisiones técnicas
+```bash
+docker compose up
+```
+
+Construye la imagen (multi-stage, salida `standalone` de Next.js) y sirve la app en `http://localhost:3000`. No requiere Node en el host ni variables de entorno.
+
+> La primera carga/build tarda unos segundos: el servidor agrega los datos de PokéAPI y los cachea. Las cargas siguientes son instantáneas.
+
+## ✅ Requisitos de la prueba, uno a uno
+
+| Requisito | Dónde está |
+|---|---|
+| Listado con nombre, generación y tipos, ordenado por id | Página principal (`/`), tarjetas con nº de Pokédex, generación, tipos y artwork oficial |
+| Filtros por tipo y generación | Barra de filtros (más 6 filtros avanzados extra: color, hábitat, grupo huevo, categoría, etapa y forma) |
+| Buscador en tiempo real con evoluciones | Buscar "pikachu" muestra también a Pichu y Raichu; funciona con cadenas ramificadas (Eevee) |
+| Detalle con nombre, imagen, generación, tipos, evoluciones y stats | `/pokemon/[name]`, con la cadena evolutiva navegable y la etapa actual resaltada en rojo neón |
+| Estado del listado al volver del detalle | Los filtros viven en la URL: el botón atrás restaura búsqueda, filtros y página — y además sobrevive a refrescos y se puede compartir |
+| Entregable | Repo público + este README + [demo desplegada](https://pokedex-bin-par.vercel.app) + `docker compose up` |
+
+## ✨ Extras de experiencia (la parte fan)
+
+- **Interfaz "gaming HUD"** exclusivamente oscura: rejilla de fondo, scanlines CRT, tipografías arcade (Press Start 2P) y sci-fi (Orbitron), leds parpadeantes y emblema Poké Ball en la cabecera.
+- **Auras de neón por tipo**: cada tarjeta brilla con el color de su tipo primario (halo con textura de brocha + resplandor que sigue la silueta), con retícula de fijado de objetivo y barrido de escáner al pasar el cursor.
+- **Visor de sprites** en el detalle: arte oficial, **modelos 3D glTF interactivos** (con fallback a render HOME arrastrable), sprites animados 2D frente/espalda y variantes **shiny**.
+- **Radar de estadísticas** hexagonal con el acento del tipo.
+- **Galería de cartas del JCC** con efecto holográfico que sigue al puntero (vía TCGdex).
+- **Paginación** por URL (60 por página) para mantener el DOM ligero.
+- **404 temático**: "¡El Pokémon salvaje huyó!" con glitch de MissingNo.
+- Micro-interacciones que respetan `prefers-reduced-motion` en todos los casos.
+
+## 🧠 Decisiones técnicas
 
 ### El problema: PokéAPI no da lo que pide el listado
 
 - La **generación** no está en `/pokemon/{id}`, sino en `/pokemon-species/{id}`.
-- Obtener nombre + tipos + generación de ~1300 Pokémon de forma directa serían **~2600 peticiones**. 
+- Obtener nombre + tipos + generación de ~1300 Pokémon de forma directa serían **~2600 peticiones**.
 - La **búsqueda por cadena evolutiva** necesita un mapa nombre → cadena → miembros que ningún endpoint ofrece.
 
 ### La solución: un índice compacto construido en el servidor
@@ -49,38 +87,45 @@ Todas las peticiones pasan por la caché de datos de Next (`revalidate: 24h`), a
 2. Cada coincidencia aporta su `chainId`; el conjunto de resultados se **expande a todos los miembros de esas cadenas** (mapa `chainId → miembros` precalculado en el índice).
 3. El resultado se interseca con los filtros de tipo y generación.
 
-### Estado de filtros en la URL (y no en Zustand)
+### Estado de filtros en la URL (y no en un store global)
 
-Los filtros usan [`nuqs`](https://nuqs.dev) (query params tipados). Se descartó un store global deliberadamente: el requisito de "mantener el estado al volver del detalle" lo resuelve la propia URL de forma más robusta (atrás/adelante del navegador, refresco, enlaces compartibles, SSR) sin estado duplicado que sincronizar.
+Los filtros y la paginación usan [`nuqs`](https://nuqs.dev) (query params tipados). Se descartó un store global deliberadamente: el requisito de "mantener el estado al volver del detalle" lo resuelve la propia URL de forma más robusta (atrás/adelante del navegador, refresco, enlaces compartibles, SSR) sin estado duplicado que sincronizar.
 
 ### Otras decisiones
 
 - **Sin TanStack Query/SWR**: los detalles se renderizan como Server Components con la caché de `fetch` de Next; añadir una capa de fetching en cliente sería redundante aquí.
 - **Anti-corruption layer**: los tipos crudos de PokéAPI viven en `src/lib/pokeapi/` y no salen de la capa de datos; la app consume tipos de dominio limpios (`src/types/pokemon.ts`).
-- **Rendimiento del listado**: `next/image` con lazy-loading y `content-visibility: auto` en las tarjetas para que el navegador no pinte las ~1000 tarjetas fuera de viewport.
+- **Rendimiento del listado**: paginación por URL, `next/image` con lazy-loading y `content-visibility: auto` en las tarjetas.
 - **Casos límite cubiertos**: especies cuya variedad por defecto tiene otro nombre de pokémon (Deoxys, Giratina, etc.) se resuelven vía `varieties`; las cadenas ramificadas se aplanan recursivamente; la descripción usa el texto en español y cae al inglés cuando PokéAPI no lo ofrece (p. ej. especies de la Gen IX).
-- **Tema claro/oscuro sin dependencias**: variante `dark` de Tailwind basada en clase (`@custom-variant`), un script inline que aplica el tema persistido antes del primer pintado y un conmutador sin estado React (los iconos se alternan por CSS), lo que evita cualquier desajuste de hidratación.
-- **Sistema de diseño sobrio**: acento monocromo (el color procede solo de las ilustraciones y de las insignias de tipo), tipografía monoespaciada para los datos (números de Pokédex, estadísticas, contadores), barra de filtros fija al hacer scroll y microinteracciones discretas (barras de estadísticas animadas, elevación al pasar el cursor, fundido del grid al filtrar) que respetan `prefers-reduced-motion`.
+- **Oscuro por diseño, no por defecto**: la estética de neón (auras `color-mix` sobre negro, scanlines, glows) solo funciona sobre un fondo casi negro, así que el tema claro se eliminó conscientemente en favor de una identidad visual fuerte. Todo el sistema de auras se deriva de **una sola variable CSS por tipo** (`--aura`), de la que salen halos, retículas, chips y brillos.
+- **3D con degradación elegante**: los modelos glTF (comunidad, vía `<model-viewer>`) pueden no existir para una especie; si fallan, el visor cae automáticamente a un render de Pokémon HOME con rotación por arrastre en CSS, y si tampoco existe, el modo 3D no se ofrece.
 
-## Estructura
+## 📁 Estructura
 
 ```
 src/
 ├── app/                      # Rutas (listado, detalle /pokemon/[name], loading, 404)
 ├── components/
-│   ├── filters/              # FilterBar (búsqueda + selects)
-│   ├── layout/               # Header
-│   ├── pokemon/              # PokedexView, PokemonCard, StatsPanel, EvolutionChain, BackButton
+│   ├── filters/              # FilterBar (búsqueda + selects, básicos y avanzados)
+│   ├── layout/               # Header (emblema, leds, wordmark)
+│   ├── pokemon/              # PokedexView, PokemonCard, Pagination, SpriteViewer,
+│   │                         #   Model3D, StatsRadar, EvolutionChain, CardGallery…
 │   └── ui/                   # Primitivas (TypeBadge)
-├── hooks/                    # use-filters (nuqs)
+├── hooks/                    # use-filters (nuqs: filtros + página en la URL)
 ├── lib/
 │   ├── pokeapi/              # Cliente HTTP tipado + tipos crudos de la API
 │   ├── index/                # Construcción del índice agregado (servidor)
 │   ├── search/               # Búsqueda por nombre + cadena evolutiva (funciones puras)
-│   └── pokemon-meta.ts       # Colores/etiquetas de tipos, generaciones, sprites
+│   ├── tcgdex.ts             # Cartas del JCC
+│   └── pokemon-meta.ts       # Colores de aura, etiquetas, sprites
 └── types/                    # Tipos de dominio
 ```
 
-## Despliegue en Vercel
+## ☁️ Despliegue
 
-Sin variables de entorno ni configuración: importar el repositorio en Vercel y desplegar. El listado se sirve estático con ISR diario y los detalles se generan bajo demanda con la misma política de revalidación.
+- **Vercel**: sin variables de entorno ni configuración — importar el repo y desplegar. El listado se sirve estático con ISR diario y los detalles se generan bajo demanda. Demo: **<https://pokedex-bin-par.vercel.app>**.
+- **Docker**: `docker compose up` (imagen multi-stage sobre `node:22-alpine` con salida `standalone`; el build necesita red hacia PokéAPI para prerrenderizar el listado).
+
+## 🤖 Uso de IA
+
+Este proyecto se ha desarrollado **en pair-programming con IA** (Claude Code): exploración de enfoques, prototipado del sistema visual, depuración e implementación acelerada. Las decisiones de arquitectura (índice agregado en servidor, estado en la URL, capa anticorrupción, degradación del 3D) están razonadas en este README y puedo defenderlas y explicarlas en detalle, línea a línea.
