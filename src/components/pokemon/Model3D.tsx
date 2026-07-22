@@ -74,6 +74,7 @@ export function Model3D({ src, poster, alt, onFail }: Model3DProps) {
       alt={alt}
       camera-controls=""
       auto-rotate=""
+      auto-rotate-delay="0"
       rotation-per-second="25deg"
       interaction-prompt="none"
       disable-zoom=""

@@ -127,7 +127,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               {formatDexNumber(species.id)}
             </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-3xl font-bold tracking-tight text-white">
+              <h1 className="font-display text-3xl font-bold tracking-wide text-white">
                 {formatName(species.name)}
               </h1>
               <span className="rounded border border-slate-700/80 px-2 py-0.5 font-mono text-xs tracking-wider text-slate-400 uppercase">

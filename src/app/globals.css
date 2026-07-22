@@ -9,6 +9,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-pixel: var(--font-press-start);
+  --font-display: var(--font-orbitron);
 }
 
 html {
@@ -131,6 +132,41 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .led,
   .glitch {
+    animation: none;
+  }
+}
+
+/*
+ * Brand title: molten red-to-gold gradient clipped to the letterforms, with
+ * a slow sheen drifting across and a red neon bloom underneath (drop-shadow,
+ * since text-shadow can't follow transparent gradient text).
+ */
+@keyframes title-sheen {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.hero-title {
+  background: linear-gradient(
+    100deg,
+    #fecaca 0%,
+    #ef4444 22%,
+    #fbbf24 45%,
+    #ef4444 68%,
+    #fecaca 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.5))
+    drop-shadow(0 0 32px rgba(239, 68, 68, 0.25));
+  animation: title-sheen 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-title {
     animation: none;
   }
 }

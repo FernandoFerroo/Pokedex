@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
+import { Geist, Geist_Mono, Orbitron, Press_Start_2P } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/layout/Header";
 import "./globals.css";
@@ -18,6 +18,13 @@ const geistMono = Geist_Mono({
 const pressStart = Press_Start_2P({
   variable: "--font-press-start",
   weight: "400",
+  subsets: ["latin"],
+});
+
+/** Sleek sci-fi display font for the brand title and big headings. */
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
+  weight: ["600", "800"],
   subsets: ["latin"],
 });
 
@@ -40,7 +47,7 @@ export default function RootLayout({
       lang="es"
       // The neon HUD experience is dark-only: the `.dark` class is permanent
       // so every legacy `dark:` utility stays active without a toggle.
-      className={`dark ${geistSans.variable} ${geistMono.variable} ${pressStart.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans text-slate-100">
         <NuqsAdapter>
