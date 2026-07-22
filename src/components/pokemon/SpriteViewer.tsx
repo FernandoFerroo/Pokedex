@@ -3,10 +3,11 @@
 import { Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
+import { Model3D } from "@/components/pokemon/Model3D";
 
 export interface SpriteSet {
   artwork: { normal: string | null; shiny: string | null };
-  /** Pokémon HOME renders (modelos 3D). */
+  /** Pokémon HOME renders (póster y fallback del modo 3D). */
   home: { normal: string | null; shiny: string | null };
   /** Pixel-art de los juegos (vista 2D), frente y espalda. */
   pixel: {
@@ -25,6 +26,7 @@ export interface SpriteSet {
 }
 
 type ViewMode = "art" | "3d" | "2d";
+type Variant = "normal" | "shiny";
 
 const MODE_LABELS: Record<ViewMode, string> = {
   art: "Arte",
@@ -32,12 +34,19 @@ const MODE_LABELS: Record<ViewMode, string> = {
   "2d": "2D",
 };
 
+/** Community glTF models keyed by National Dex id (regular + shiny). */
+const MODEL_BASE =
+  "https://cdn.jsdelivr.net/gh/Sudhanshu-Ambastha/Pokemon-3D-api@main/models/opt";
+
+const modelUrl = (dexId: number, variant: Variant) =>
+  `${MODEL_BASE}/${variant === "shiny" ? "shiny" : "regular"}/${dexId}.glb`;
+
 const clamp = (value: number, limit: number) =>
   Math.min(limit, Math.max(-limit, value));
 
 /**
- * Drag-to-rotate stage for the HOME render: pointer drags update CSS vars
- * (no React re-renders) and the model springs back upright on release.
+ * Fallback stage when the glTF model is unavailable: the HOME render tilts in
+ * perspective while dragging (CSS vars, no re-renders) and springs back.
  */
 function Stage3D({ src, alt }: { src: string; alt: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -50,77 +59,79 @@ function Stage3D({ src, alt }: { src: string; alt: string }) {
     stage.style.setProperty("--ry", `${ry}deg`);
   };
 
+  const release = () => {
+    dragRef.current = null;
+    stageRef.current?.classList.remove("dragging");
+    setRotation(0, 0);
+  };
+
   return (
-    <div className="relative flex w-full flex-1 flex-col items-center justify-center">
-      <span
-        aria-hidden
-        className="absolute bottom-8 left-1/2 h-4 w-36 -translate-x-1/2 rounded-[50%] bg-slate-900/15 blur-md dark:bg-black/60"
-      />
-      <div style={{ perspective: "900px" }} className="flex w-full justify-center">
-        <div
-          ref={stageRef}
-          onPointerDown={(e) => {
-            dragRef.current = { x: e.clientX, y: e.clientY };
-            stageRef.current?.setPointerCapture(e.pointerId);
-            stageRef.current?.classList.add("dragging");
-          }}
-          onPointerMove={(e) => {
-            const start = dragRef.current;
-            if (!start) return;
-            setRotation(
-              clamp((start.y - e.clientY) * 0.35, 30),
-              clamp((e.clientX - start.x) * 0.35, 50),
-            );
-          }}
-          onPointerUp={() => {
-            dragRef.current = null;
-            stageRef.current?.classList.remove("dragging");
-            setRotation(0, 0);
-          }}
-          onPointerCancel={() => {
-            dragRef.current = null;
-            stageRef.current?.classList.remove("dragging");
-            setRotation(0, 0);
-          }}
-          className="sprite-3d relative aspect-square w-full max-w-70 cursor-grab touch-none select-none active:cursor-grabbing"
-        >
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            draggable={false}
-            sizes="280px"
-            className="aura-sprite pointer-events-none object-contain"
-          />
-        </div>
+    <div style={{ perspective: "900px" }} className="h-full w-full">
+      <div
+        ref={stageRef}
+        onPointerDown={(e) => {
+          dragRef.current = { x: e.clientX, y: e.clientY };
+          stageRef.current?.setPointerCapture(e.pointerId);
+          stageRef.current?.classList.add("dragging");
+        }}
+        onPointerMove={(e) => {
+          const start = dragRef.current;
+          if (!start) return;
+          setRotation(
+            clamp((start.y - e.clientY) * 0.35, 30),
+            clamp((e.clientX - start.x) * 0.35, 50),
+          );
+        }}
+        onPointerUp={release}
+        onPointerCancel={release}
+        className="sprite-3d relative h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+      >
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          draggable={false}
+          sizes="280px"
+          className="pointer-events-none object-contain"
+        />
       </div>
-      <p className="pointer-events-none absolute bottom-1 text-[10px] text-slate-400 dark:text-slate-500">
-        Arrastra para mover
-      </p>
     </div>
   );
 }
 
 interface SpriteViewerProps {
   name: string;
+  /** National Dex id — keys the 3D model files. */
+  dexId: number;
   sprites: SpriteSet;
 }
 
-export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
+export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
   const [mode, setMode] = useState<ViewMode>("art");
   const [shiny, setShiny] = useState(false);
+  const [facing, setFacing] = useState<"front" | "back">("front");
+  const [modelFailed, setModelFailed] = useState<Record<Variant, boolean>>({
+    normal: false,
+    shiny: false,
+  });
 
-  const front2d = (variant: "normal" | "shiny") =>
-    variant === "shiny"
+  const sprite2d = (side: "front" | "back", variant: Variant) => {
+    if (side === "back") {
+      return variant === "shiny"
+        ? (sprites.anim.backShiny ?? sprites.pixel.backShiny)
+        : (sprites.anim.back ?? sprites.pixel.back);
+    }
+    return variant === "shiny"
       ? (sprites.anim.frontShiny ?? sprites.pixel.frontShiny)
       : (sprites.anim.front ?? sprites.pixel.front);
+  };
 
   const availableModes = (["art", "3d", "2d"] as const).filter((m) =>
     m === "art"
       ? sprites.artwork.normal !== null
       : m === "3d"
         ? sprites.home.normal !== null
-        : front2d("normal") !== null,
+        : sprite2d("front", "normal") !== null,
   );
 
   const hasShiny =
@@ -128,34 +139,18 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
       ? sprites.artwork.shiny !== null
       : mode === "3d"
         ? sprites.home.shiny !== null
-        : front2d("shiny") !== null;
+        : sprite2d("front", "shiny") !== null;
   const showShiny = shiny && hasShiny;
+  const variant: Variant = showShiny ? "shiny" : "normal";
 
-  const single =
-    mode === "art"
-      ? showShiny
-        ? sprites.artwork.shiny
-        : sprites.artwork.normal
-      : showShiny
-        ? sprites.home.shiny
-        : sprites.home.normal;
+  const artworkSrc = showShiny
+    ? sprites.artwork.shiny
+    : sprites.artwork.normal;
+  const homeSrc = showShiny ? sprites.home.shiny : sprites.home.normal;
 
-  const pixelPair = [
-    {
-      key: "front",
-      src: showShiny
-        ? front2d("shiny")
-        : front2d("normal"),
-      label: "Frente",
-    },
-    {
-      key: "back",
-      src: showShiny
-        ? (sprites.anim.backShiny ?? sprites.pixel.backShiny)
-        : (sprites.anim.back ?? sprites.pixel.back),
-      label: "Espalda",
-    },
-  ].filter((s) => s.src !== null);
+  const backSrc2d = sprite2d("back", variant);
+  const current2d =
+    facing === "back" ? (backSrc2d ?? sprite2d("front", variant)) : sprite2d("front", variant);
 
   const variantLabel = showShiny ? `${name} shiny` : name;
 
@@ -163,48 +158,79 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
     <div className="flex h-full flex-col gap-4">
       <div
         key={`${mode}-${showShiny}`}
-        className="flex flex-1 items-center justify-center motion-safe:animate-[fade-in_250ms_ease-out]"
+        className="flex flex-1 flex-col items-center justify-center gap-2 motion-safe:animate-[fade-in_250ms_ease-out]"
       >
         {mode === "2d" ? (
-          <div className="flex items-end justify-center gap-5 pb-2">
-            {pixelPair.map((sprite) => (
-              <figure
-                key={sprite.key}
-                className="flex flex-col items-center gap-1.5"
+          <>
+            <div className="relative flex aspect-square w-full max-w-70 items-end justify-center">
+              <span
+                aria-hidden
+                className="absolute bottom-4 left-1/2 h-5 w-44 -translate-x-1/2 rounded-[50%] bg-slate-900/10 blur-md dark:bg-black/50"
+              />
+              <div className="relative mb-3 h-[86%] w-full">
+                <Image
+                  src={current2d as string}
+                  alt={`${variantLabel} (${facing === "back" ? "espalda" : "frente"})`}
+                  fill
+                  unoptimized={(current2d as string).endsWith(".gif")}
+                  sizes="280px"
+                  className="object-contain object-bottom [image-rendering:pixelated]"
+                />
+              </div>
+            </div>
+            {backSrc2d !== null && (
+              <div
+                role="group"
+                aria-label="Lado del sprite"
+                className="flex rounded-md border border-slate-700 bg-black/50 p-0.5"
               >
-                <div className="relative flex h-36 w-32 items-end justify-center sm:h-40 sm:w-34">
-                  <span
-                    aria-hidden
-                    className="absolute bottom-0 left-1/2 h-3.5 w-24 -translate-x-1/2 rounded-[50%] bg-slate-900/10 blur-[5px] dark:bg-black/50"
-                  />
-                  <div className="relative mb-1.5 h-[88%] w-full">
-                    <Image
-                      src={sprite.src as string}
-                      alt={`${variantLabel} (${sprite.label.toLowerCase()})`}
-                      fill
-                      unoptimized={(sprite.src as string).endsWith(".gif")}
-                      sizes="144px"
-                      className="aura-sprite object-contain object-bottom [image-rendering:pixelated]"
-                    />
-                  </div>
-                </div>
-                <figcaption className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                  {sprite.label}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+                {(["front", "back"] as const).map((side) => (
+                  <button
+                    key={side}
+                    type="button"
+                    onClick={() => setFacing(side)}
+                    aria-pressed={facing === side}
+                    className={`rounded px-2.5 py-1 font-mono text-[11px] font-medium tracking-wider uppercase transition ${
+                      facing === side
+                        ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
+                        : "text-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    {side === "front" ? "Frente" : "Espalda"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         ) : mode === "3d" ? (
-          <Stage3D src={single as string} alt={variantLabel} />
+          <>
+            <div className="relative aspect-square w-full max-w-70">
+              {modelFailed[variant] ? (
+                <Stage3D src={homeSrc as string} alt={variantLabel} />
+              ) : (
+                <Model3D
+                  src={modelUrl(dexId, variant)}
+                  poster={homeSrc ?? undefined}
+                  alt={variantLabel}
+                  onFail={() =>
+                    setModelFailed((prev) => ({ ...prev, [variant]: true }))
+                  }
+                />
+              )}
+            </div>
+            <p className="pointer-events-none text-[10px] text-slate-400 dark:text-slate-500">
+              Arrastra para girar
+            </p>
+          </>
         ) : (
           <div className="relative aspect-square w-full max-w-70">
             <Image
-              src={single as string}
+              src={artworkSrc as string}
               alt={variantLabel}
               fill
               priority
               sizes="280px"
-              className="aura-sprite object-contain"
+              className="object-contain"
             />
           </div>
         )}
@@ -214,7 +240,7 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
         <div
           role="group"
           aria-label="Modo de visualización"
-          className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-800"
+          className="flex rounded-md border border-slate-700 bg-black/50 p-0.5"
         >
           {availableModes.map((m) => (
             <button
@@ -222,10 +248,10 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
               type="button"
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition ${
                 mode === m
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-600 dark:text-slate-100"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
+                  : "text-slate-500 hover:text-slate-200"
               }`}
             >
               {MODE_LABELS[m]}
@@ -239,10 +265,10 @@ export function SpriteViewer({ name, sprites }: SpriteViewerProps) {
           disabled={!hasShiny}
           aria-pressed={showShiny}
           title={hasShiny ? "Alternar forma shiny" : "Sin sprite shiny"}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition disabled:cursor-not-allowed disabled:opacity-40 ${
             showShiny
-              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-400/10 dark:text-amber-300"
-              : "border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+              ? "border-amber-400/60 bg-amber-400/10 text-amber-300 shadow-[0_0_14px_-2px_rgba(251,191,36,0.6)]"
+              : "border-slate-700 bg-black/50 text-slate-500 hover:text-amber-200"
           }`}
         >
           <Sparkles size={13} />
