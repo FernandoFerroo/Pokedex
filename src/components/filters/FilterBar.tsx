@@ -67,7 +67,7 @@ const CLEAR_ALL: FilterPatch = {
 };
 
 const controlClasses =
-  "h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#0b1120] dark:focus:border-slate-500 dark:focus:ring-slate-800";
+  "h-10 rounded-md border border-slate-700/80 bg-[#0a101d]/90 px-3 font-mono text-sm text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)]";
 
 /** Placeholder + labels -> a themed <select> bound to one filter field. */
 function FilterSelect({
@@ -179,12 +179,12 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
           type="button"
           onClick={() => setShowAdvanced((open) => !open)}
           aria-expanded={showAdvanced}
-          className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-[#0b1120] dark:hover:bg-slate-800"
+          className="inline-flex h-10 items-center gap-1.5 rounded-md border border-slate-700/80 bg-[#0a101d]/90 px-3 font-mono text-sm text-slate-300 transition hover:border-cyan-400/60 hover:text-cyan-300 hover:shadow-[0_0_14px_-2px_rgba(34,211,238,0.45)]"
         >
           <SlidersHorizontal size={14} />
           Más filtros
           {advancedCount > 0 && (
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900 px-1 text-xs font-medium text-white dark:bg-slate-100 dark:text-slate-900">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-red-500 px-1 font-mono text-xs font-bold text-black shadow-[0_0_10px_rgba(239,68,68,0.7)]">
               {advancedCount}
             </span>
           )}
@@ -194,7 +194,7 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
           <button
             type="button"
             onClick={() => onChange(CLEAR_ALL)}
-            className="inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md px-3 font-mono text-sm text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <X size={14} />
             Limpiar

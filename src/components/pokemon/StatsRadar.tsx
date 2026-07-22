@@ -64,7 +64,10 @@ export function StatsRadar({ stats, type }: StatsRadarProps) {
 
   return (
     <section aria-label="Estadísticas base">
-      <h2 className="mb-1 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+      <h2 className="mb-1 font-pixel text-[10px] text-slate-400">
+        <span aria-hidden className="mr-1.5 text-red-500">
+          ►
+        </span>
         Estadísticas base
       </h2>
       <svg
@@ -100,6 +103,7 @@ export function StatsRadar({ stats, type }: StatsRadarProps) {
             stroke="currentColor"
             strokeWidth={2}
             strokeLinejoin="round"
+            className="[filter:drop-shadow(0_0_6px_currentColor)]"
           />
           {axes.map((axis) => (
             <circle

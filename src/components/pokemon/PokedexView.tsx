@@ -42,24 +42,33 @@ export function PokedexView({ index }: PokedexViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-14 z-10 -mx-4 bg-slate-50/85 px-4 py-3 backdrop-blur dark:bg-[#020409]/85">
+      <div className="sticky top-16 z-10 -mx-4 bg-[#020204]/85 px-4 py-3 backdrop-blur">
         <FilterBar values={filters} onChange={setFilters} />
       </div>
 
       <p
-        className="font-mono text-xs text-slate-500 dark:text-slate-400"
+        className="font-mono text-[11px] tracking-widest text-emerald-400/90 uppercase"
         role="status"
       >
+        <span aria-hidden className="mr-2 text-slate-600">
+          &gt;_
+        </span>
         {results.length === index.entries.length
-          ? `${index.entries.length} Pokémon · Generaciones I–IX`
-          : `${results.length} de ${index.entries.length} Pokémon`}
+          ? `${index.entries.length} entradas registradas · Gen I–IX`
+          : `${results.length} / ${index.entries.length} entradas encontradas`}
+        <span aria-hidden className="cursor-blink ml-1.5">
+          ▊
+        </span>
       </p>
 
       {results.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 py-16 text-center dark:border-slate-700">
-          <p className="font-medium">No se encontraron Pokémon</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Prueba con otro nombre o ajusta los filtros activos.
+        <div className="rounded-xl border border-dashed border-slate-700 bg-black/40 py-16 text-center">
+          <p className="glitch font-pixel text-sm text-red-400">
+            ¡SIN RESULTADOS!
+          </p>
+          <p className="mt-4 text-sm text-slate-400">
+            El Pokémon salvaje huyó… Prueba con otro nombre o ajusta los
+            filtros activos.
           </p>
         </div>
       ) : (

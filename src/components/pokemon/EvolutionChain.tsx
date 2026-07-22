@@ -37,11 +37,14 @@ export function EvolutionChain({ chain, currentName }: EvolutionChainProps) {
 
   return (
     <section aria-label="Cadena evolutiva">
-      <h2 className="mb-3 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+      <h2 className="mb-3 font-pixel text-[10px] text-slate-400">
+        <span aria-hidden className="mr-1.5 text-red-500">
+          ►
+        </span>
         Cadena evolutiva
       </h2>
       {stages.length <= 1 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="font-mono text-sm text-slate-400">
           Este Pokémon no evoluciona.
         </p>
       ) : (
@@ -50,8 +53,8 @@ export function EvolutionChain({ chain, currentName }: EvolutionChainProps) {
             <Fragment key={i}>
               {i > 0 && (
                 <>
-                  <ArrowDown className="text-slate-300 sm:hidden dark:text-slate-600" />
-                  <ArrowRight className="hidden shrink-0 text-slate-300 sm:block dark:text-slate-600" />
+                  <ArrowDown className="text-red-500/60 sm:hidden" />
+                  <ArrowRight className="hidden shrink-0 text-red-500/60 sm:block" />
                 </>
               )}
               <div className="flex flex-wrap justify-center gap-2">
@@ -74,10 +77,10 @@ export function EvolutionChain({ chain, currentName }: EvolutionChainProps) {
                     </>
                   );
                   const cardClasses = cn(
-                    "flex w-28 flex-col items-center gap-1 rounded-xl border p-3 text-center transition",
+                    "flex w-28 flex-col items-center gap-1 rounded-lg border p-3 text-center transition",
                     isCurrent
-                      ? "border-slate-400 bg-slate-100 dark:border-slate-500 dark:bg-slate-800"
-                      : "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md motion-safe:hover:-translate-y-0.5 dark:border-slate-700 dark:bg-[#0b1120] dark:hover:border-slate-500",
+                      ? "border-red-500/60 bg-red-500/[0.07] shadow-[0_0_18px_-4px_rgba(239,68,68,0.5)]"
+                      : "border-slate-800 bg-[#0a101d] hover:border-cyan-400/60 hover:shadow-[0_0_16px_-4px_rgba(34,211,238,0.5)] motion-safe:hover:-translate-y-0.5",
                   );
                   return isCurrent ? (
                     <div

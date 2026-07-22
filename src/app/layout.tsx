@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/layout/Header";
 import "./globals.css";
@@ -14,6 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** Retro arcade display font, reserved for HUD chrome (headings, labels). */
+const pressStart = Press_Start_2P({
+  variable: "--font-press-start",
+  weight: "400",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Pokédex",
@@ -23,13 +30,6 @@ export const metadata: Metadata = {
     "Pokédex construida con Next.js (App Router), TypeScript y Tailwind CSS sobre PokéAPI: filtros por tipo y generación, y búsqueda por nombre y cadena evolutiva.",
 };
 
-/**
- * Applies the persisted theme before first paint to avoid a flash.
- * Dark is the default experience (the neon auras shine there); an explicit
- * user choice via the toggle always wins.
- */
-const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",t!=="light");}catch(e){}})();`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,13 +38,11 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The neon HUD experience is dark-only: the `.dark` class is permanent
+      // so every legacy `dark:` utility stays active without a toggle.
+      className={`dark ${geistSans.variable} ${geistMono.variable} ${pressStart.variable} h-full antialiased`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
-      <body className="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 dark:bg-[#020409] dark:text-slate-100">
+      <body className="flex min-h-full flex-col font-sans text-slate-100">
         <NuqsAdapter>
           <Header />
           {children}

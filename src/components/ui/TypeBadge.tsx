@@ -1,4 +1,5 @@
-import { typeColor, typeLabel } from "@/lib/pokemon-meta";
+import type { CSSProperties } from "react";
+import { typeAura, typeLabel } from "@/lib/pokemon-meta";
 import { cn } from "@/lib/utils";
 
 interface TypeBadgeProps {
@@ -6,13 +7,14 @@ interface TypeBadgeProps {
   size?: "sm" | "md";
 }
 
+/** Neon game-style chip: `.type-chip` derives its colors from `--type`. */
 export function TypeBadge({ type, size = "sm" }: TypeBadgeProps) {
   return (
     <span
+      style={{ "--type": typeAura(type) } as CSSProperties}
       className={cn(
-        "inline-flex items-center rounded-md font-medium ring-1 ring-inset",
-        size === "sm" ? "px-1.5 py-0.5 text-[11px]" : "px-2.5 py-1 text-sm",
-        typeColor(type),
+        "type-chip inline-flex items-center rounded font-mono font-semibold tracking-widest uppercase",
+        size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs",
       )}
     >
       {typeLabel(type)}

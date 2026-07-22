@@ -101,32 +101,44 @@ export default async function PokemonDetailPage({ params }: PageProps) {
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
       <BackButton />
 
-      <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]">
-        <div
-          style={
-            {
-              "--aura": typeAura(pokemon.types[0]?.type.name),
-            } as CSSProperties
-          }
-          className="aura-card rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-[#0b1120]"
-        >
-          <SpriteViewer name={formatName(species.name)} sprites={spriteSet} />
+      <div
+        style={
+          {
+            "--aura": typeAura(pokemon.types[0]?.type.name),
+          } as CSSProperties
+        }
+        className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]"
+      >
+        <div className="aura-card relative rounded-xl border bg-gradient-to-b from-[#0a101d] to-[#050810] p-6">
+          <span
+            aria-hidden
+            className="hud-corners pointer-events-none absolute inset-2 opacity-60"
+          />
+          <SpriteViewer
+            name={formatName(species.name)}
+            dexId={pokemon.id}
+            sprites={spriteSet}
+          />
         </div>
 
         <div className="flex flex-col gap-4">
           <div>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-3xl font-bold tracking-tight">
+            <p className="neon-aura font-pixel text-[10px]">
+              {formatDexNumber(species.id)}
+            </p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-3xl font-bold tracking-tight text-white">
                 {formatName(species.name)}
               </h1>
-              <span className="font-mono text-lg font-medium text-slate-400 dark:text-slate-500">
-                {formatDexNumber(species.id)}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-md border border-slate-200 px-2.5 py-1 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              <span className="rounded border border-slate-700/80 px-2 py-0.5 font-mono text-xs tracking-wider text-slate-400 uppercase">
                 {generationLabel(generation)}
               </span>
+            </div>
+            <div
+              aria-hidden
+              className="mt-2 h-px w-24 bg-gradient-to-r from-[var(--aura)] to-transparent"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {pokemon.types.map(({ type }) => (
                 <TypeBadge key={type.name} type={type.name} size="md" />
               ))}
@@ -134,24 +146,33 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           </div>
 
           {flavorText && (
-            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              {flavorText}
-            </p>
+            <div className="rounded-r-md border-l-2 border-emerald-500/50 bg-emerald-500/[0.05] p-3">
+              <p className="font-mono text-[10px] tracking-[0.2em] text-emerald-500 uppercase">
+                Registro de la Pokédex
+              </p>
+              <p className="mt-1.5 font-mono text-sm leading-relaxed text-emerald-100/80">
+                {flavorText}
+              </p>
+            </div>
           )}
 
-          <dl className="flex gap-6 text-sm">
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">Altura</dt>
-              <dd className="font-mono text-[13px] font-semibold">
-                {pokemon.height / 10} m
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">Peso</dt>
-              <dd className="font-mono text-[13px] font-semibold">
-                {pokemon.weight / 10} kg
-              </dd>
-            </div>
+          <dl className="flex gap-3 text-sm">
+            {[
+              ["Altura", `${pokemon.height / 10} m`],
+              ["Peso", `${pokemon.weight / 10} kg`],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-md border border-slate-800 bg-black/40 px-4 py-2"
+              >
+                <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+                  {label}
+                </dt>
+                <dd className="mt-0.5 font-mono text-sm font-semibold text-[var(--aura)]">
+                  {value}
+                </dd>
+              </div>
+            ))}
           </dl>
 
           <StatsRadar
@@ -164,15 +185,18 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0b1120]">
+      <div className="mt-8 rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5">
         <EvolutionChain chain={chain} currentName={species.name} />
       </div>
 
       <section
         aria-label="Galería de cartas del JCC"
-        className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0b1120]"
+        className="mt-8 rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
       >
-        <h2 className="mb-4 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+        <h2 className="mb-4 font-pixel text-[10px] text-slate-400">
+          <span aria-hidden className="mr-1.5 text-red-500">
+            ►
+          </span>
           Cartas del JCC
         </h2>
         <Suspense fallback={<CardGallerySkeleton />}>
