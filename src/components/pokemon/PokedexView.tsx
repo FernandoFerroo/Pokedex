@@ -2,11 +2,16 @@
 
 import { useMemo } from "react";
 import { FilterBar } from "@/components/filters/FilterBar";
+import type { FilterPatch } from "@/components/filters/FilterBar";
+import { Pagination } from "@/components/pokemon/Pagination";
 import { PokemonCard } from "@/components/pokemon/PokemonCard";
 import { useFilters } from "@/hooks/use-filters";
 import { filterPokemon } from "@/lib/search/evolution-search";
 import { sortPokemon } from "@/lib/sort";
 import type { PokemonIndex } from "@/types/pokemon";
+
+/** Multiple of every grid column count (2/3/4/5/6), so rows always fill. */
+const PAGE_SIZE = 60;
 
 interface PokedexViewProps {
   index: PokemonIndex;
@@ -14,7 +19,7 @@ interface PokedexViewProps {
 
 export function PokedexView({ index }: PokedexViewProps) {
   const [filters, setFilters] = useFilters();
-  const { q, type, gen, sort, color, habitat, shape, egg, cat, stage } =
+  const { q, type, gen, sort, color, habitat, shape, egg, cat, stage, page } =
     filters;
 
   const results = useMemo(
@@ -36,14 +41,42 @@ export function PokedexView({ index }: PokedexViewProps) {
     [index, q, type, gen, sort, color, habitat, shape, egg, cat, stage],
   );
 
-  const listKey = [q, type, gen, sort, color, habitat, shape, egg, cat, stage]
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const pageResults = results.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  /** Any filter/sort change lands you back on page 1. */
+  const handleFiltersChange = (patch: FilterPatch) =>
+    setFilters({ ...patch, page: null });
+
+  const goToPage = (next: number) => {
+    setFilters({ page: next === 1 ? null : next });
+    window.scrollTo({ top: 0 });
+  };
+
+  const listKey = [
+    q,
+    type,
+    gen,
+    sort,
+    color,
+    habitat,
+    shape,
+    egg,
+    cat,
+    stage,
+    currentPage,
+  ]
     .map(String)
     .join("|");
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-16 z-10 -mx-4 bg-[#020204]/85 px-4 py-3 backdrop-blur">
-        <FilterBar values={filters} onChange={setFilters} />
+      <div className="sticky top-20 z-10 -mx-4 bg-[#020204]/85 px-4 py-3 backdrop-blur">
+        <FilterBar values={filters} onChange={handleFiltersChange} />
       </div>
 
       <p
@@ -56,6 +89,7 @@ export function PokedexView({ index }: PokedexViewProps) {
         {results.length === index.entries.length
           ? `${index.entries.length} entradas registradas · Gen I–IX`
           : `${results.length} / ${index.entries.length} entradas encontradas`}
+        {totalPages > 1 && ` · pág. ${currentPage}/${totalPages}`}
         <span aria-hidden className="cursor-blink ml-1.5">
           ▊
         </span>
@@ -72,16 +106,23 @@ export function PokedexView({ index }: PokedexViewProps) {
           </p>
         </div>
       ) : (
-        <ul
-          key={listKey}
-          className="grid grid-cols-2 gap-3 motion-safe:animate-[fade-in_250ms_ease-out] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-        >
-          {results.map((entry) => (
-            <li key={entry.id}>
-              <PokemonCard entry={entry} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul
+            key={listKey}
+            className="grid grid-cols-2 gap-3 motion-safe:animate-[fade-in_250ms_ease-out] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+          >
+            {pageResults.map((entry) => (
+              <li key={entry.id}>
+                <PokemonCard entry={entry} />
+              </li>
+            ))}
+          </ul>
+          <Pagination
+            current={currentPage}
+            total={totalPages}
+            onChange={goToPage}
+          />
+        </>
       )}
     </div>
   );
