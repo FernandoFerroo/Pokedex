@@ -169,6 +169,11 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             aria-hidden
             className="hud-corners pointer-events-none absolute inset-2 opacity-60"
           />
+          {crySrc && (
+            <div className="absolute top-3 right-3 z-10">
+              <CryButton src={crySrc} name={formatName(species.name)} />
+            </div>
+          )}
           <SpriteViewer
             name={formatName(species.name)}
             dexId={pokemon.id}
@@ -207,9 +212,6 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               {pokemon.types.map(({ type }) => (
                 <TypeBadge key={type.name} type={type.name} size="md" />
               ))}
-              {crySrc && (
-                <CryButton src={crySrc} name={formatName(species.name)} />
-              )}
             </div>
           </div>
 
