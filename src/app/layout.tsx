@@ -54,7 +54,8 @@ export default function RootLayout({
       // so every legacy `dark:` utility stays active without a toggle.
       className={`dark ${exo2.variable} ${geistMono.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans text-slate-100">
+      {/* font-medium base: Exo 2 gains presence on the dark backdrop. */}
+      <body className="flex min-h-full flex-col font-sans font-medium text-slate-100">
         <NuqsAdapter>
           <Header />
           {children}

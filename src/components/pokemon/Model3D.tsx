@@ -60,7 +60,7 @@ export function Model3D({ src, poster, alt, onFail }: Model3DProps) {
             className="max-h-full max-w-full object-contain opacity-60"
           />
         ) : (
-          <span className="text-xs text-slate-400">Cargando modelo…</span>
+          <span className="text-xs text-slate-300">Cargando modelo…</span>
         )}
       </div>
     );

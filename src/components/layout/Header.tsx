@@ -77,13 +77,13 @@ export function Header() {
             <span className="hero-title font-display text-2xl font-extrabold tracking-[0.18em] uppercase sm:text-3xl">
               Pokédex
             </span>
-            <span className="mt-1 hidden font-mono text-[10px] tracking-[0.32em] text-slate-500 uppercase sm:block">
+            <span className="mt-1 hidden font-mono text-xs tracking-[0.32em] text-slate-400 uppercase sm:block">
               Sistema Nacional · Gen I–IX
             </span>
           </span>
         </Link>
 
-        <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-emerald-400 uppercase">
+        <span className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_1px_rgba(52,211,153,0.8)]" />

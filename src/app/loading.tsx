@@ -6,7 +6,7 @@ export default function Loading() {
         <div className="h-10 w-full animate-pulse rounded-md bg-slate-800/60 sm:w-40" />
         <div className="h-10 w-full animate-pulse rounded-md bg-slate-800/60 sm:w-48" />
       </div>
-      <p className="cursor-blink mt-4 font-mono text-[11px] tracking-widest text-emerald-400/80 uppercase">
+      <p className="cursor-blink mt-4 font-mono text-[13px] tracking-widest text-emerald-400/80 uppercase">
         Cargando datos…
       </p>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">

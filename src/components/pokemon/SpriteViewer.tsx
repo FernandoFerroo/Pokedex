@@ -190,10 +190,10 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
                     type="button"
                     onClick={() => setFacing(side)}
                     aria-pressed={facing === side}
-                    className={`rounded px-2.5 py-1 font-mono text-[11px] font-medium tracking-wider uppercase transition ${
+                    className={`rounded px-2.5 py-1 font-mono text-[13px] font-medium tracking-wider uppercase transition ${
                       facing === side
                         ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
-                        : "text-slate-500 hover:text-slate-200"
+                        : "text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     {side === "front" ? "Frente" : "Espalda"}
@@ -218,7 +218,7 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
                 />
               )}
             </div>
-            <p className="pointer-events-none text-[10px] text-slate-400 dark:text-slate-500">
+            <p className="pointer-events-none text-xs text-slate-300 dark:text-slate-400">
               Arrastra para girar
             </p>
           </>
@@ -251,7 +251,7 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
               className={`rounded px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition ${
                 mode === m
                   ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
-                  : "text-slate-500 hover:text-slate-200"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
               {MODE_LABELS[m]}
@@ -268,7 +268,7 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
           className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition disabled:cursor-not-allowed disabled:opacity-40 ${
             showShiny
               ? "border-amber-400/60 bg-amber-400/10 text-amber-300 shadow-[0_0_14px_-2px_rgba(251,191,36,0.6)]"
-              : "border-slate-700 bg-black/50 text-slate-500 hover:text-amber-200"
+              : "border-slate-700 bg-black/50 text-slate-400 hover:text-amber-200"
           }`}
         >
           <Sparkles size={13} />

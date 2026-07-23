@@ -64,7 +64,7 @@ export function StatsRadar({ stats, type }: StatsRadarProps) {
 
   return (
     <section aria-label="Estadísticas base">
-      <h2 className="mb-1 font-pixel text-[10px] text-slate-400">
+      <h2 className="mb-1 font-pixel text-xs text-slate-300">
         <span aria-hidden className="mr-1.5 text-red-500">
           ►
         </span>
@@ -125,7 +125,7 @@ export function StatsRadar({ stats, type }: StatsRadarProps) {
             x={axis.labelPoint[0]}
             y={axis.labelPoint[1]}
             textAnchor="middle"
-            className="fill-slate-500 text-[11px] dark:fill-slate-400"
+            className="fill-slate-500 text-[13px] dark:fill-slate-400"
           >
             <tspan x={axis.labelPoint[0]} dy="-0.2em">
               {axis.label}
@@ -140,7 +140,7 @@ export function StatsRadar({ stats, type }: StatsRadarProps) {
           </text>
         ))}
       </svg>
-      <p className="mt-1 text-center text-sm text-slate-500 dark:text-slate-400">
+      <p className="mt-1 text-center text-sm text-slate-400 dark:text-slate-300">
         Total{" "}
         <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
           {total}

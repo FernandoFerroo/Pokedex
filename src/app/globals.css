@@ -14,6 +14,8 @@
 
 html {
   color-scheme: dark;
+  /* Larger reading base: every rem-derived size (and spacing) scales ~6%. */
+  font-size: 106.25%;
 }
 
 /*
@@ -187,15 +189,15 @@ body::after {
 }
 
 /*
- * Neon type aura. Cards set `--aura` inline from typeAura(); this class turns
- * it into a blurred box-shadow glow that intensifies on hover. Unlayered on
- * purpose so it wins over Tailwind shadow utilities.
+ * Card chrome. Cards set `--aura` inline from typeAura(), but the frame
+ * itself stays neutral and restrained: a quiet slate border with a soft
+ * black depth shadow. The type color only whispers through on hover, as a
+ * faint tint on the border — the neon belongs to the creature, not the box.
+ * Unlayered on purpose so it wins over Tailwind shadow utilities.
  */
 .aura-card {
-  border-color: color-mix(in srgb, var(--aura, transparent) 35%, transparent);
-  box-shadow:
-    0 0 32px -3px color-mix(in srgb, var(--aura, transparent) 85%, transparent),
-    0 0 10px -2px color-mix(in srgb, var(--aura, transparent) 50%, transparent);
+  border-color: rgba(30, 41, 59, 0.85);
+  box-shadow: 0 2px 14px -8px rgba(0, 0, 0, 0.9);
   transition:
     box-shadow 300ms ease,
     border-color 300ms ease,
@@ -203,10 +205,8 @@ body::after {
 }
 
 .aura-card:hover {
-  border-color: var(--aura, transparent);
-  box-shadow:
-    0 0 70px 0 var(--aura, transparent),
-    0 0 22px -2px var(--aura, transparent);
+  border-color: color-mix(in srgb, var(--aura, #64748b) 45%, #1e293b);
+  box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.85);
 }
 
 /*

@@ -16,6 +16,7 @@ import { getDefensiveMatchups } from "@/lib/matchups";
 import { idFromUrl, PokeApiError, pokeFetch } from "@/lib/pokeapi/client";
 import type {
   AbilityResponse,
+  ChainLink,
   EvolutionChainResponse,
   PokemonResponse,
   PokemonSpeciesResponse,
@@ -78,6 +79,16 @@ export default async function PokemonDetailPage({ params }: PageProps) {
     ),
   ]);
 
+  // Species of this evolutionary line, to tell signature abilities apart:
+  // holders are varieties ("zacian-crowned"), so we match by species prefix.
+  const lineSpecies: string[] = [];
+  (function walk(link: ChainLink) {
+    lineSpecies.push(link.species.name);
+    link.evolves_to.forEach(walk);
+  })(chain.chain);
+  const belongsToLine = (holder: string) =>
+    lineSpecies.some((s) => holder === s || holder.startsWith(`${s}-`));
+
   // Combat matchups (1-2 cached /type fetches) and localized ability sheets
   // (≤3 cached /ability fetches) resolve in parallel once the pokemon is known.
   const [matchups, abilities] = await Promise.all([
@@ -87,8 +98,12 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         const detail = await pokeFetch<AbilityResponse>(
           `/ability/${ability.name}`,
         );
+        const holders = detail.pokemon.map((p) => p.pokemon.name);
         return {
           isHidden: is_hidden,
+          holdersCount: holders.length,
+          isLineExclusive:
+            holders.length > 0 && holders.every(belongsToLine),
           label:
             detail.names.find((n) => n.language.name === "es")?.name ??
             formatName(ability.name),
@@ -183,23 +198,23 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-4">
           <div>
-            <p className="neon-aura font-pixel text-[10px]">
+            <p className="neon-aura font-pixel text-xs">
               {formatDexNumber(species.id)}
             </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1 className="font-display text-3xl font-bold tracking-wide text-white">
                 {formatName(species.name)}
               </h1>
-              <span className="rounded border border-slate-700/80 px-2 py-0.5 font-mono text-xs tracking-wider text-slate-400 uppercase">
+              <span className="rounded border border-slate-700/80 px-2 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase">
                 {generationLabel(generation)}
               </span>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {genus && (
-                <p className="font-mono text-sm text-slate-400">{genus}</p>
+                <p className="font-mono text-sm text-slate-300">{genus}</p>
               )}
               {category !== "normal" && (
-                <span className="rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-widest text-red-300 uppercase">
+                <span className="rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-widest text-red-300 uppercase">
                   {CATEGORY_LABELS_ES[category]}
                 </span>
               )}
@@ -217,7 +232,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
           {flavorText && (
             <div className="rounded-r-md border-l-2 border-emerald-500/50 bg-emerald-500/[0.05] p-3">
-              <p className="font-mono text-[10px] tracking-[0.2em] text-emerald-500 uppercase">
+              <p className="font-mono text-xs tracking-[0.2em] text-emerald-500 uppercase">
                 Registro de la Pokédex
                 {flavorVersion && (
                   <span className="text-emerald-500/60"> · {flavorVersion}</span>
@@ -242,7 +257,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 key={label}
                 className="rounded-md border border-slate-800 bg-black/40 px-4 py-2"
               >
-                <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                   {label}
                 </dt>
                 <dd className="mt-0.5 font-mono text-sm font-semibold text-[var(--aura)]">
@@ -267,7 +282,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           aria-label="Análisis de combate"
           className="rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
         >
-          <h2 className="mb-4 font-pixel text-[10px] text-slate-400">
+          <h2 className="mb-4 font-pixel text-xs text-slate-300">
             <span aria-hidden className="mr-1.5 text-red-500">
               ►
             </span>
@@ -280,7 +295,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           aria-label="Habilidades"
           className="rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
         >
-          <h2 className="mb-4 font-pixel text-[10px] text-slate-400">
+          <h2 className="mb-4 font-pixel text-xs text-slate-300">
             <span aria-hidden className="mr-1.5 text-red-500">
               ►
             </span>
@@ -292,13 +307,28 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-100">
                   {ability.label}
                   {ability.isHidden && (
-                    <span className="rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[9px] tracking-widest text-violet-300 uppercase">
+                    <span className="rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[11px] tracking-widest text-violet-300 uppercase">
                       Oculta
                     </span>
                   )}
+                  {ability.holdersCount === 1 ? (
+                    <span className="rounded border border-amber-400/50 bg-amber-400/10 px-1.5 py-0.5 font-mono text-[11px] tracking-widest text-amber-300 uppercase shadow-[0_0_10px_rgba(251,191,36,0.25)]">
+                      Única
+                    </span>
+                  ) : (
+                    ability.isLineExclusive && (
+                      <span className="rounded border border-cyan-400/40 bg-cyan-400/10 px-1.5 py-0.5 font-mono text-[11px] tracking-widest text-cyan-300 uppercase shadow-[0_0_10px_rgba(34,211,238,0.2)]">
+                        Exclusiva de su línea
+                      </span>
+                    )
+                  )}
+                  <span className="ml-auto font-mono text-xs text-slate-600">
+                    {ability.holdersCount}{" "}
+                    {ability.holdersCount === 1 ? "portador" : "portadores"}
+                  </span>
                 </p>
                 {ability.description && (
-                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  <p className="mt-1 text-sm leading-relaxed text-slate-300">
                     {ability.description}
                   </p>
                 )}
@@ -311,7 +341,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           aria-label="Crianza y perfil"
           className="rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
         >
-          <h2 className="mb-4 font-pixel text-[10px] text-slate-400">
+          <h2 className="mb-4 font-pixel text-xs text-slate-300">
             <span aria-hidden className="mr-1.5 text-red-500">
               ►
             </span>
@@ -319,12 +349,12 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           </h2>
           <dl className="flex flex-col gap-3.5 text-sm">
             <div>
-              <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                 Género
               </dt>
               <dd className="mt-1.5">
                 {femalePct === null ? (
-                  <span className="font-mono text-xs text-slate-400">
+                  <span className="font-mono text-sm text-slate-300">
                     Sin género
                   </span>
                 ) : (
@@ -339,7 +369,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                         className="bg-pink-400"
                       />
                     </div>
-                    <p className="mt-1 font-mono text-[11px] text-slate-400">
+                    <p className="mt-1 font-mono text-[13px] text-slate-300">
                       <span className="text-sky-300">♂ {100 - femalePct}%</span>
                       {" · "}
                       <span className="text-pink-300">♀ {femalePct}%</span>
@@ -350,17 +380,17 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             </div>
 
             <div>
-              <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                 Grupos huevo
               </dt>
               <dd className="mt-1.5 flex flex-wrap gap-1">
                 {species.egg_groups.length === 0 ? (
-                  <span className="font-mono text-xs text-slate-400">—</span>
+                  <span className="font-mono text-sm text-slate-300">—</span>
                 ) : (
                   species.egg_groups.map((group) => (
                     <span
                       key={group.name}
-                      className="rounded border border-slate-700 bg-black/40 px-1.5 py-0.5 font-mono text-[10px] tracking-wider text-slate-300 uppercase"
+                      className="rounded border border-slate-700 bg-black/40 px-1.5 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase"
                     >
                       {EGG_GROUP_LABELS_ES[group.name] ?? formatName(group.name)}
                     </span>
@@ -371,10 +401,10 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
             {species.hatch_counter !== null && (
               <div>
-                <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                   Ciclos de huevo
                 </dt>
-                <dd className="mt-1 font-mono text-xs text-slate-300">
+                <dd className="mt-1 font-mono text-sm text-slate-300">
                   {species.hatch_counter} ciclos · ~
                   {((species.hatch_counter + 1) * 255).toLocaleString("es-ES")}{" "}
                   pasos
@@ -408,10 +438,10 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               ] as const
             ).map(([label, value]) => (
               <div key={label}>
-                <dt className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                   {label}
                 </dt>
-                <dd className="mt-1 font-mono text-xs text-slate-300">
+                <dd className="mt-1 font-mono text-sm text-slate-300">
                   {value}
                 </dd>
               </div>
@@ -428,7 +458,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         aria-label="Galería de cartas del JCC"
         className="mt-8 rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
       >
-        <h2 className="mb-4 font-pixel text-[10px] text-slate-400">
+        <h2 className="mb-4 font-pixel text-xs text-slate-300">
           <span aria-hidden className="mr-1.5 text-red-500">
             ►
           </span>

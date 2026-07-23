@@ -30,78 +30,70 @@ function pageWindow(current: number, total: number): (number | "gap")[] {
 }
 
 const buttonBase =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded border px-2 font-mono text-xs transition select-none";
+  "inline-flex h-8 min-w-8 items-center justify-center rounded border px-1.5 font-mono text-xs transition select-none";
 const buttonIdle =
   "border-slate-700/80 bg-black/40 text-slate-300 hover:border-cyan-400/70 hover:text-cyan-300 hover:shadow-[0_0_14px_rgba(34,211,238,0.3)]";
 const buttonActive =
-  "border-red-400/90 bg-red-500/10 font-pixel text-[10px] text-red-300 shadow-[0_0_16px_rgba(248,113,113,0.45)]";
+  "border-red-400/90 bg-red-500/10 font-pixel text-[11px] text-red-300 shadow-[0_0_16px_rgba(248,113,113,0.45)]";
 
-/** Bottom pager in HUD trim: neon active page, cyan hover, elided runs. */
+/**
+ * Compact single-row pager for the sticky bottom bar: neon active section,
+ * cyan hover, elided runs and a small readout on wider screens.
+ */
 export function Pagination({ current, total, onChange }: PaginationProps) {
   if (total <= 1) return null;
 
   return (
     <nav
       aria-label="Paginación de resultados"
-      className="flex flex-col items-center gap-2 pt-2 pb-4"
+      className="flex flex-wrap items-center justify-center gap-1.5 py-2.5"
     >
-      <div className="flex flex-wrap items-center justify-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => onChange(current - 1)}
-          disabled={current === 1}
-          aria-label="Página anterior"
-          className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
-        >
-          <ChevronLeft size={15} />
-        </button>
+      <button
+        type="button"
+        onClick={() => onChange(current - 1)}
+        disabled={current === 1}
+        aria-label="Página anterior"
+        className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
+      >
+        <ChevronLeft size={14} />
+      </button>
 
-        {pageWindow(current, total).map((item, i) =>
-          item === "gap" ? (
-            <span
-              key={`gap-${i}`}
-              aria-hidden
-              className="px-1 font-mono text-xs text-slate-600"
-            >
-              ···
-            </span>
-          ) : (
-            <button
-              key={item}
-              type="button"
-              onClick={() => onChange(item)}
-              aria-label={`Página ${item}`}
-              aria-current={item === current ? "page" : undefined}
-              className={`${buttonBase} ${item === current ? buttonActive : buttonIdle}`}
-            >
-              {item}
-            </button>
-          ),
-        )}
-
-        <button
-          type="button"
-          onClick={() => onChange(current + 1)}
-          disabled={current === total}
-          aria-label="Página siguiente"
-          className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
-        >
-          <ChevronRight size={15} />
-        </button>
-      </div>
-
-      <p className="font-mono text-[10px] tracking-[0.25em] text-slate-500 uppercase">
-        Página {String(current).padStart(2, "0")} /{" "}
-        {String(total).padStart(2, "0")}
-      </p>
-      {current < total && (
-        <p
-          aria-hidden
-          className="font-mono text-[9px] tracking-[0.2em] text-slate-600 uppercase"
-        >
-          sigue haciendo scroll ↓ para pasar de página
-        </p>
+      {pageWindow(current, total).map((item, i) =>
+        item === "gap" ? (
+          <span
+            key={`gap-${i}`}
+            aria-hidden
+            className="px-0.5 font-mono text-xs text-slate-600"
+          >
+            ···
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onChange(item)}
+            aria-label={`Ir a la página ${item}`}
+            aria-current={item === current ? "page" : undefined}
+            className={`${buttonBase} ${item === current ? buttonActive : buttonIdle}`}
+          >
+            {item}
+          </button>
+        ),
       )}
+
+      <button
+        type="button"
+        onClick={() => onChange(current + 1)}
+        disabled={current === total}
+        aria-label="Página siguiente"
+        className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
+      >
+        <ChevronRight size={14} />
+      </button>
+
+      <span className="ml-3 hidden font-mono text-xs tracking-[0.25em] text-slate-400 uppercase sm:inline">
+        Pág {String(current).padStart(2, "0")}/{String(total).padStart(2, "0")}
+      </span>
     </nav>
   );
 }

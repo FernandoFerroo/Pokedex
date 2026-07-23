@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="font-pixel text-xs text-slate-300">
         ¡El Pokémon salvaje huyó!
       </p>
-      <p className="max-w-sm font-mono text-sm text-slate-500">
+      <p className="max-w-sm font-mono text-sm text-slate-400">
         Ese Pokémon no está registrado en la Pokédex. Puede que sea un
         MissingNo…
       </p>

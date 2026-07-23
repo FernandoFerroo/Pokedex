@@ -126,7 +126,7 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
         <label className="relative flex-1">
           <Search
             size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-300"
           />
           <input
             type="search"
@@ -194,7 +194,7 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
           <button
             type="button"
             onClick={() => onChange(CLEAR_ALL)}
-            className="inline-flex h-10 items-center gap-1.5 rounded-md px-3 font-mono text-sm text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md px-3 font-mono text-sm text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <X size={14} />
             Limpiar

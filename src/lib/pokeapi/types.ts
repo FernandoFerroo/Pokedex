@@ -87,7 +87,32 @@ export interface AbilityResponse {
     flavor_text: string;
     language: NamedAPIResource;
   }>;
+  /** Every pokemon (variety) that can have this ability. */
+  pokemon: Array<{
+    is_hidden: boolean;
+    pokemon: NamedAPIResource;
+  }>;
 }
+
+/** One element of `GET /pokemon/{id}/encounters`. */
+export interface LocationAreaEncounter {
+  location_area: NamedAPIResource;
+  version_details: Array<{
+    version: NamedAPIResource;
+    /** Highest single-slot chance in this area for this version (%). */
+    max_chance: number;
+    encounter_details: Array<{
+      min_level: number;
+      max_level: number;
+      /** Chance of this specific encounter slot (%). */
+      chance: number;
+      method: NamedAPIResource;
+      condition_values: NamedAPIResource[];
+    }>;
+  }>;
+}
+
+export type PokemonEncountersResponse = LocationAreaEncounter[];
 
 export interface PokemonResponse {
   id: number;

@@ -26,7 +26,7 @@ export function TypeMatchups({ matchups }: TypeMatchupsProps) {
     <div className="flex flex-col gap-3">
       {rows.map((row) => (
         <div key={row.key}>
-          <p className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
+          <p className="font-mono text-xs tracking-widest text-slate-400 uppercase">
             <span className={`mr-1.5 font-semibold ${row.factorClass}`}>
               {row.factor}
             </span>
@@ -40,7 +40,7 @@ export function TypeMatchups({ matchups }: TypeMatchupsProps) {
         </div>
       ))}
       {rows.length === 0 && (
-        <p className="font-mono text-xs text-slate-500">Sin datos de tipos.</p>
+        <p className="font-mono text-xs text-slate-400">Sin datos de tipos.</p>
       )}
     </div>
   );

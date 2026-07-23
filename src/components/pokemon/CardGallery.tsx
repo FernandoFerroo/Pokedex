@@ -13,14 +13,14 @@ export async function CardGallery({ name }: CardGalleryProps) {
 
   if (cards === null) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
+      <p className="text-sm text-slate-400 dark:text-slate-300">
         No se ha podido cargar la galería de cartas. Inténtalo más tarde.
       </p>
     );
   }
   if (cards.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
+      <p className="text-sm text-slate-400 dark:text-slate-300">
         No se han encontrado cartas del JCC para {name}.
       </p>
     );
@@ -32,7 +32,7 @@ export async function CardGallery({ name }: CardGalleryProps) {
     <div>
       <CardGrid cards={visible} />
       {cards.length > MAX_CARDS && (
-        <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-3 text-xs text-slate-300 dark:text-slate-400">
           Mostrando {MAX_CARDS} de {cards.length} cartas.
         </p>
       )}

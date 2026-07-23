@@ -14,7 +14,7 @@ export function TypeBadge({ type, size = "sm" }: TypeBadgeProps) {
       style={{ "--type": typeAura(type) } as CSSProperties}
       className={cn(
         "type-chip inline-flex items-center rounded font-mono font-semibold tracking-widest uppercase",
-        size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs",
+        size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-2.5 py-1 text-xs",
       )}
     >
       {typeLabel(type)}

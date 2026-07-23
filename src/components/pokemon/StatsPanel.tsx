@@ -19,7 +19,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
 
   return (
     <section aria-label="Estadísticas base">
-      <h2 className="mb-3 text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-slate-500">
+      <h2 className="mb-3 text-xs font-semibold tracking-wider text-slate-300 uppercase dark:text-slate-400">
         Estadísticas base
       </h2>
       <dl className="flex flex-col gap-2.5">
@@ -28,7 +28,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
             key={stat.name}
             className="grid grid-cols-[7.5rem_2.5rem_1fr] items-center gap-2 text-sm"
           >
-            <dt className="text-slate-500 dark:text-slate-400">
+            <dt className="text-slate-400 dark:text-slate-300">
               {STAT_LABELS[stat.name] ?? stat.name}
             </dt>
             <dd className="text-right font-mono text-[13px] font-semibold tabular-nums">

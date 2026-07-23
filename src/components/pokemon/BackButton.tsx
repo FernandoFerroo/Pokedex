@@ -20,7 +20,7 @@ export function BackButton() {
           router.push("/");
         }
       }}
-      className="inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-black/40 px-2.5 py-1.5 font-mono text-xs tracking-widest text-slate-400 uppercase transition hover:border-red-500/60 hover:text-red-400 hover:shadow-[0_0_12px_-2px_rgba(239,68,68,0.5)]"
+      className="inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-black/40 px-2.5 py-1.5 font-mono text-xs tracking-widest text-slate-300 uppercase transition hover:border-red-500/60 hover:text-red-400 hover:shadow-[0_0_12px_-2px_rgba(239,68,68,0.5)]"
     >
       <ArrowLeft size={14} />
       Volver al listado

@@ -41,10 +41,10 @@ export function CryButton({ src, name }: CryButtonProps) {
       type="button"
       onClick={play}
       aria-label={`Reproducir el grito de ${name}`}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[11px] font-medium tracking-widest uppercase transition ${
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[13px] font-medium tracking-widest uppercase transition ${
         playing
           ? "border-[var(--aura)] text-[var(--aura)] shadow-[0_0_14px_-4px_var(--aura)]"
-          : "border-slate-700 bg-black/40 text-slate-400 hover:border-[var(--aura)] hover:text-[var(--aura)]"
+          : "border-slate-700 bg-black/40 text-slate-300 hover:border-[var(--aura)] hover:text-[var(--aura)]"
       }`}
     >
       <Volume2 size={13} className={playing ? "animate-pulse" : undefined} />

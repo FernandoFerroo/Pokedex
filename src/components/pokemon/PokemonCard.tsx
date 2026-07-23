@@ -29,11 +29,11 @@ export function PokemonCard({ entry }: PokemonCardProps) {
       />
       <span aria-hidden className="scan-beam z-10" />
 
-      <div className="flex items-center justify-between text-slate-500">
-        <span className="font-pixel text-[9px] transition-colors group-hover:text-[var(--aura)]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span className="font-pixel text-[11px] transition-colors group-hover:text-[var(--aura)]">
           {formatDexNumber(entry.id)}
         </span>
-        <span className="rounded border border-slate-700/80 px-1.5 py-0.5 font-mono text-[10px] tracking-wider text-slate-400 uppercase">
+        <span className="rounded border border-slate-700/80 px-1.5 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase">
           {generationLabel(entry.generation)}
         </span>
       </div>
@@ -46,7 +46,7 @@ export function PokemonCard({ entry }: PokemonCardProps) {
           className="aura-sprite object-contain p-1 transition-transform duration-200 group-hover:scale-[1.06]"
         />
       </div>
-      <p className="truncate text-sm font-semibold tracking-tight text-slate-100 transition-colors group-hover:text-white">
+      <p className="truncate text-base font-semibold tracking-tight text-slate-100 transition-colors group-hover:text-white">
         {formatName(entry.name)}
       </p>
       <div className="mt-1.5 flex flex-wrap gap-1">

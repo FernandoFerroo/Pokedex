@@ -37,14 +37,14 @@ export function EvolutionChain({ chain, currentName }: EvolutionChainProps) {
 
   return (
     <section aria-label="Cadena evolutiva">
-      <h2 className="mb-3 font-pixel text-[10px] text-slate-400">
+      <h2 className="mb-3 font-pixel text-xs text-slate-300">
         <span aria-hidden className="mr-1.5 text-red-500">
           ►
         </span>
         Cadena evolutiva
       </h2>
       {stages.length <= 1 ? (
-        <p className="font-mono text-sm text-slate-400">
+        <p className="font-mono text-sm text-slate-300">
           Este Pokémon no evoluciona.
         </p>
       ) : (
