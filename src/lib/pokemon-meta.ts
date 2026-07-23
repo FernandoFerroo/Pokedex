@@ -96,6 +96,64 @@ export const STAGE_LABELS_ES: Record<string, string> = {
   final: "Forma final",
 };
 
+export const GROWTH_LABELS_ES: Record<string, string> = {
+  slow: "Lento",
+  medium: "Medio",
+  fast: "Rápido",
+  "medium-slow": "Medio-lento",
+  "slow-then-very-fast": "Errático",
+  "fast-then-very-slow": "Fluctuante",
+};
+
+/** Spanish titles of the main-series games, keyed by PokéAPI version slug. */
+export const VERSION_LABELS_ES: Record<string, string> = {
+  red: "Rojo",
+  blue: "Azul",
+  yellow: "Amarillo",
+  gold: "Oro",
+  silver: "Plata",
+  crystal: "Cristal",
+  ruby: "Rubí",
+  sapphire: "Zafiro",
+  emerald: "Esmeralda",
+  firered: "Rojo Fuego",
+  leafgreen: "Verde Hoja",
+  diamond: "Diamante",
+  pearl: "Perla",
+  platinum: "Platino",
+  heartgold: "HeartGold",
+  soulsilver: "SoulSilver",
+  black: "Negro",
+  white: "Blanco",
+  "black-2": "Negro 2",
+  "white-2": "Blanco 2",
+  x: "X",
+  y: "Y",
+  "omega-ruby": "Rubí Omega",
+  "alpha-sapphire": "Zafiro Alfa",
+  sun: "Sol",
+  moon: "Luna",
+  "ultra-sun": "Ultrasol",
+  "ultra-moon": "Ultraluna",
+  "lets-go-pikachu": "Let's Go, Pikachu!",
+  "lets-go-eevee": "Let's Go, Eevee!",
+  sword: "Espada",
+  shield: "Escudo",
+  "brilliant-diamond": "Diamante Brillante",
+  "shining-pearl": "Perla Reluciente",
+  "legends-arceus": "Leyendas: Arceus",
+  scarlet: "Escarlata",
+  violet: "Púrpura",
+};
+
+export function versionLabel(slug: string): string {
+  return VERSION_LABELS_ES[slug] ?? formatName(slug);
+}
+
+export function growthLabel(slug: string | undefined): string {
+  return (slug && GROWTH_LABELS_ES[slug]) || "—";
+}
+
 /**
  * Muted "soft badge" palette per type (tinted background + ring + readable
  * text in both themes). Full class strings so Tailwind can extract them.

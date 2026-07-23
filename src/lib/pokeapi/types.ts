@@ -23,6 +23,11 @@ export interface TypeResponse {
     slot: number;
     pokemon: NamedAPIResource;
   }>;
+  damage_relations: {
+    double_damage_from: NamedAPIResource[];
+    half_damage_from: NamedAPIResource[];
+    no_damage_from: NamedAPIResource[];
+  };
 }
 
 export interface ChainLink {
@@ -47,6 +52,16 @@ export interface PokemonSpeciesResponse {
   is_baby: boolean;
   is_legendary: boolean;
   is_mythical: boolean;
+  /** Female eighths: -1 = genderless, 0 = male only … 8 = female only. */
+  gender_rate: number;
+  capture_rate: number;
+  base_happiness: number | null;
+  hatch_counter: number | null;
+  growth_rate: NamedAPIResource | null;
+  genera: Array<{
+    genus: string;
+    language: NamedAPIResource;
+  }>;
   varieties: Array<{
     is_default: boolean;
     pokemon: NamedAPIResource;
@@ -54,9 +69,22 @@ export interface PokemonSpeciesResponse {
   flavor_text_entries: Array<{
     flavor_text: string;
     language: NamedAPIResource;
+    version: NamedAPIResource;
   }>;
   names: Array<{
     name: string;
+    language: NamedAPIResource;
+  }>;
+}
+
+export interface AbilityResponse {
+  name: string;
+  names: Array<{
+    name: string;
+    language: NamedAPIResource;
+  }>;
+  flavor_text_entries: Array<{
+    flavor_text: string;
     language: NamedAPIResource;
   }>;
 }
@@ -66,6 +94,16 @@ export interface PokemonResponse {
   name: string;
   height: number;
   weight: number;
+  base_experience: number | null;
+  abilities: Array<{
+    ability: NamedAPIResource;
+    is_hidden: boolean;
+    slot: number;
+  }>;
+  cries?: {
+    latest: string | null;
+    legacy: string | null;
+  };
   stats: Array<{
     base_stat: number;
     stat: NamedAPIResource;
