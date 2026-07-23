@@ -4,7 +4,7 @@
 
 # ⚡ POKéDEX — Sistema Nacional
 
-**Una Pokédex de neón, oscura y "gaming", construida sobre PokéAPI.**
+**Una Pokédex de neón, oscura y "gaming", construida sobre PokéAPI.** 
 *1025 especies · Gen I–IX · búsqueda evolutiva en tiempo real · modelos 3D · cartas del JCC*
 
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
