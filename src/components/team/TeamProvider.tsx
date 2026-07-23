@@ -1,0 +1,150 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import type { TeamMember } from "@/types/team";
+
+export const TEAM_SIZE = 6;
+
+/** Survives navigation and full reloads. */
+const STORAGE_KEY = "pokedex-team-v1";
+
+interface TeamContextValue {
+  /** Up to 6 members, in slot order. */
+  team: TeamMember[];
+  /** The Pokémon whose detail page is open right now, if any. */
+  current: TeamMember | null;
+  setCurrent: (member: TeamMember | null) => void;
+  /** Adds any Pokémon to the first free slot (no-op if full or duplicated). */
+  add: (member: TeamMember) => void;
+  /** Adds `current` to the first free slot (no-op if full or duplicated). */
+  addCurrent: () => void;
+  remove: (id: number) => void;
+  clear: () => void;
+  has: (id: number) => boolean;
+  isFull: boolean;
+  /** Drawer visibility lives here so any page can open the team sheet. */
+  drawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
+}
+
+const TeamContext = createContext<TeamContextValue | null>(null);
+
+function isValidMember(value: unknown): value is TeamMember {
+  const m = value as TeamMember;
+  return (
+    typeof m === "object" &&
+    m !== null &&
+    typeof m.id === "number" &&
+    typeof m.name === "string" &&
+    Array.isArray(m.types) &&
+    m.types.every((t) => typeof t === "string")
+  );
+}
+
+export function TeamProvider({ children }: { children: ReactNode }) {
+  // Starts empty on both server and client render, then loads from
+  // localStorage after mount: this component hydrates on every page, so a
+  // lazy initializer would mismatch the server HTML.
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [current, setCurrent] = useState<TeamMember | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // One deliberate post-mount setState: localStorage can't be read in
+          // the initializer without desyncing SSR HTML from the first client
+          // render, so the roster pops in right after hydration.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setTeam(parsed.filter(isValidMember).slice(0, TEAM_SIZE));
+        }
+      }
+    } catch {
+      // Corrupt/unavailable storage: start with an empty team.
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(team));
+    } catch {
+      // Storage full/unavailable: the team still works, it just won't persist.
+    }
+  }, [team, hydrated]);
+
+  const add = useCallback((member: TeamMember) => {
+    setTeam((prev) => {
+      if (prev.length >= TEAM_SIZE) return prev;
+      if (prev.some((m) => m.id === member.id)) return prev;
+      return [...prev, member];
+    });
+  }, []);
+
+  const addCurrent = useCallback(() => {
+    if (current) add(current);
+  }, [current, add]);
+
+  const remove = useCallback((id: number) => {
+    setTeam((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const clear = useCallback(() => setTeam([]), []);
+
+  const has = useCallback(
+    (id: number) => team.some((m) => m.id === id),
+    [team],
+  );
+
+  return (
+    <TeamContext.Provider
+      value={{
+        team,
+        current,
+        setCurrent,
+        add,
+        addCurrent,
+        remove,
+        clear,
+        has,
+        isFull: team.length >= TEAM_SIZE,
+        drawerOpen,
+        setDrawerOpen,
+      }}
+    >
+      {children}
+    </TeamContext.Provider>
+  );
+}
+
+export function useTeam(): TeamContextValue {
+  const ctx = useContext(TeamContext);
+  if (!ctx) throw new Error("useTeam requires a <TeamProvider> ancestor.");
+  return ctx;
+}
+
+/**
+ * Invisible helper the detail page renders to mark its Pokémon as the
+ * "currently selected" one that the drawer's empty slots can add.
+ */
+export function CurrentPokemonTracker({ member }: { member: TeamMember }) {
+  const { setCurrent } = useTeam();
+  useEffect(() => {
+    setCurrent(member);
+    return () => setCurrent(null);
+    // Primitive deps: `member` is a fresh object literal on every render.
+  }, [member.id, member.name, member.types.join(","), setCurrent]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}

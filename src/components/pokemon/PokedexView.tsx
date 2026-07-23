@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFavorites } from "@/components/favorites/FavoritesProvider";
 import { FilterBar } from "@/components/filters/FilterBar";
 import type { FilterPatch } from "@/components/filters/FilterBar";
 import { Pagination } from "@/components/pokemon/Pagination";
@@ -29,27 +30,55 @@ interface PokedexViewProps {
  */
 export function PokedexView({ index }: PokedexViewProps) {
   const [filters, setFilters] = useFilters();
-  const { q, type, gen, sort, color, habitat, shape, egg, cat, stage, page } =
-    filters;
+  const {
+    q,
+    type,
+    gen,
+    sort,
+    color,
+    habitat,
+    shape,
+    egg,
+    cat,
+    stage,
+    fav,
+    page,
+  } = filters;
+  const { favorites } = useFavorites();
 
-  const results = useMemo(
-    () =>
-      sortPokemon(
-        filterPokemon(index, {
-          query: q,
-          type,
-          generation: gen,
-          color,
-          habitat,
-          shape,
-          eggGroup: egg,
-          category: cat,
-          stage,
-        }),
-        sort,
-      ),
-    [index, q, type, gen, sort, color, habitat, shape, egg, cat, stage],
-  );
+  const results = useMemo(() => {
+    const filtered = filterPokemon(index, {
+      query: q,
+      type,
+      generation: gen,
+      color,
+      habitat,
+      shape,
+      eggGroup: egg,
+      category: cat,
+      stage,
+    });
+    // Favoritos viven en localStorage (no en el índice), así que se aplican
+    // como una pasada extra sobre el resultado del resto de filtros.
+    const withFav = fav
+      ? filtered.filter((entry) => favorites.includes(entry.id))
+      : filtered;
+    return sortPokemon(withFav, sort);
+  }, [
+    index,
+    q,
+    type,
+    gen,
+    sort,
+    color,
+    habitat,
+    shape,
+    egg,
+    cat,
+    stage,
+    fav,
+    favorites,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
 
@@ -129,7 +158,7 @@ export function PokedexView({ index }: PokedexViewProps) {
   const handleFiltersChange = (patch: FilterPatch) =>
     setFilters({ ...patch, page: null });
 
-  const listKey = [q, type, gen, sort, color, habitat, shape, egg, cat, stage]
+  const listKey = [q, type, gen, sort, color, habitat, shape, egg, cat, stage, fav]
     .map(String)
     .join("|");
 
@@ -181,6 +210,9 @@ export function PokedexView({ index }: PokedexViewProps) {
                       }
                     : undefined
                 }
+                // Only the first viewport-full staggers; the rest pop in at once.
+                style={{ animationDelay: `${Math.min(i, 17) * 30}ms` }}
+                className="motion-safe:animate-[card-in_400ms_ease-out_both]"
               >
                 <PokemonCard entry={entry} />
               </li>

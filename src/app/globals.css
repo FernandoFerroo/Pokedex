@@ -10,6 +10,20 @@
   --font-mono: var(--font-chakra);
   --font-pixel: var(--font-press-start);
   --font-display: var(--font-orbitron);
+
+  /* Raised type scale: the HUD lives almost entirely in text-xs/text-sm, so
+     the small steps grow the most and the gap to text-base narrows. From
+     text-2xl up the scale is untouched — the wordmark keeps its exact size. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.4;
 }
 
 html {
@@ -44,6 +58,37 @@ body {
     44px 44px,
     44px 44px;
   background-attachment: fixed;
+}
+
+/* Neon HUD scrollbar: dark track, slate thumb that heats up red on hover. */
+html {
+  scrollbar-color: #334155 #05070c;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05070c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 8px;
+  border: 2px solid #05070c;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+/* Text selection glows Pokédex-red. */
+::selection {
+  background: rgba(239, 68, 68, 0.4);
+  color: #fff;
 }
 
 /* Subtle CRT scanlines over the whole screen (purely decorative). */
@@ -81,6 +126,43 @@ body::after {
   }
 }
 
+/* Dex entries materialize one after another (delay set inline per card). */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+/*
+ * HUD panel: the framed sections of the detail page. A hairline of aura
+ * light runs along the top edge, and the border warms toward the aura color
+ * while hovered — same restraint rules as .aura-card.
+ */
+.hud-panel {
+  position: relative;
+  transition: border-color 300ms ease;
+}
+
+.hud-panel::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 4%,
+    color-mix(in srgb, var(--aura, #ef4444) 55%, transparent),
+    transparent 96%
+  );
+  pointer-events: none;
+}
+
+.hud-panel:hover {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 35%, #1e293b);
+}
+
 /* Status LEDs on the Pokédex header breathe out of phase (delay set inline). */
 @keyframes led-blink {
   0%,
@@ -105,6 +187,74 @@ body::after {
 
 .cursor-blink {
   animation: cursor-blink 1.1s steps(1) infinite;
+}
+
+/*
+ * Intro splash: the Poké Ball drops in with a bounce, wobbles like a capture
+ * and a neon ring bursts out as the overlay fades. The component only mounts
+ * when motion is allowed, so no reduced-motion overrides are needed here.
+ */
+@keyframes intro-drop {
+  0% {
+    transform: translateY(-48vh);
+  }
+  55% {
+    transform: translateY(0);
+  }
+  72% {
+    transform: translateY(-5vh);
+  }
+  86% {
+    transform: translateY(0);
+  }
+  94% {
+    transform: translateY(-1.5vh);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-16deg);
+  }
+  70% {
+    transform: rotate(13deg);
+  }
+}
+
+@keyframes intro-ring {
+  0% {
+    transform: scale(0.25);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.intro-ball {
+  animation: intro-drop 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+  filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.55))
+    drop-shadow(0 0 44px rgba(239, 68, 68, 0.3));
+}
+
+.intro-wobble {
+  animation: intro-wobble 0.35s ease-in-out 0.85s 2;
+  transform-origin: 50% 85%;
+}
+
+.intro-ring {
+  animation: intro-ring 0.55s ease-out 1.5s both;
 }
 
 /* Glitchy jitter for the 404 "MissingNo." screen. */
@@ -169,6 +319,73 @@ body::after {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-title {
+    animation: none;
+  }
+}
+
+/*
+ * Premium chrome for the team builder: a molten-gold gradient border (painted
+ * via two stacked backgrounds so the frame itself can be a gradient), a gold
+ * gradient text treatment, and a slow light sweep drifting across the panel.
+ */
+@keyframes premium-sweep {
+  to {
+    transform: translateX(250%) skewX(-18deg);
+  }
+}
+
+.premium-frame {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #0d0d06, #050810) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(251, 191, 36, 0.9),
+        rgba(120, 82, 20, 0.5) 30%,
+        rgba(251, 191, 36, 0.85) 50%,
+        rgba(120, 82, 20, 0.5) 72%,
+        rgba(253, 224, 71, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(251, 191, 36, 0.45),
+    inset 0 0 42px -24px rgba(251, 191, 36, 0.35);
+}
+
+.premium-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(251, 191, 36, 0.6),
+    inset 0 0 42px -20px rgba(251, 191, 36, 0.45);
+}
+
+.premium-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 35%;
+  transform: translateX(-100%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(253, 230, 138, 0.09),
+    transparent
+  );
+  animation: premium-sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.premium-text {
+  background: linear-gradient(100deg, #fef3c7, #fbbf24 40%, #f59e0b 60%, #fde68a);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-sweep::after,
+  .premium-text {
     animation: none;
   }
 }

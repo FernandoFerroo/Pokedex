@@ -94,25 +94,16 @@ export interface AbilityResponse {
   }>;
 }
 
-/** One element of `GET /pokemon/{id}/encounters`. */
-export interface LocationAreaEncounter {
-  location_area: NamedAPIResource;
-  version_details: Array<{
-    version: NamedAPIResource;
-    /** Highest single-slot chance in this area for this version (%). */
-    max_chance: number;
-    encounter_details: Array<{
-      min_level: number;
-      max_level: number;
-      /** Chance of this specific encounter slot (%). */
-      chance: number;
-      method: NamedAPIResource;
-      condition_values: NamedAPIResource[];
-    }>;
+export interface ItemResponse {
+  name: string;
+  names: Array<{
+    name: string;
+    language: NamedAPIResource;
   }>;
+  sprites: {
+    default: string | null;
+  };
 }
-
-export type PokemonEncountersResponse = LocationAreaEncounter[];
 
 export interface PokemonResponse {
   id: number;
@@ -131,7 +122,12 @@ export interface PokemonResponse {
   };
   stats: Array<{
     base_stat: number;
+    /** EV yield granted on defeat (0-3). */
+    effort: number;
     stat: NamedAPIResource;
+  }>;
+  held_items: Array<{
+    item: NamedAPIResource;
   }>;
   types: Array<{
     slot: number;

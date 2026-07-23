@@ -20,10 +20,10 @@ export function BackButton() {
           router.push("/");
         }
       }}
-      className="inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-black/40 px-2.5 py-1.5 font-mono text-xs tracking-widest text-slate-300 uppercase transition hover:border-red-500/60 hover:text-red-400 hover:shadow-[0_0_12px_-2px_rgba(239,68,68,0.5)]"
+      className="inline-flex items-center gap-2 rounded-md border border-red-500/60 bg-red-500/10 px-4 py-2 font-mono text-sm font-bold tracking-widest text-red-300 uppercase shadow-[0_0_14px_-4px_rgba(239,68,68,0.6)] transition hover:border-red-400 hover:bg-red-500/20 hover:text-red-200 hover:shadow-[0_0_20px_-2px_rgba(239,68,68,0.8)]"
     >
-      <ArrowLeft size={14} />
-      Volver al listado
+      <ArrowLeft size={18} />
+      Volver a la Pokédex
     </button>
   );
 }

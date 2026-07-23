@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Heart, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   CATEGORY_LABELS_ES,
   COLOR_LABELS_ES,
@@ -32,6 +32,7 @@ export interface FilterValues {
   egg: string | null;
   cat: PokemonCategory | null;
   stage: StageFilter | null;
+  fav: boolean | null;
 }
 
 export interface FilterPatch {
@@ -45,6 +46,7 @@ export interface FilterPatch {
   egg?: string | null;
   cat?: PokemonCategory | null;
   stage?: StageFilter | null;
+  fav?: boolean | null;
 }
 
 interface FilterBarProps {
@@ -64,6 +66,7 @@ const CLEAR_ALL: FilterPatch = {
   egg: null,
   cat: null,
   stage: null,
+  fav: null,
 };
 
 const controlClasses =
@@ -118,6 +121,7 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
     values.type !== null ||
     values.gen !== null ||
     values.sort !== "id-asc" ||
+    values.fav === true ||
     advancedCount > 0;
 
   return (
@@ -125,8 +129,8 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative flex-1">
           <Search
-            size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-300"
+            size={20}
+            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-slate-300"
           />
           <input
             type="search"
@@ -134,7 +138,7 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
             onChange={(e) => onChange({ q: e.target.value || null })}
             placeholder="Buscar por nombre o cadena evolutiva (ej. pikachu)…"
             aria-label="Buscar Pokémon por nombre o cadena evolutiva"
-            className={`${controlClasses} w-full pl-9`}
+            className="h-14 w-full rounded-md border border-slate-700/80 bg-[#0a101d]/90 pr-4 pl-12 font-mono text-base text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)]"
           />
         </label>
 
@@ -174,6 +178,22 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
             </option>
           ))}
         </select>
+
+        {/* Solo favoritos: toggle con corazón, a la izquierda de «Más filtros». */}
+        <button
+          type="button"
+          onClick={() => onChange({ fav: values.fav ? null : true })}
+          aria-pressed={values.fav === true}
+          aria-label="Mostrar solo favoritos"
+          className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 font-mono text-sm transition ${
+            values.fav
+              ? "border-pink-400/70 bg-pink-400/15 text-pink-300 shadow-[0_0_14px_-2px_rgba(244,114,182,0.6)]"
+              : "border-slate-700/80 bg-[#0a101d]/90 text-slate-300 hover:border-pink-400/60 hover:text-pink-300 hover:shadow-[0_0_14px_-2px_rgba(244,114,182,0.45)]"
+          }`}
+        >
+          <Heart size={14} fill={values.fav ? "currentColor" : "none"} />
+          Favoritos
+        </button>
 
         <button
           type="button"

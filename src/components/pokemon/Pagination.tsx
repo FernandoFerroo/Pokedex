@@ -34,7 +34,7 @@ const buttonBase =
 const buttonIdle =
   "border-slate-700/80 bg-black/40 text-slate-300 hover:border-cyan-400/70 hover:text-cyan-300 hover:shadow-[0_0_14px_rgba(34,211,238,0.3)]";
 const buttonActive =
-  "border-red-400/90 bg-red-500/10 font-pixel text-[11px] text-red-300 shadow-[0_0_16px_rgba(248,113,113,0.45)]";
+  "border-red-400/90 bg-red-500/10 font-pixel text-xs text-red-300 shadow-[0_0_16px_rgba(248,113,113,0.45)]";
 
 /**
  * Compact single-row pager for the sticky bottom bar: neon active section,

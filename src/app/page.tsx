@@ -4,6 +4,8 @@ import {
   DailyBannerSkeleton,
 } from "@/components/pokemon/DailyBanner";
 import { PokedexView } from "@/components/pokemon/PokedexView";
+import { TeamCta } from "@/components/team/TeamCta";
+import { TrainerChat } from "@/components/trainer/TrainerChat";
 import { getPokemonIndex } from "@/lib/index/build-index";
 
 /**
@@ -21,9 +23,17 @@ export default async function HomePage() {
       <Suspense fallback={<DailyBannerSkeleton />}>
         <DailyBanner />
       </Suspense>
+      {/* Banner del creador de equipos, a todo lo ancho encima de los filtros. */}
+      <div className="mt-6 mb-2">
+        <TeamCta />
+      </div>
       {/* useSearchParams (via nuqs) requires a Suspense boundary to prerender. */}
       <Suspense>
         <PokedexView index={index} />
+      </Suspense>
+      {/* Chat con el Profesor Oak: panel fijo al borde derecho, no ocupa hueco en el flujo. */}
+      <Suspense>
+        <TrainerChat />
       </Suspense>
     </main>
   );

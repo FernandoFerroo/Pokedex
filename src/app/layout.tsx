@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Exo_2, Orbitron, Press_Start_2P } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { SoundtrackPlayer } from "@/components/audio/SoundtrackPlayer";
+import { FavoritesProvider } from "@/components/favorites/FavoritesProvider";
+import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
+import { IntroSplash } from "@/components/layout/IntroSplash";
+import { TeamDrawer } from "@/components/team/TeamDrawer";
+import { TeamProvider } from "@/components/team/TeamProvider";
 import "./globals.css";
 
 /**
@@ -62,9 +68,20 @@ export default function RootLayout({
     >
       {/* font-medium base: Exo 2 gains presence on the dark backdrop. */}
       <body className="flex min-h-full flex-col font-sans font-medium text-slate-100">
+        {/* Mini intro con la Poké Ball, una vez por sesión. */}
+        <IntroSplash />
         <NuqsAdapter>
-          <Header />
-          {children}
+          <TeamProvider>
+            <FavoritesProvider>
+              <Header />
+              {children}
+              <Footer />
+              {/* Cajón del equipo: fijo al borde inferior en todas las páginas. */}
+              <TeamDrawer />
+              {/* Soundtrack en bucle (embed de YouTube), sobre el cajón. */}
+              <SoundtrackPlayer />
+            </FavoritesProvider>
+          </TeamProvider>
         </NuqsAdapter>
       </body>
     </html>

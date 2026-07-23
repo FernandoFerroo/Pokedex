@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  parseAsBoolean,
   parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
@@ -30,6 +31,8 @@ export function useFilters() {
       egg: parseAsString,
       cat: parseAsStringLiteral(CATEGORY_OPTIONS),
       stage: parseAsStringLiteral(STAGE_OPTIONS),
+      /** Solo especies marcadas con el corazón (se guardan en localStorage). */
+      fav: parseAsBoolean,
       page: parseAsInteger.withDefault(1),
     },
     { history: "replace" },

@@ -35,6 +35,20 @@ export const COLOR_LABELS_ES: Record<string, string> = {
   yellow: "Amarillo",
 };
 
+/** Species color slug -> swatch hex, brightened to read on the dark HUD. */
+export const COLOR_SWATCH_HEX: Record<string, string> = {
+  black: "#475569",
+  blue: "#3b82f6",
+  brown: "#b45309",
+  gray: "#94a3b8",
+  green: "#22c55e",
+  pink: "#f472b6",
+  purple: "#a855f7",
+  red: "#ef4444",
+  white: "#f1f5f9",
+  yellow: "#facc15",
+};
+
 export const HABITAT_LABELS_ES: Record<string, string> = {
   cave: "Cueva",
   forest: "Bosque",

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
+import { AddToTeamButton } from "@/components/team/AddToTeamButton";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import {
   artworkUrl,
@@ -30,13 +32,21 @@ export function PokemonCard({ entry }: PokemonCardProps) {
       <span aria-hidden className="scan-beam z-10" />
 
       <div className="flex items-center justify-between text-slate-400">
-        <span className="font-pixel text-[11px] transition-colors group-hover:text-[var(--aura)]">
+        <span className="font-pixel text-xs transition-colors group-hover:text-[var(--aura)]">
           {formatDexNumber(entry.id)}
         </span>
         <span className="rounded border border-slate-700/80 px-1.5 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase">
           {generationLabel(entry.generation)}
         </span>
       </div>
+      {/* Favorito y alta directa al equipo, sin pasar por la ficha:
+          corazón arriba, «+» debajo. */}
+      <span className="absolute top-9 right-2 z-20 flex flex-col gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100">
+        <FavoriteButton id={entry.id} name={entry.name} />
+        <AddToTeamButton
+          member={{ id: entry.id, name: entry.name, types: entry.types }}
+        />
+      </span>
       <div className="aura-halo relative mx-auto aspect-square w-full max-w-[130px]">
         <Image
           src={artworkUrl(entry.id)}

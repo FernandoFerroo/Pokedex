@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TeamHeaderButton } from "@/components/team/TeamCta";
 
 /** Blink phases for the classic Pokédex indicator LEDs. */
 const LEDS = [
@@ -83,12 +84,15 @@ export function Header() {
           </span>
         </Link>
 
-        <span className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_1px_rgba(52,211,153,0.8)]" />
+        <span className="flex items-center gap-3">
+          <TeamHeaderButton />
+          <span className="hidden items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase sm:flex">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_1px_rgba(52,211,153,0.8)]" />
+            </span>
+            Online
           </span>
-          Online
         </span>
       </div>
       {/* Tricolor energy strip echoing the LED row */}
