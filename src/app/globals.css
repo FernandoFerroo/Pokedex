@@ -7,7 +7,7 @@
 
 @theme inline {
   --font-sans: var(--font-exo2);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-chakra);
   --font-pixel: var(--font-press-start);
   --font-display: var(--font-orbitron);
 }

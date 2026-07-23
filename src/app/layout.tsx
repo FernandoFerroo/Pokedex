@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Exo_2, Geist_Mono, Orbitron, Press_Start_2P } from "next/font/google";
+import { Chakra_Petch, Exo_2, Orbitron, Press_Start_2P } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/layout/Header";
 import "./globals.css";
@@ -14,8 +14,14 @@ const exo2 = Exo_2({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+/**
+ * HUD readout typeface (fills the `font-mono` slot): squared, techno and far
+ * more characterful than a plain code font. Carries the banner copy, filters,
+ * chips, labels and data readouts.
+ */
+const chakraPetch = Chakra_Petch({
+  variable: "--font-chakra",
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -52,7 +58,7 @@ export default function RootLayout({
       lang="es"
       // The neon HUD experience is dark-only: the `.dark` class is permanent
       // so every legacy `dark:` utility stays active without a toggle.
-      className={`dark ${exo2.variable} ${geistMono.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
+      className={`dark ${exo2.variable} ${chakraPetch.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
     >
       {/* font-medium base: Exo 2 gains presence on the dark backdrop. */}
       <body className="flex min-h-full flex-col font-sans font-medium text-slate-100">
