@@ -18,7 +18,7 @@
 
 ---
 
-## 🚀 Puesta en marcha
+## 🚀 Puesta en marcha 
 
 **Opción A — npm (desarrollo):**
 
