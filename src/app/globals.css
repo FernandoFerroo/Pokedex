@@ -32,6 +32,14 @@ html {
   font-size: 106.25%;
 }
 
+/* Mobile: pull the HUD way back. A smaller rem base compacts every size and
+   spacing ~21%, so phones fit far more of the dex per screen. */
+@media (max-width: 640px) {
+  html {
+    font-size: 84%;
+  }
+}
+
 /*
  * Deep-space backdrop: near-black base, a faint HUD grid, the red glow of the
  * Pokédex "lens" bleeding from the top and a cyan counter-glow from the
@@ -383,9 +391,65 @@ body::after {
   animation: title-sheen 6s linear infinite;
 }
 
+/*
+ * Elite chrome for the AI battle banner: the same molten frame, sweep and
+ * gradient-text treatment as the premium team tier, recast in ember red so it
+ * reads as the exclusive combat tier.
+ */
+.elite-frame {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #0d0606, #050810) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(239, 68, 68, 0.9),
+        rgba(120, 24, 24, 0.5) 30%,
+        rgba(239, 68, 68, 0.85) 50%,
+        rgba(120, 24, 24, 0.5) 72%,
+        rgba(252, 165, 165, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(239, 68, 68, 0.45),
+    inset 0 0 42px -24px rgba(239, 68, 68, 0.35);
+}
+
+.elite-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(239, 68, 68, 0.6),
+    inset 0 0 42px -20px rgba(239, 68, 68, 0.45);
+}
+
+.elite-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 35%;
+  transform: translateX(-100%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(254, 202, 202, 0.09),
+    transparent
+  );
+  animation: premium-sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.elite-text {
+  background: linear-gradient(100deg, #fee2e2, #f87171 40%, #dc2626 60%, #fecaca);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .premium-sweep::after,
-  .premium-text {
+  .premium-text,
+  .elite-sweep::after,
+  .elite-text {
     animation: none;
   }
 }
@@ -615,6 +679,326 @@ li:nth-child(3n) .aura-halo::before {
   mix-blend-mode: overlay;
   opacity: calc(var(--holo) * 0.9);
   transition: opacity 300ms ease;
+}
+
+/*
+ * Modo Combate — FX de la arena. Las versiones 3D de estas animaciones son
+ * procedurales (tweens en Three.js); estas clases son sus gemelas para los
+ * sprites 2D de fallback y para la UI (bocadillo, sacudida de pantalla).
+ */
+/* Entrada del sprite al salir de la Poké Ball. */
+@keyframes pk-send-in {
+  0% {
+    transform: scale(0.15) translateY(30%);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pk-send-in {
+  animation: pk-send-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.15) both;
+}
+
+/* Embestida del atacante hacia el rival (y la inversa del enemigo). */
+@keyframes pk-lunge-p {
+  30% {
+    transform: translate(2.6rem, -1.6rem) scale(1.05);
+  }
+}
+
+@keyframes pk-lunge-e {
+  30% {
+    transform: translate(-2.2rem, 1.3rem) scale(1.05);
+  }
+}
+
+/* Parpadeo blanco + sacudida del defensor al recibir daño. */
+@keyframes pk-hit {
+  0%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  20%,
+  60% {
+    transform: translateX(-0.5rem);
+    filter: brightness(3) saturate(0.2);
+  }
+  40%,
+  80% {
+    transform: translateX(0.5rem);
+    filter: brightness(3) saturate(0.2);
+  }
+}
+
+/* Debilitado: el sprite se hunde y desaparece, como en los juegos. */
+@keyframes pk-faint {
+  to {
+    transform: translateY(65%);
+    opacity: 0;
+  }
+}
+
+.pk-lunge-p {
+  animation: pk-lunge-p 0.45s ease-out;
+}
+.pk-lunge-e {
+  animation: pk-lunge-e 0.45s ease-out;
+}
+.pk-hit {
+  animation: pk-hit 0.5s ease-in-out;
+}
+.pk-faint {
+  animation: pk-faint 0.8s ease-in both;
+}
+
+@keyframes pk-shake-hard {
+  0%,
+  100% {
+    transform: none;
+  }
+  15% {
+    transform: translate(7px, -5px);
+  }
+  35% {
+    transform: translate(-7px, 4px);
+  }
+  55% {
+    transform: translate(5px, 5px);
+  }
+  75% {
+    transform: translate(-4px, -4px);
+  }
+}
+
+.pk-shake-hard {
+  animation: pk-shake-hard 0.45s linear;
+}
+
+/*
+ * Proyectil de los movimientos especiales: viaja entre los anclajes fijos de
+ * ambos sprites (posiciones en % del escenario) con un arco ligero.
+ */
+@keyframes pk-shot-to-e {
+  0% {
+    left: 28%;
+    top: 56%;
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    top: 38%;
+    transform: scale(1.15);
+  }
+  100% {
+    left: 71%;
+    top: 38%;
+    transform: scale(1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes pk-shot-to-p {
+  0% {
+    left: 71%;
+    top: 38%;
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    top: 44%;
+    transform: scale(1.15);
+  }
+  100% {
+    left: 27%;
+    top: 56%;
+    transform: scale(1);
+    opacity: 0.9;
+  }
+}
+
+.pk-shot-to-e {
+  animation: pk-shot-to-e 0.42s ease-in both;
+}
+.pk-shot-to-p {
+  animation: pk-shot-to-p 0.42s ease-in both;
+}
+
+/* Estallido de partículas tipadas en el impacto (dirección vía --dx/--dy). */
+@keyframes pk-burst {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0.25) rotate(160deg);
+    opacity: 0;
+  }
+}
+
+.pk-particle {
+  position: absolute;
+  width: 0.9rem;
+  height: 0.9rem;
+  animation: pk-burst 0.55s ease-out both;
+}
+
+/* Siluetas de partícula por familia de tipos. */
+.pk-shape-flame {
+  border-radius: 50% 0 50% 50%;
+  transform: rotate(-45deg);
+}
+.pk-shape-drop {
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(45deg);
+}
+.pk-shape-bolt {
+  clip-path: polygon(60% 0, 20% 55%, 45% 55%, 35% 100%, 80% 40%, 55% 40%);
+  width: 1.1rem;
+  height: 1.3rem;
+}
+.pk-shape-leaf {
+  border-radius: 0 60% 0 60%;
+}
+.pk-shape-shard {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.pk-shape-star {
+  clip-path: polygon(
+    50% 0,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.pk-shape-ring {
+  border: 3px solid;
+  border-radius: 50%;
+  background: transparent;
+}
+.pk-shape-spark {
+  border-radius: 50%;
+}
+
+/* Tajos cruzados de los movimientos físicos. */
+@keyframes pk-slash {
+  0% {
+    transform: rotate(-40deg) scaleX(0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-40deg) scaleX(1.6);
+    opacity: 0;
+  }
+}
+
+.pk-slash {
+  position: absolute;
+  top: -0.2rem;
+  left: -2.6rem;
+  height: 0.35rem;
+  width: 5.5rem;
+  border-radius: 999px;
+  transform-origin: center;
+  animation: pk-slash 0.4s ease-out both;
+}
+
+.pk-slash-2 {
+  transform: rotate(40deg) scaleX(0);
+  animation-name: pk-slash-2;
+}
+
+@keyframes pk-slash-2 {
+  0% {
+    transform: rotate(40deg) scaleX(0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(40deg) scaleX(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes fx-screen-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translate(4px, -3px);
+  }
+  40% {
+    transform: translate(-4px, 2px);
+  }
+  60% {
+    transform: translate(3px, 3px);
+  }
+  80% {
+    transform: translate(-2px, -2px);
+  }
+}
+
+.fx-screen-shake {
+  animation: fx-screen-shake 0.35s linear;
+}
+
+/* Bocadillo de diálogo estilo anime: entra con un pop elástico. */
+@keyframes fx-bubble-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.fx-bubble-pop {
+  animation: fx-bubble-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-lunge-p,
+  .fx-lunge-r,
+  .fx-hit,
+  .fx-faint,
+  .fx-screen-shake,
+  .fx-bubble-pop {
+    animation: none;
+  }
 }
 
 /*

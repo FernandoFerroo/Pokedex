@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Shield,
+  Sparkles,
   Swords,
   X,
 } from "lucide-react";
@@ -23,7 +24,13 @@ import {
 } from "@/lib/pokemon-meta";
 import { analyzeTeam, PRESSURE_THRESHOLD } from "@/lib/team-analysis";
 import { cn } from "@/lib/utils";
-import type { CoachReport, CoachResponse, TeamMember } from "@/types/team";
+import {
+  DEFAULT_LEVEL,
+  type CoachReport,
+  type CoachResponse,
+  type TeamMember,
+  type TeamSuggestResponse,
+} from "@/types/team";
 import { TEAM_SIZE, useTeam } from "./TeamProvider";
 import type { CSSProperties } from "react";
 
@@ -37,7 +44,7 @@ type SearchEntry = TeamMember;
 let indexCache: SearchEntry[] | null = null;
 let indexPromise: Promise<SearchEntry[]> | null = null;
 
-function loadTeamIndex(): Promise<SearchEntry[]> {
+export function loadTeamIndex(): Promise<SearchEntry[]> {
   if (indexCache) return Promise.resolve(indexCache);
   indexPromise ??= fetch("/api/team-index")
     .then((res) => (res.ok ? res.json() : Promise.reject()))
@@ -49,7 +56,7 @@ function loadTeamIndex(): Promise<SearchEntry[]> {
   return indexPromise;
 }
 
-function useTeamIndex() {
+export function useTeamIndex() {
   const [entries, setEntries] = useState<SearchEntry[] | null>(indexCache);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -65,8 +72,20 @@ function useTeamIndex() {
   return { entries, failed };
 }
 
+/** Loose species matcher shared with the AI routes: lowercase, no accents. */
+function normalizeSpecies(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /** startsWith matches first, then contains; empty query returns everything. */
-function filterEntries(entries: SearchEntry[], query: string): SearchEntry[] {
+export function filterEntries(
+  entries: SearchEntry[],
+  query: string,
+): SearchEntry[] {
   const q = query.trim().toLowerCase();
   if (!q) return entries;
   const starts = entries.filter((e) => e.name.startsWith(q));
@@ -77,7 +96,7 @@ function filterEntries(entries: SearchEntry[], query: string): SearchEntry[] {
 }
 
 /** Row-style result button shared by the picker grid and the search list. */
-function EntryButton({
+export function EntryButton({
   entry,
   onAdd,
   inTeam,
@@ -264,7 +283,7 @@ function TeamSlot({
   index: number;
   onOpenPicker: (slot: number) => void;
 }) {
-  const { team, remove } = useTeam();
+  const { team, remove, setLevel } = useTeam();
   const member = team[index];
 
   if (!member) {
@@ -323,6 +342,22 @@ function TeamSlot({
           <TypeBadge key={type} type={type} />
         ))}
       </div>
+      {/* Nivel de combate, listo para el futuro modo combate. */}
+      <label className="flex items-center gap-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase">
+        Nv.
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={member.level ?? DEFAULT_LEVEL}
+          onChange={(e) => {
+            const value = e.target.valueAsNumber;
+            if (!Number.isNaN(value)) setLevel(member.id, value);
+          }}
+          aria-label={`Nivel de ${formatName(member.name)}`}
+          className="h-6 w-12 rounded border border-slate-700/80 bg-black/40 px-1 text-center font-mono text-xs text-slate-100 outline-none transition focus:border-[var(--aura)]"
+        />
+      </label>
     </div>
   );
 }
@@ -410,7 +445,19 @@ function AnalysisChip({
   );
 }
 
-function CoachReportView({ report }: { report: CoachReport }) {
+type Substitution = CoachReport["sustituciones"][number];
+type SubstitutionStatus = "ready" | "applied" | "unavailable";
+
+function CoachReportView({
+  report,
+  resolveSub,
+  onApply,
+}: {
+  report: CoachReport;
+  /** Whether each suggested swap can be applied against the current roster. */
+  resolveSub: (sub: Substitution) => SubstitutionStatus;
+  onApply: (sub: Substitution) => void;
+}) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
       <p className="font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
@@ -430,16 +477,42 @@ function CoachReportView({ report }: { report: CoachReport }) {
             Cambios sugeridos
           </p>
           <ul className="flex flex-col gap-2 text-sm text-slate-300">
-            {report.sustituciones.map((s, i) => (
-              <li key={i}>
-                <span className="text-red-300">{s.sale}</span>
-                <span aria-hidden className="mx-1.5 text-slate-500">
-                  →
-                </span>
-                <span className="text-emerald-300">{s.entra}</span>
-                <span className="text-slate-400"> · {s.motivo}</span>
-              </li>
-            ))}
+            {report.sustituciones.map((s, i) => {
+              const status = resolveSub(s);
+              return (
+                <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>
+                    <span className="text-red-300">{formatName(s.sale)}</span>
+                    <span aria-hidden className="mx-1.5 text-slate-500">
+                      →
+                    </span>
+                    <span className="text-emerald-300">
+                      {formatName(s.entra)}
+                    </span>
+                    <span className="text-slate-400"> · {s.motivo}</span>
+                  </span>
+                  {status === "applied" ? (
+                    <span className="font-mono text-xs text-emerald-400">
+                      ✓ Aplicado
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={status === "unavailable"}
+                      onClick={() => onApply(s)}
+                      title={
+                        status === "unavailable"
+                          ? "No se pudo localizar la especie sugerida"
+                          : `Cambiar ${formatName(s.sale)} por ${formatName(s.entra)}`
+                      }
+                      className="rounded border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 font-mono text-xs text-emerald-300 transition enabled:hover:bg-emerald-400/20 disabled:opacity-40"
+                    >
+                      Aplicar
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -454,12 +527,29 @@ function CoachReportView({ report }: { report: CoachReport }) {
  * TeamProvider, and the TeamCta banner (home) and header chip summon it.
  */
 export function TeamDrawer() {
-  const { team, clear, drawerOpen: open, setDrawerOpen } = useTeam();
+  const {
+    team,
+    clear,
+    replace,
+    swap,
+    has,
+    drawerOpen: open,
+    setDrawerOpen,
+  } = useTeam();
+  const { entries } = useTeamIndex();
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [reportFor, setReportFor] = useState<string | null>(null);
   const [report, setReport] = useState<CoachReport | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // AI generator for empty rosters: describe the team, get 6 members back.
+  const [wish, setWish] = useState("");
+  const [genPending, setGenPending] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [genNote, setGenNote] = useState<{ text: string; roster: string } | null>(
+    null,
+  );
 
   const analysis = useMemo(() => analyzeTeam(team), [team]);
   /** Cache key: the report belongs to this exact roster. */
@@ -489,6 +579,63 @@ export function TeamDrawer() {
     } finally {
       setPending(false);
     }
+  };
+
+  const generateTeam = async () => {
+    if (genPending || !wish.trim()) return;
+    setGenPending(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/team-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: wish }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | (TeamSuggestResponse & { error?: string })
+        | null;
+      if (!res.ok || !Array.isArray(data?.team) || data.team.length === 0) {
+        setGenError(
+          data?.error ?? "El Coach Bot no responde. Inténtalo de nuevo.",
+        );
+        return;
+      }
+      replace(data.team);
+      setGenNote({
+        text: data.motivo,
+        roster: data.team.map((m) => m.id).join(","),
+      });
+      setWish("");
+    } catch {
+      setGenError("Sin conexión con el Coach Bot…");
+    } finally {
+      setGenPending(false);
+    }
+  };
+
+  /** Maps a coach substitution to the real roster/index entries, if possible. */
+  const findSubTargets = (sub: Substitution) => {
+    const outMember = team.find(
+      (m) => normalizeSpecies(m.name) === normalizeSpecies(sub.sale),
+    );
+    const inEntry = entries?.find(
+      (e) => normalizeSpecies(e.name) === normalizeSpecies(sub.entra),
+    );
+    return { outMember, inEntry };
+  };
+
+  const resolveSub = (sub: Substitution): SubstitutionStatus => {
+    const { outMember, inEntry } = findSubTargets(sub);
+    if (inEntry && has(inEntry.id)) return "applied";
+    if (!outMember || !inEntry) return "unavailable";
+    return "ready";
+  };
+
+  const applySub = (sub: Substitution) => {
+    const { outMember, inEntry } = findSubTargets(sub);
+    if (!outMember || !inEntry || has(inEntry.id)) return;
+    // The newcomer inherits the slot and the level of the member it replaces.
+    swap(outMember.id, { ...inEntry, level: outMember.level });
   };
 
   return (
@@ -561,6 +708,54 @@ export function TeamDrawer() {
               />
             ))}
           </div>
+
+          {/* Rationale of the last AI-generated roster, while it's intact. */}
+          {genNote && genNote.roster === rosterKey && team.length > 0 && (
+            <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
+              <p className="mb-1.5 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
+                Equipo generado por el Coach Bot
+              </p>
+              <p className="text-sm leading-relaxed text-slate-200">
+                {genNote.text}
+              </p>
+            </div>
+          )}
+
+          {/* AI generator: an empty roster can be described in words. */}
+          {team.length === 0 && (
+            <div className="flex flex-col gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
+              <p className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
+                <Sparkles size={15} /> ¿Sin equipo? Pídeselo a la IA
+              </p>
+              <p className="text-sm leading-relaxed text-slate-300">
+                Describe el equipo que quieres y el Coach Bot montará uno
+                optimizado de 6 Pokémon.
+              </p>
+              <textarea
+                value={wish}
+                onChange={(e) => setWish(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Ej.: un equipo equilibrado de la Gen I con Charizard de estrella, o un equipo de tipo Agua resistente…"
+                aria-label="Describe el equipo que quieres generar"
+                className="w-full resize-none rounded-lg border border-slate-700/80 bg-[#0a101d]/90 px-4 py-3 font-mono text-sm text-slate-200 outline-none transition focus:border-cyan-400/70 focus:shadow-[0_0_16px_-2px_rgba(34,211,238,0.55)]"
+              />
+              <button
+                type="button"
+                onClick={generateTeam}
+                disabled={genPending || !wish.trim()}
+                className="inline-flex h-12 items-center justify-center gap-2.5 self-start rounded-md border border-cyan-400/50 bg-cyan-400/10 px-6 font-mono text-base tracking-wider text-cyan-300 uppercase transition enabled:hover:bg-cyan-400/20 enabled:hover:shadow-[0_0_20px_-2px_rgba(34,211,238,0.7)] disabled:opacity-50"
+              >
+                <Bot size={19} className={cn(genPending && "animate-pulse")} />
+                {genPending ? "Montando equipo…" : "✨ Generar equipo con IA"}
+              </button>
+              {genError && (
+                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-sm text-red-400">
+                  {genError}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Search picker */}
           <TeamSearch />
@@ -655,7 +850,11 @@ export function TeamDrawer() {
                       El equipo cambió desde este informe: vuelve a analizar.
                     </p>
                   )}
-                  <CoachReportView report={report} />
+                  <CoachReportView
+                    report={report}
+                    resolveSub={resolveSub}
+                    onApply={applySub}
+                  />
                 </>
               )}
             </div>
@@ -663,8 +862,8 @@ export function TeamDrawer() {
 
           {team.length === 0 && (
             <p className="pb-2 text-center font-mono text-base text-slate-500">
-              Pulsa «+» en una ranura para elegir un Pokémon, busca arriba, o
-              ficha desde cualquier tarjeta del listado.
+              También puedes pulsar «+» en una ranura, buscar arriba, o fichar
+              desde cualquier tarjeta del listado.
             </p>
           )}
         </div>

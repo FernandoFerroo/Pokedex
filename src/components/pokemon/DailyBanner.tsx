@@ -119,7 +119,7 @@ export async function DailyBanner() {
     <section
       aria-label="Pokémon del día"
       style={{ "--aura": typeAura(pokemon.types[0]?.type.name) } as CSSProperties}
-      className="aura-card relative mb-6 overflow-hidden rounded-xl border bg-gradient-to-br from-[#0a101d] via-[#070b14] to-[#050810] p-6 sm:p-8"
+      className="aura-card relative mb-6 overflow-hidden rounded-xl border bg-gradient-to-br from-[#0a101d] via-[#070b14] to-[#050810] p-5 sm:p-8"
     >
       <span
         aria-hidden
@@ -132,26 +132,29 @@ export async function DailyBanner() {
         style={{ background: "var(--aura)" }}
       />
 
-      <div className="relative grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
-        <div className="flex flex-col gap-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-pixel text-[13px] text-red-400">
-              <span aria-hidden className="mr-1.5">
-                ►
-              </span>
-              <span className="neon-red">Pokémon del día</span>
-            </h2>
-            <span className="font-mono text-xs tracking-[0.25em] text-slate-400 uppercase">
-              {displayDate}
-            </span>
-          </div>
+      {/* Full-width header row: title left, date right, on every size. */}
+      <div className="relative mb-3.5 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-pixel text-[11px] whitespace-nowrap text-red-400 sm:text-[13px]">
+          <span aria-hidden className="mr-1.5">
+            ►
+          </span>
+          <span className="neon-red">Pokémon del día</span>
+        </h2>
+        <span className="font-mono text-[10px] tracking-[0.25em] whitespace-nowrap text-slate-400 uppercase sm:text-xs">
+          {displayDate}
+        </span>
+      </div>
 
+      {/* The artwork keeps its own right-hand column on every size, so the
+          phone layout mirrors the desktop composition instead of stacking. */}
+      <div className="relative grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-4 sm:grid-cols-[minmax(0,1fr)_10rem] sm:gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="flex flex-col gap-3.5">
           <div>
             <p className="neon-aura font-pixel text-xs">
               {formatDexNumber(species.id)}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <p className="font-display text-3xl font-extrabold tracking-wide text-white sm:text-4xl">
+              <p className="font-display text-2xl font-extrabold tracking-wide text-white sm:text-4xl">
                 {formatName(species.name)}
               </p>
               <span className="rounded border border-slate-700/80 px-2 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase">
@@ -166,7 +169,7 @@ export async function DailyBanner() {
           </div>
 
           {flavorText && (
-            <p className="max-w-prose font-mono text-sm leading-relaxed text-slate-300/85">
+            <p className="max-w-prose font-mono text-sm leading-relaxed text-slate-300/85 max-sm:line-clamp-3">
               {flavorText}
             </p>
           )}
@@ -209,7 +212,7 @@ export async function DailyBanner() {
           </div>
         </div>
 
-        <div className="relative mx-auto aspect-square w-full max-w-60 md:max-w-none">
+        <div className="relative aspect-square w-full">
           <Image
             src={image}
             alt={`Ilustración de ${formatName(species.name)}`}

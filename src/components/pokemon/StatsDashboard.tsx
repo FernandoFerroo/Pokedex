@@ -1,13 +1,5 @@
 import { typeAccent } from "@/lib/pokemon-meta";
-
-const STAT_LABELS: Record<string, string> = {
-  hp: "PS",
-  attack: "Ataque",
-  defense: "Defensa",
-  "special-attack": "At. Esp.",
-  "special-defense": "Def. Esp.",
-  speed: "Velocidad",
-};
+import { STAT_LABELS_ES as STAT_LABELS, statRange, totalRank } from "@/lib/stats";
 
 /** Hexagon layout in the classic games' order: PS arriba, en sentido horario. */
 const AXIS_ORDER = [
@@ -42,19 +34,6 @@ function statTone(value: number): { bar: string; text: string } {
   if (value < 100) return { bar: "bg-yellow-300", text: "text-yellow-200" };
   if (value < 130) return { bar: "bg-emerald-400", text: "text-emerald-300" };
   return { bar: "bg-cyan-300", text: "text-cyan-200" };
-}
-
-/** Qualitative rank for the base stat total, tuned to real BST ranges. */
-function totalRank(total: number): { label: string; className: string } {
-  if (total < 300)
-    return { label: "Bajo", className: "border-slate-600 text-slate-300" };
-  if (total < 450)
-    return { label: "Medio", className: "border-yellow-400/50 text-yellow-300" };
-  if (total < 540)
-    return { label: "Alto", className: "border-emerald-400/50 text-emerald-300" };
-  if (total < 600)
-    return { label: "Muy alto", className: "border-cyan-400/50 text-cyan-300" };
-  return { label: "Élite", className: "border-violet-400/50 text-violet-300" };
 }
 
 function vertex(axisIndex: number, fraction: number): [number, number] {
@@ -131,7 +110,6 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
             stroke="currentColor"
             strokeWidth={2}
             strokeLinejoin="round"
-            className="[filter:drop-shadow(0_0_6px_currentColor)]"
           />
           {axes.map((axis) => (
             <circle
@@ -200,7 +178,7 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
                   role="presentation"
                 >
                   <div
-                    className={`h-full rounded-full ${tone.bar} shadow-[0_0_8px_currentColor] motion-safe:animate-[bar-grow_600ms_ease-out]`}
+                    className={`h-full rounded-full ${tone.bar} motion-safe:animate-[bar-grow_600ms_ease-out]`}
                     style={{
                       width: `${Math.min(100, (axis.value / BAR_SCALE) * 100)}%`,
                     }}
@@ -229,6 +207,48 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
               <span className="font-semibold text-slate-200">{evYield}</span>
             </p>
           )}
+        </div>
+
+        {/* Real reachable stats: what these bases translate to in-game. */}
+        <div className="mt-4 border-t border-slate-800 pt-3">
+          <p className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+            Rangos reales{" "}
+            <span className="tracking-normal text-slate-500 normal-case">
+              (IV 0–31 · EV 0–252 · naturaleza incluida)
+            </span>
+          </p>
+          <div className="mt-2 grid grid-cols-[minmax(5rem,6.5rem)_1fr_1fr] gap-x-3 gap-y-1.5 font-mono text-xs">
+            <span aria-hidden />
+            <span className="text-right tracking-widest text-slate-500 uppercase">
+              Nv. 50
+            </span>
+            <span className="text-right tracking-widest text-slate-500 uppercase">
+              Nv. 100
+            </span>
+            {axes.map((axis) => {
+              const at50 = statRange(axis.name, axis.value, 50);
+              const at100 = statRange(axis.name, axis.value, 100);
+              return (
+                <div key={axis.name} className="col-span-3 grid grid-cols-subgrid">
+                  <span className="tracking-wider text-slate-400 uppercase">
+                    {axis.label}
+                  </span>
+                  <span className="text-right text-slate-300 tabular-nums">
+                    {at50.min}–
+                    <span className="font-semibold text-slate-100">
+                      {at50.max}
+                    </span>
+                  </span>
+                  <span className="text-right text-slate-300 tabular-nums">
+                    {at100.min}–
+                    <span className="font-semibold text-slate-100">
+                      {at100.max}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

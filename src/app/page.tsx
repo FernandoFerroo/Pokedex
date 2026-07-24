@@ -3,6 +3,7 @@ import {
   DailyBanner,
   DailyBannerSkeleton,
 } from "@/components/pokemon/DailyBanner";
+import { BattleCta } from "@/components/battle/BattleCta";
 import { PokedexView } from "@/components/pokemon/PokedexView";
 import { TeamCta } from "@/components/team/TeamCta";
 import { TrainerChat } from "@/components/trainer/TrainerChat";
@@ -23,9 +24,11 @@ export default async function HomePage() {
       <Suspense fallback={<DailyBannerSkeleton />}>
         <DailyBanner />
       </Suspense>
-      {/* Banner del creador de equipos, a todo lo ancho encima de los filtros. */}
-      <div className="mt-6 mb-2">
+      {/* Banner del creador de equipos y, debajo, el del Modo Combate: ambos
+          a todo lo ancho encima de los filtros. */}
+      <div className="mt-6 mb-2 flex flex-col gap-4">
         <TeamCta />
+        <BattleCta />
       </div>
       {/* useSearchParams (via nuqs) requires a Suspense boundary to prerender. */}
       <Suspense>

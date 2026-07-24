@@ -8,7 +8,12 @@ export interface TeamMember {
   name: string;
   /** Type slugs ordered by slot, e.g. ["water", "flying"]. */
   types: string[];
+  /** Combat level 1-100; absent means the default (50). */
+  level?: number;
 }
+
+/** Default combat level for members that never had theirs edited. */
+export const DEFAULT_LEVEL = 50;
 
 /** Per-attack-type tally of how the whole team takes that attack. */
 export interface TypePressure {
@@ -44,4 +49,11 @@ export interface CoachReport {
 
 export interface CoachResponse {
   report: CoachReport;
+}
+
+/** Response of the AI team generator (`/api/team-suggest`). */
+export interface TeamSuggestResponse {
+  team: TeamMember[];
+  /** Short rationale the model gives for its picks. */
+  motivo: string;
 }

@@ -26,9 +26,17 @@ interface TeamContextValue {
   /** Adds `current` to the first free slot (no-op if full or duplicated). */
   addCurrent: () => void;
   remove: (id: number) => void;
+  /** Sets a member's combat level, clamped to 1-100. */
+  setLevel: (id: number, level: number) => void;
+  /** Replaces the whole roster (AI generator). */
+  replace: (members: TeamMember[]) => void;
+  /** Swaps one member for another, keeping its slot (AI substitutions). */
+  swap: (outId: number, member: TeamMember) => void;
   clear: () => void;
   has: (id: number) => boolean;
   isFull: boolean;
+  /** True once the roster has been read from localStorage after mount. */
+  hydrated: boolean;
   /** Drawer visibility lives here so any page can open the team sheet. */
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
@@ -44,8 +52,13 @@ function isValidMember(value: unknown): value is TeamMember {
     typeof m.id === "number" &&
     typeof m.name === "string" &&
     Array.isArray(m.types) &&
-    m.types.every((t) => typeof t === "string")
+    m.types.every((t) => typeof t === "string") &&
+    (m.level === undefined || typeof m.level === "number")
   );
+}
+
+function clampLevel(level: number): number {
+  return Math.min(100, Math.max(1, Math.round(level)));
 }
 
 export function TeamProvider({ children }: { children: ReactNode }) {
@@ -101,6 +114,32 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     setTeam((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
+  const setLevel = useCallback((id: number, level: number) => {
+    setTeam((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, level: clampLevel(level) } : m)),
+    );
+  }, []);
+
+  const replace = useCallback((members: TeamMember[]) => {
+    const seen = new Set<number>();
+    setTeam(
+      members
+        .filter((m) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        })
+        .slice(0, TEAM_SIZE),
+    );
+  }, []);
+
+  const swap = useCallback((outId: number, member: TeamMember) => {
+    setTeam((prev) => {
+      if (prev.some((m) => m.id === member.id)) return prev;
+      return prev.map((m) => (m.id === outId ? member : m));
+    });
+  }, []);
+
   const clear = useCallback(() => setTeam([]), []);
 
   const has = useCallback(
@@ -117,9 +156,13 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         add,
         addCurrent,
         remove,
+        setLevel,
+        replace,
+        swap,
         clear,
         has,
         isFull: team.length >= TEAM_SIZE,
+        hydrated,
         drawerOpen,
         setDrawerOpen,
       }}

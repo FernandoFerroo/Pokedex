@@ -13,6 +13,7 @@ import {
   TYPE_LABELS_ES,
 } from "@/lib/pokemon-meta";
 import { SORT_LABELS_ES, SORT_OPTIONS } from "@/lib/sort";
+import { cn } from "@/lib/utils";
 import type {
   PokemonCategory,
   PokemonSort,
@@ -115,33 +116,74 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
 
   // Open by default when the URL arrives with an advanced filter active.
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
+  // On phones everything except the search collapses behind one toggle, so
+  // the sticky bar stays short and the list underneath remains visible.
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const hasActiveFilters =
-    values.q !== "" ||
-    values.type !== null ||
-    values.gen !== null ||
-    values.sort !== "id-asc" ||
-    values.fav === true ||
-    advancedCount > 0;
+  const controlCount =
+    advancedCount +
+    [
+      values.type !== null,
+      values.gen !== null,
+      values.sort !== "id-asc",
+      values.fav === true,
+    ].filter(Boolean).length;
+
+  const hasActiveFilters = values.q !== "" || controlCount > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className={cn(
+        "flex flex-col gap-3",
+        mobileOpen && "max-sm:max-h-[calc(100dvh-9rem)] max-sm:overflow-y-auto",
+      )}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="relative flex-1">
-          <Search
-            size={20}
-            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-slate-300"
-          />
-          <input
-            type="search"
-            value={values.q}
-            onChange={(e) => onChange({ q: e.target.value || null })}
-            placeholder="Buscar por nombre o cadena evolutiva (ej. pikachu)…"
-            aria-label="Buscar Pokémon por nombre o cadena evolutiva"
-            className="h-14 w-full rounded-md border border-slate-700/80 bg-[#0a101d]/90 pr-4 pl-12 font-mono text-base text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)]"
-          />
-        </label>
+        <div className="flex items-center gap-2 sm:contents">
+          <label className="relative min-w-0 flex-1">
+            <Search
+              size={20}
+              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-slate-300"
+            />
+            <input
+              type="search"
+              value={values.q}
+              onChange={(e) => onChange({ q: e.target.value || null })}
+              placeholder="Buscar por nombre o cadena evolutiva (ej. pikachu)…"
+              aria-label="Buscar Pokémon por nombre o cadena evolutiva"
+              className="h-12 w-full rounded-md border border-slate-700/80 bg-[#0a101d]/90 pr-4 pl-12 font-mono text-base text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)] sm:h-14"
+            />
+          </label>
 
+          {/* Mobile-only toggle: shows/hides every control below the search. */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen((open) => !open)}
+            aria-expanded={mobileOpen}
+            aria-label="Mostrar u ocultar los filtros"
+            className={cn(
+              "inline-flex h-12 shrink-0 items-center gap-1.5 rounded-md border px-3 font-mono text-sm transition sm:hidden",
+              mobileOpen || controlCount > 0
+                ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-300 shadow-[0_0_14px_-2px_rgba(34,211,238,0.45)]"
+                : "border-slate-700/80 bg-[#0a101d]/90 text-slate-300",
+            )}
+          >
+            <SlidersHorizontal size={16} />
+            Filtros
+            {controlCount > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-red-500 px-1 font-mono text-xs font-bold text-black shadow-[0_0_10px_rgba(239,68,68,0.7)]">
+                {controlCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div
+          className={cn(
+            "flex-col gap-3 sm:contents",
+            mobileOpen ? "flex" : "hidden sm:contents",
+          )}
+        >
         <FilterSelect
           value={values.type}
           placeholder="Todos los tipos"
@@ -220,10 +262,16 @@ export function FilterBar({ values, onChange }: FilterBarProps) {
             Limpiar
           </button>
         )}
+        </div>
       </div>
 
       {showAdvanced && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6",
+            !mobileOpen && "max-sm:hidden",
+          )}
+        >
           <FilterSelect
             value={values.color}
             placeholder="Todos los colores"

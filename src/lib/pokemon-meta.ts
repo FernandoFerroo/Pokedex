@@ -158,6 +158,7 @@ export const VERSION_LABELS_ES: Record<string, string> = {
   "legends-arceus": "Leyendas: Arceus",
   scarlet: "Escarlata",
   violet: "Púrpura",
+  "legends-za": "Leyendas: Z-A",
 };
 
 export function versionLabel(slug: string): string {

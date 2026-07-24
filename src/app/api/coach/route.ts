@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { formatName, TYPE_LABELS_ES } from "@/lib/pokemon-meta";
 import { analyzeTeam } from "@/lib/team-analysis";
-import type { CoachReport, TeamMember } from "@/types/team";
+import { DEFAULT_LEVEL, type CoachReport, type TeamMember } from "@/types/team";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
@@ -10,7 +10,7 @@ const TYPE_SLUGS = Object.keys(TYPE_LABELS_ES);
 
 const SYSTEM_PROMPT = `Eres el "Coach Bot" de una Pokédex digital: un entrenador veterano experto en combate competitivo Pokémon (formatos singles estándar). Analizas equipos y das consejos claros, concretos y accionables, en español.
 
-Recibirás el equipo del usuario (hasta 6 Pokémon con sus tipos) y un análisis de cobertura ya calculado (debilidades críticas, resistencias fuertes y huecos de cobertura ofensiva STAB). Apóyate en esos datos —no los contradigas— y añade tu conocimiento real de la franquicia (estadísticas típicas, roles habituales, movimientos característicos de cada especie).
+Recibirás el equipo del usuario (hasta 6 Pokémon con sus tipos y su nivel de combate, 1-100) y un análisis de cobertura ya calculado (debilidades críticas, resistencias fuertes y huecos de cobertura ofensiva STAB). Apóyate en esos datos —no los contradigas— y añade tu conocimiento real de la franquicia (estadísticas típicas, roles habituales, movimientos característicos de cada especie).
 
 Responde SOLO con un objeto JSON válido, sin markdown, con esta forma exacta:
 {
@@ -21,8 +21,9 @@ Responde SOLO con un objeto JSON válido, sin markdown, con esta forma exacta:
 
 Reglas:
 - Exactamente 3 consejos de estrategia de combate, específicos para ESTE equipo (leads, pivotes, a qué amenazas vigilar, cómo jugar sus debilidades).
+- Ten en cuenta los niveles: señala miembros con nivel muy por debajo del resto y cómo compensarlo.
 - "sustituciones": solo si detectas fallos graves de cobertura (debilidad crítica compartida o hueco ofensivo importante); 0-2 entradas, nunca más. Si el equipo está bien construido, devuelve [].
-- En "entra" sugiere especies reales que cubran el hueco detectado.
+- En "sale" copia el nombre del miembro tal y como aparece en el equipo. En "entra" sugiere especies reales que cubran el hueco, usando su slug inglés de PokéAPI en minúsculas (ej.: "tyranitar", "mr-mime", "ho-oh").
 - Sin emojis en los valores JSON. Tono directo de entrenador, frases cortas.`;
 
 /** Whitelists the client payload down to well-formed members. */
@@ -41,6 +42,10 @@ function sanitizeTeam(value: unknown): TeamMember[] {
       id: m.id,
       name: m.name.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40),
       types: m.types.filter((t) => TYPE_SLUGS.includes(t)).slice(0, 2),
+      level:
+        typeof m.level === "number"
+          ? Math.min(100, Math.max(1, Math.round(m.level)))
+          : DEFAULT_LEVEL,
     }))
     .filter((m) => m.name && m.types.length > 0)
     .slice(0, 6);
@@ -100,7 +105,10 @@ export async function POST(request: Request) {
   // this codebase produced, not whatever the client claims.
   const analysis = analyzeTeam(team);
   const roster = team
-    .map((m) => `- ${formatName(m.name)} (${m.types.map(typeLabel).join("/")})`)
+    .map(
+      (m) =>
+        `- ${formatName(m.name)} (${m.types.map(typeLabel).join("/")}) · Nivel ${m.level ?? DEFAULT_LEVEL}`,
+    )
     .join("\n");
   const userMessage = `EQUIPO (${team.length}/6):
 ${roster}

@@ -15,31 +15,31 @@ const ROWS: Array<{
     key: "x4",
     label: "Debilidad crítica",
     factor: "×4",
-    node: "border-red-500/60 text-red-400 shadow-[0_0_14px_rgba(248,113,113,0.35)]",
+    node: "border-red-500/60 text-red-400",
   },
   {
     key: "x2",
     label: "Debilidad",
     factor: "×2",
-    node: "border-orange-400/50 text-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.3)]",
+    node: "border-orange-400/50 text-orange-400",
   },
   {
     key: "x05",
     label: "Resistencia",
     factor: "×½",
-    node: "border-emerald-500/50 text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.3)]",
+    node: "border-emerald-500/50 text-emerald-400",
   },
   {
     key: "x025",
     label: "Gran resistencia",
     factor: "×¼",
-    node: "border-emerald-400/50 text-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.3)]",
+    node: "border-emerald-400/50 text-emerald-300",
   },
   {
     key: "x0",
     label: "Inmunidad",
     factor: "×0",
-    node: "border-cyan-400/50 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.3)]",
+    node: "border-cyan-400/50 text-cyan-300",
   },
 ];
 

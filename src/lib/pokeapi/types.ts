@@ -105,6 +105,27 @@ export interface ItemResponse {
   };
 }
 
+export interface MoveResponse {
+  name: string;
+  power: number | null;
+  accuracy: number | null;
+  pp: number | null;
+  type: NamedAPIResource;
+  damage_class: NamedAPIResource | null;
+  names: Array<{
+    name: string;
+    language: NamedAPIResource;
+  }>;
+}
+
+export interface VersionGroupResponse {
+  id: number;
+  name: string;
+  /** Chronological rank across all games (ids are NOT chronological). */
+  order: number;
+  versions: NamedAPIResource[];
+}
+
 export interface PokemonResponse {
   id: number;
   name: string;
@@ -115,6 +136,17 @@ export interface PokemonResponse {
     ability: NamedAPIResource;
     is_hidden: boolean;
     slot: number;
+  }>;
+  /** Ability sets of older generations (`abilities` above only covers the
+      current one). Each entry lists what the slots held up to and including
+      that generation; `ability: null` marks a slot that was empty back then. */
+  past_abilities?: Array<{
+    generation: NamedAPIResource;
+    abilities: Array<{
+      ability: NamedAPIResource | null;
+      is_hidden: boolean;
+      slot: number;
+    }>;
   }>;
   cries?: {
     latest: string | null;
@@ -132,6 +164,14 @@ export interface PokemonResponse {
   types: Array<{
     slot: number;
     type: NamedAPIResource;
+  }>;
+  moves: Array<{
+    move: NamedAPIResource;
+    version_group_details: Array<{
+      level_learned_at: number;
+      move_learn_method: NamedAPIResource;
+      version_group: NamedAPIResource;
+    }>;
   }>;
   sprites: {
     front_default: string | null;

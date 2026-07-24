@@ -18,7 +18,7 @@ export function TeamCta() {
   const { team, clear, setDrawerOpen } = useTeam();
   const open = () => setDrawerOpen(true);
   return (
-    <div className="group premium-frame premium-sweep relative grid w-full grid-cols-[1fr_auto] items-center gap-5 overflow-hidden rounded-xl px-6 py-5 transition sm:grid-cols-[1fr_auto_1fr]">
+    <div className="group premium-frame premium-sweep relative grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3.5 overflow-hidden rounded-xl px-4 py-4 transition sm:grid-cols-[1fr_auto_1fr] sm:gap-5 sm:px-6 sm:py-5">
       {/* Left: identity — opens the drawer */}
       <button
         type="button"
@@ -26,16 +26,16 @@ export function TeamCta() {
         aria-label={`Abrir el creador de equipos (${team.length} de ${TEAM_SIZE} ranuras ocupadas)`}
         className="flex w-full items-center gap-3.5 justify-self-start text-left"
       >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-gradient-to-b from-amber-400/25 to-amber-400/5 text-amber-300 shadow-[0_0_14px_-4px_rgba(251,191,36,0.8)]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/50 bg-gradient-to-b from-amber-400/25 to-amber-400/5 text-amber-300 shadow-[0_0_14px_-4px_rgba(251,191,36,0.8)] sm:h-12 sm:w-12">
           <Crown size={23} />
         </span>
         <span className="flex flex-col gap-0.5">
-          <span className="flex items-center gap-2.5 font-display text-lg font-bold tracking-wide">
+          <span className="flex items-center gap-2 font-display text-base font-bold tracking-wide whitespace-nowrap sm:gap-2.5 sm:text-lg">
             <span className="premium-text">MI EQUIPO</span>
             <span className="text-amber-300">
               {team.length}/{TEAM_SIZE}
             </span>
-            <span className="rounded-sm border border-amber-400/60 bg-amber-400/15 px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.2em] text-amber-300">
+            <span className="rounded-sm border border-amber-400/60 bg-amber-400/15 px-2 py-0.5 font-mono text-[11px] font-bold tracking-[0.2em] text-amber-300 max-sm:hidden">
               PRO
             </span>
           </span>
@@ -45,13 +45,15 @@ export function TeamCta() {
         </span>
       </button>
 
-      {/* Center: the six slots in miniature — also opens the drawer */}
+      {/* Center: the six slots in miniature — also opens the drawer. On
+          phones they move to their own centered second row, like a scaled-
+          down version of the desktop banner. */}
       <button
         type="button"
         onClick={open}
         tabIndex={-1}
         aria-hidden
-        className="hidden items-center gap-2 sm:flex"
+        className="flex items-center gap-1.5 max-sm:order-3 max-sm:col-span-2 max-sm:justify-center sm:gap-2"
       >
         {Array.from({ length: TEAM_SIZE }, (_, i) => {
           const member = team[i];
@@ -59,7 +61,7 @@ export function TeamCta() {
             <span
               key={member.id}
               style={{ "--aura": typeAura(member.types[0]) } as CSSProperties}
-              className="relative h-12 w-12 rounded-full border border-[color-mix(in_srgb,var(--aura)_60%,transparent)] bg-black/60 shadow-[0_0_10px_-2px_var(--aura)]"
+              className="relative h-9 w-9 rounded-full border border-[color-mix(in_srgb,var(--aura)_60%,transparent)] bg-black/60 shadow-[0_0_10px_-2px_var(--aura)] sm:h-12 sm:w-12"
             >
               <Image
                 src={artworkUrl(member.id)}
@@ -72,7 +74,7 @@ export function TeamCta() {
           ) : (
             <span
               key={`empty-${i}`}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-amber-400/25 font-pixel text-[10px] text-amber-200/40 transition group-hover:border-amber-400/50"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-amber-400/25 font-pixel text-[10px] text-amber-200/40 transition group-hover:border-amber-400/50 sm:h-12 sm:w-12"
             >
               {i + 1}
             </span>
@@ -88,7 +90,7 @@ export function TeamCta() {
           onClick={clear}
           disabled={team.length === 0}
           aria-label="Vaciar el equipo"
-          className="inline-flex items-center gap-2 rounded-md border border-amber-400/40 bg-black/30 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-amber-200/80 uppercase transition enabled:hover:border-red-500/60 enabled:hover:bg-red-500/10 enabled:hover:text-red-400 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-md border border-amber-400/40 bg-black/30 px-3 py-2.5 font-mono text-sm font-bold tracking-wider text-amber-200/80 uppercase transition enabled:hover:border-red-500/60 enabled:hover:bg-red-500/10 enabled:hover:text-red-400 disabled:opacity-40 max-sm:hidden sm:px-4"
         >
           <Trash2 size={15} />
           Vaciar
@@ -97,7 +99,7 @@ export function TeamCta() {
           type="button"
           onClick={open}
           aria-label="Abrir el creador de equipos"
-          className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-amber-300 to-amber-500 px-5 py-2.5 font-mono text-sm font-bold tracking-wider text-[#1c1204] uppercase shadow-[0_0_18px_-4px_rgba(251,191,36,0.8)] transition hover:from-amber-200 hover:to-amber-400 hover:shadow-[0_0_24px_rgba(251,191,36,0.6)]"
+          className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-amber-300 to-amber-500 px-4 py-2.5 font-mono text-sm font-bold tracking-wider text-[#1c1204] uppercase shadow-[0_0_18px_-4px_rgba(251,191,36,0.8)] transition hover:from-amber-200 hover:to-amber-400 hover:shadow-[0_0_24px_rgba(251,191,36,0.6)] sm:px-5"
         >
           Abrir
           <ArrowRight

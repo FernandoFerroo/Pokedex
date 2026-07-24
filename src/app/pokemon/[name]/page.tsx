@@ -8,20 +8,30 @@ import {
 } from "@/components/pokemon/CardGallery";
 import { CryButton } from "@/components/pokemon/CryButton";
 import { EvolutionChain } from "@/components/pokemon/EvolutionChain";
+import { MovesPanel, type MoveRow } from "@/components/pokemon/MovesPanel";
+import { ProInsights } from "@/components/pokemon/ProInsights";
+import { ScrollToTop } from "@/components/pokemon/ScrollToTop";
 import { SpriteViewer } from "@/components/pokemon/SpriteViewer";
 import { StatsDashboard } from "@/components/pokemon/StatsDashboard";
 import { TypeMatchups } from "@/components/pokemon/TypeMatchups";
 import { CurrentPokemonTracker } from "@/components/team/TeamProvider";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { getDefensiveMatchups } from "@/lib/matchups";
-import { idFromUrl, PokeApiError, pokeFetch } from "@/lib/pokeapi/client";
+import {
+  idFromUrl,
+  mapWithConcurrency,
+  PokeApiError,
+  pokeFetch,
+} from "@/lib/pokeapi/client";
 import type {
   AbilityResponse,
   ChainLink,
   EvolutionChainResponse,
   ItemResponse,
+  MoveResponse,
   PokemonResponse,
   PokemonSpeciesResponse,
+  VersionGroupResponse,
 } from "@/lib/pokeapi/types";
 import Image from "next/image";
 import type { CSSProperties } from "react";
@@ -93,19 +103,180 @@ export default async function PokemonDetailPage({ params }: PageProps) {
   const belongsToLine = (holder: string) =>
     lineSpecies.some((s) => holder === s || holder.startsWith(`${s}-`));
 
+  /**
+   * Full learnset in the species' most recent game: rank the version groups
+   * present in the move data by their chronological `order` (ids are not
+   * chronological — the Japanese Gen I groups have the highest ids), keep
+   * only the newest one's entries and resolve each move's Spanish sheet.
+   * The /version-group and /move fetches are shared across all species and
+   * cached for a day, so the cost amortizes quickly.
+   */
+  async function buildMovesData(): Promise<{
+    games: string;
+    groups: {
+      levelUp: MoveRow[];
+      machine: MoveRow[];
+      egg: MoveRow[];
+      tutor: MoveRow[];
+    };
+  } | null> {
+    const vgIds = [
+      ...new Set(
+        pokemon.moves.flatMap((m) =>
+          m.version_group_details.map((d) => idFromUrl(d.version_group.url)),
+        ),
+      ),
+    ];
+    if (vgIds.length === 0) return null;
+    const versionGroups = await mapWithConcurrency(vgIds, 10, (id) =>
+      pokeFetch<VersionGroupResponse>(`/version-group/${id}`),
+    );
+
+    const entriesOf = (vgId: number) =>
+      pokemon.moves.flatMap(({ move, version_group_details }) =>
+        version_group_details
+          .filter((d) => idFromUrl(d.version_group.url) === vgId)
+          .map((d) => ({
+            slug: move.name,
+            method: d.move_learn_method.name,
+            level: d.level_learned_at,
+          })),
+      );
+
+    // Newest game first, but skip groups whose data the tabs can't show:
+    // Pokémon Champions only has "train" entries, so a mon that is in
+    // Champions would otherwise render an empty panel (Charizard) while its
+    // pre-evolutions kept a full Scarlet/Violet learnset (Charmander).
+    const ranked = [...versionGroups].sort((a, b) => b.order - a.order);
+    const versionGroup =
+      ranked.find((g) =>
+        entriesOf(g.id).some((m) => m.method === "level-up"),
+      ) ??
+      ranked.find((g) =>
+        entriesOf(g.id).some((m) =>
+          ["machine", "egg", "tutor"].includes(m.method),
+        ),
+      );
+    if (!versionGroup) return null;
+
+    // Dedupe: each move lives in a single tab. A move you learn by level
+    // shouldn't reappear under MT/MO or Tutor (SV lists Lanzallamas both
+    // ways), and machine beats tutor beats egg for the leftovers. Level-up
+    // keeps one row per (move, level) — multi-level repeats are real data.
+    const methodRank: Record<string, number> = {
+      "level-up": 0,
+      machine: 1,
+      tutor: 2,
+      egg: 3,
+    };
+    const allEntries = entriesOf(versionGroup.id).sort(
+      (a, b) => (methodRank[a.method] ?? 9) - (methodRank[b.method] ?? 9),
+    );
+    const levelUpSlugs = new Set(
+      allEntries.filter((m) => m.method === "level-up").map((m) => m.slug),
+    );
+    const seenRows = new Set<string>();
+    const learnset = allEntries.filter((m) => {
+      if (m.method === "level-up") {
+        const key = `${m.slug}@${m.level}`;
+        if (seenRows.has(key)) return false;
+        seenRows.add(key);
+        return true;
+      }
+      if (levelUpSlugs.has(m.slug) || seenRows.has(m.slug)) return false;
+      seenRows.add(m.slug);
+      return true;
+    });
+    const uniqueSlugs = [...new Set(learnset.map((m) => m.slug))];
+
+    const details = await mapWithConcurrency(uniqueSlugs, 20, (slug) =>
+      pokeFetch<MoveResponse>(`/move/${slug}`),
+    );
+    const detailBySlug = new Map(details.map((d) => [d.name, d]));
+
+    const toRow = (m: (typeof learnset)[number]): MoveRow => {
+      const detail = detailBySlug.get(m.slug);
+      return {
+        slug: m.slug,
+        label:
+          detail?.names.find((n) => n.language.name === "es")?.name ??
+          formatName(m.slug),
+        type: detail?.type.name ?? "normal",
+        damageClass: detail?.damage_class?.name ?? null,
+        power: detail?.power ?? null,
+        accuracy: detail?.accuracy ?? null,
+        pp: detail?.pp ?? null,
+        level: m.level,
+      };
+    };
+    const byLabel = (a: MoveRow, b: MoveRow) =>
+      a.label.localeCompare(b.label, "es");
+    const ofMethod = (method: string) =>
+      learnset.filter((m) => m.method === method).map(toRow);
+
+    return {
+      games: versionGroup.versions
+        .map((v) => versionLabel(v.name))
+        .join(" / "),
+      groups: {
+        levelUp: ofMethod("level-up").sort(
+          (a, b) => (a.level ?? 0) - (b.level ?? 0) || byLabel(a, b),
+        ),
+        machine: ofMethod("machine").sort(byLabel),
+        egg: ofMethod("egg").sort(byLabel),
+        tutor: ofMethod("tutor").sort(byLabel),
+      },
+    };
+  }
+
+  // The API only lists the current generation's abilities and moves older
+  // ones to `past_abilities` (Gengar's Levitate lives there). Merge both so
+  // the sheet is complete, remembering until which generation each retired
+  // ability applied (deduped to the most recent generation that had it).
+  const untilGenByName = new Map<string, number>();
+  for (const { generation, abilities: past } of pokemon.past_abilities ?? []) {
+    const untilGen = generationFromName(generation.name);
+    for (const { ability } of past) {
+      if (!ability) continue;
+      const prev = untilGenByName.get(ability.name) ?? 0;
+      untilGenByName.set(ability.name, Math.max(prev, untilGen));
+    }
+  }
+  const abilityEntries = [
+    ...pokemon.abilities.map(({ ability, is_hidden }) => ({
+      ability,
+      is_hidden,
+      untilGen: null as number | null,
+    })),
+    ...(pokemon.past_abilities ?? [])
+      .flatMap(({ abilities: past }) => past)
+      .filter(
+        ({ ability }, index, all) =>
+          ability !== null &&
+          !pokemon.abilities.some((a) => a.ability.name === ability.name) &&
+          all.findIndex((p) => p.ability?.name === ability.name) === index,
+      )
+      .map(({ ability, is_hidden }) => ({
+        ability: ability!,
+        is_hidden,
+        untilGen: untilGenByName.get(ability!.name) ?? null,
+      })),
+  ];
+
   // Combat matchups (1-2 cached /type fetches), localized ability sheets
-  // (≤3 cached /ability fetches) and held-item names resolve in parallel
-  // once the pokemon is known.
-  const [matchups, abilities, heldItems] = await Promise.all([
+  // (≤4 cached /ability fetches), held-item names and the full learnset
+  // resolve in parallel once the pokemon is known.
+  const [matchups, abilities, heldItems, movesData] = await Promise.all([
     getDefensiveMatchups(pokemon.types.map(({ type }) => type.name)),
     Promise.all(
-      pokemon.abilities.map(async ({ ability, is_hidden }) => {
+      abilityEntries.map(async ({ ability, is_hidden, untilGen }) => {
         const detail = await pokeFetch<AbilityResponse>(
           `/ability/${ability.name}`,
         );
         const holders = detail.pokemon.map((p) => p.pokemon.name);
         return {
           isHidden: is_hidden,
+          untilGen,
           holdersCount: holders.length,
           isLineExclusive:
             holders.length > 0 && holders.every(belongsToLine),
@@ -131,6 +302,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         };
       }),
     ),
+    buildMovesData(),
   ]);
 
   const generation = generationFromName(species.generation.name);
@@ -204,6 +376,8 @@ export default async function PokemonDetailPage({ params }: PageProps) {
       }
       className="mx-auto w-full max-w-5xl flex-1 px-4 py-6"
     >
+      {/* La ficha siempre se abre por arriba, vengas del scroll que vengas. */}
+      <ScrollToTop trigger={species.name} />
       {/* Marca esta especie como la "seleccionada" para el cajón del equipo. */}
       <CurrentPokemonTracker
         member={{
@@ -216,10 +390,6 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
       <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]">
         <div className="aura-card relative rounded-xl border bg-gradient-to-b from-[#0a101d] to-[#050810] p-6">
-          <span
-            aria-hidden
-            className="hud-corners pointer-events-none absolute inset-2 opacity-60"
-          />
           {crySrc && (
             <div className="absolute top-3 right-3 z-10">
               <CryButton src={crySrc} name={formatName(species.name)} />
@@ -233,15 +403,8 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         </div>
 
         <div className="relative flex flex-col gap-4">
-          {/* Ghost dex number: giant aura-tinted watermark behind the sheet. */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -top-6 right-0 font-display text-[7rem] leading-none font-extrabold text-[var(--aura)] opacity-[0.07] select-none sm:text-[9rem]"
-          >
-            {String(species.id).padStart(4, "0")}
-          </span>
           <div>
-            <p className="neon-aura font-pixel text-xs">
+            <p className="font-pixel text-xs text-slate-400">
               {formatDexNumber(species.id)}
             </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -264,7 +427,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             </div>
             <div
               aria-hidden
-              className="mt-2 h-px w-24 bg-gradient-to-r from-[var(--aura)] to-transparent"
+              className="mt-2 h-px w-24 bg-gradient-to-r from-slate-600 to-transparent"
             />
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {pokemon.types.map(({ type }) => (
@@ -274,14 +437,14 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           </div>
 
           {flavorText && (
-            <div className="rounded-r-md border-l-2 border-emerald-500/50 bg-emerald-500/[0.05] p-3">
-              <p className="font-mono text-xs tracking-[0.2em] text-emerald-500 uppercase">
+            <div className="rounded-r-md border-l-2 border-slate-600/60 bg-slate-400/[0.04] p-3">
+              <p className="font-mono text-xs tracking-[0.2em] text-slate-500 uppercase">
                 Registro de la Pokédex
                 {flavorVersion && (
-                  <span className="text-emerald-500/60"> · {flavorVersion}</span>
+                  <span className="text-slate-600"> · {flavorVersion}</span>
                 )}
               </p>
-              <p className="mt-1.5 font-mono text-sm leading-relaxed text-emerald-100/80">
+              <p className="mt-1.5 font-mono text-sm leading-relaxed text-slate-300">
                 {flavorText}
               </p>
             </div>
@@ -301,7 +464,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
                   {label}
                 </dt>
-                <dd className="mt-0.5 font-mono text-sm font-semibold text-[var(--aura)]">
+                <dd className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
                   {value}
                 </dd>
               </div>
@@ -320,7 +483,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                   {label}
                 </dt>
                 <dd className="mt-0.5">
-                  <p className="font-mono text-sm font-semibold text-[var(--aura)]">
+                  <p className="font-mono text-sm font-semibold text-slate-100">
                     {value ?? "—"}
                     <span className="text-slate-500">/255</span>
                     {note && (
@@ -331,7 +494,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                   </p>
                   <div className="mt-1 h-1 overflow-hidden rounded-full bg-slate-800">
                     <div
-                      className="h-full rounded-full bg-[var(--aura)] motion-safe:animate-[bar-grow_600ms_ease-out]"
+                      className="h-full rounded-full bg-slate-400 motion-safe:animate-[bar-grow_600ms_ease-out]"
                       style={{
                         width: `${Math.min(100, ((value ?? 0) / 255) * 100)}%`,
                       }}
@@ -344,12 +507,22 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Quick competitive read: the numbers a pro checks before anything. */}
+      <ProInsights
+        stats={pokemon.stats.map((s) => ({
+          name: s.stat.name,
+          value: s.base_stat,
+          effort: s.effort,
+        }))}
+        matchups={matchups}
+      />
+
       <section
         aria-label="Estadísticas base"
-        className="mt-8 hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
+        className="mt-8 rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
       >
-        <h2 className="mb-4 font-pixel text-xs text-slate-300">
-          <span aria-hidden className="mr-1.5 text-red-500">
+        <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+          <span aria-hidden className="mr-1.5 text-slate-600">
             ►
           </span>
           Estadísticas base
@@ -367,10 +540,10 @@ export default async function PokemonDetailPage({ params }: PageProps) {
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-3">
         <section
           aria-label="Análisis de combate"
-          className="hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
+          className="rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
         >
-          <h2 className="mb-4 font-pixel text-xs text-slate-300">
-            <span aria-hidden className="mr-1.5 text-red-500">
+          <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+            <span aria-hidden className="mr-1.5 text-slate-600">
               ►
             </span>
             Análisis de combate
@@ -380,10 +553,10 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
         <section
           aria-label="Habilidades"
-          className="hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
+          className="rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
         >
-          <h2 className="mb-4 font-pixel text-xs text-slate-300">
-            <span aria-hidden className="mr-1.5 text-red-500">
+          <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+            <span aria-hidden className="mr-1.5 text-slate-600">
               ►
             </span>
             Habilidades
@@ -394,7 +567,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                   <span
                     aria-hidden
-                    className="font-pixel text-xs text-[var(--aura)] opacity-80"
+                    className="font-pixel text-xs text-slate-500"
                   >
                     {String(index + 1).padStart(2, "0")}
                   </span>
@@ -402,17 +575,22 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                     {ability.label}
                   </h3>
                   {ability.isHidden && (
-                    <span className="font-mono text-xs font-semibold tracking-widest text-violet-300 uppercase [text-shadow:0_0_10px_rgba(167,139,250,0.45)]">
+                    <span className="font-mono text-xs font-semibold tracking-widest text-violet-300/90 uppercase">
                       ● Oculta
                     </span>
                   )}
+                  {ability.untilGen !== null && (
+                    <span className="font-mono text-xs font-semibold tracking-widest text-rose-300/80 uppercase">
+                      ● Hasta {generationLabel(ability.untilGen)}
+                    </span>
+                  )}
                   {ability.holdersCount === 1 ? (
-                    <span className="font-mono text-xs font-semibold tracking-widest text-amber-300 uppercase [text-shadow:0_0_10px_rgba(251,191,36,0.5)]">
+                    <span className="font-mono text-xs font-semibold tracking-widest text-amber-300/90 uppercase">
                       ◆ Única
                     </span>
                   ) : (
                     ability.isLineExclusive && (
-                      <span className="font-mono text-xs font-semibold tracking-widest text-cyan-300 uppercase [text-shadow:0_0_10px_rgba(34,211,238,0.45)]">
+                      <span className="font-mono text-xs font-semibold tracking-widest text-cyan-300/90 uppercase">
                         ◆ Exclusiva de su línea
                       </span>
                     )
@@ -423,7 +601,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                   </span>
                 </div>
                 {ability.description && (
-                  <p className="mt-1.5 border-l-2 border-[color-mix(in_srgb,var(--aura)_35%,transparent)] pl-3 text-sm leading-relaxed text-slate-300">
+                  <p className="mt-1.5 border-l-2 border-slate-700/70 pl-3 text-sm leading-relaxed text-slate-300">
                     {ability.description}
                   </p>
                 )}
@@ -434,10 +612,10 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
         <section
           aria-label="Crianza y perfil"
-          className="hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
+          className="rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
         >
-          <h2 className="mb-4 font-pixel text-xs text-slate-300">
-            <span aria-hidden className="mr-1.5 text-red-500">
+          <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+            <span aria-hidden className="mr-1.5 text-slate-600">
               ►
             </span>
             Crianza y perfil
@@ -460,11 +638,11 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                     <div className="flex h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
                       <span
                         style={{ width: `${100 - femalePct}%` }}
-                        className="bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]"
+                        className="bg-sky-400/80"
                       />
                       <span
                         style={{ width: `${femalePct}%` }}
-                        className="bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.6)]"
+                        className="bg-pink-400/80"
                       />
                     </div>
                     <span className="shrink-0 text-pink-300">
@@ -487,7 +665,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                         {index > 0 && (
                           <span
                             aria-hidden
-                            className="mx-2 text-xs text-[var(--aura)]"
+                            className="mx-2 text-xs text-slate-600"
                           >
                             ◆
                           </span>
@@ -596,16 +774,31 @@ export default async function PokemonDetailPage({ params }: PageProps) {
         </section>
       </div>
 
-      <div className="mt-8 hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5">
+      {movesData && (
+        <section
+          aria-label="Movimientos"
+          className="mt-8 rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
+        >
+          <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+            <span aria-hidden className="mr-1.5 text-slate-600">
+              ►
+            </span>
+            Movimientos
+          </h2>
+          <MovesPanel games={movesData.games} groups={movesData.groups} />
+        </section>
+      )}
+
+      <div className="mt-8 rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5">
         <EvolutionChain chain={chain} currentName={species.name} />
       </div>
 
       <section
         aria-label="Galería de cartas del JCC"
-        className="mt-8 hud-panel rounded-xl border border-slate-800/80 bg-[#070b14]/90 p-5"
+        className="mt-8 rounded-xl border border-slate-800/60 bg-[#070b14]/80 p-5"
       >
-        <h2 className="mb-4 font-pixel text-xs text-slate-300">
-          <span aria-hidden className="mr-1.5 text-red-500">
+        <h2 className="mb-4 font-mono text-xs tracking-[0.25em] text-slate-500 uppercase">
+          <span aria-hidden className="mr-1.5 text-slate-600">
             ►
           </span>
           Cartas del JCC
