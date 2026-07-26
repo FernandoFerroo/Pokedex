@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 /** `<model-viewer>` is a custom element, unknown to JSX — render via a cast. */
 const ModelViewerTag = "model-viewer" as unknown as React.ElementType;
@@ -22,8 +23,21 @@ interface Model3DProps {
  * imported lazily so three.js only loads when the 3D tab is opened.
  */
 export function Model3D({ src, poster, alt, onFail }: Model3DProps) {
+  const d = useT().detail;
   const [ready, setReady] = useState(false);
   const hostRef = useRef<HTMLElement>(null);
+  // The idle spin is a continuous WebGL animation, so no CSS media query can
+  // reach it — the preference has to be read in JS and turned into a prop.
+  // Dragging still works; only the unprompted rotation stops.
+  const [spin, setSpin] = useState(true);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setSpin(!query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +74,7 @@ export function Model3D({ src, poster, alt, onFail }: Model3DProps) {
             className="max-h-full max-w-full object-contain opacity-60"
           />
         ) : (
-          <span className="text-xs text-slate-300">Cargando modelo…</span>
+          <span className="text-xs text-slate-300">{d.loadingModel}</span>
         )}
       </div>
     );
@@ -73,7 +87,7 @@ export function Model3D({ src, poster, alt, onFail }: Model3DProps) {
       poster={poster}
       alt={alt}
       camera-controls=""
-      auto-rotate=""
+      {...(spin ? { "auto-rotate": "" } : {})}
       auto-rotate-delay="0"
       rotation-per-second="25deg"
       interaction-prompt="none"

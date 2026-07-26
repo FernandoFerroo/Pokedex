@@ -12,9 +12,13 @@ import {
   Shield,
   Sparkles,
   Swords,
+  Trash2,
   X,
 } from "lucide-react";
+import { BuildEditor } from "./BuildEditor";
 import { TypeBadge } from "@/components/ui/TypeBadge";
+import { useScrollLock } from "@/hooks/use-scroll-lock";
+import { useI18n, useT } from "@/lib/i18n/client";
 import {
   artworkUrl,
   formatDexNumber,
@@ -107,6 +111,8 @@ export function EntryButton({
   inTeam: boolean;
   isFull: boolean;
 }) {
+  const { lang, dict } = useI18n();
+  const t = dict.team;
   const disabled = inTeam || isFull;
   return (
     <button
@@ -115,17 +121,17 @@ export function EntryButton({
       onClick={() => onAdd(entry)}
       title={
         inTeam
-          ? "Ya está en el equipo"
+          ? t.alreadyInTeam
           : isFull
-            ? "Equipo completo (6/6)"
-            : `Añadir a ${formatName(entry.name)}`
+            ? t.teamFull
+            : t.addName(formatName(entry.name))
       }
       style={{ "--aura": typeAura(entry.types[0]) } as CSSProperties}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-lg border border-slate-700/70 bg-black/40 p-2 text-left transition",
         disabled
           ? "opacity-45"
-          : "hover:border-[color-mix(in_srgb,var(--aura)_55%,transparent)] hover:bg-[#0a101d] hover:shadow-[0_0_16px_-6px_var(--aura)]",
+          : "hover:border-[color-mix(in_srgb,var(--aura)_55%,transparent)] hover:bg-hud-1 hover:shadow-[0_0_16px_-6px_var(--aura)]",
       )}
     >
       <span className="relative h-12 w-12 shrink-0">
@@ -142,7 +148,7 @@ export function EntryButton({
           {formatName(entry.name)}
         </span>
         <span className="block truncate font-mono text-xs text-slate-400">
-          {entry.types.map(typeLabel).join(" / ")}
+          {entry.types.map((type) => typeLabel(type, lang)).join(" / ")}
         </span>
       </span>
       <span
@@ -163,9 +169,11 @@ export function EntryButton({
 function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
   const { add, has, isFull, current } = useTeam();
   const { entries, failed } = useTeamIndex();
+  const t = useT().team;
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useScrollLock();
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -187,27 +195,28 @@ function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
-        aria-label="Cerrar selector"
+        aria-label={t.closePicker}
         onClick={onClose}
         className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
       />
       <div
         role="dialog"
-        aria-label={`Elegir Pokémon para la ranura ${slot + 1}`}
-        className="relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-slate-700/70 bg-[#050810] shadow-[0_0_48px_rgba(0,0,0,0.8)] sm:rounded-2xl"
+        aria-modal="true"
+        aria-label={t.pickerDialogAria(slot + 1)}
+        className="relative flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-slate-700/70 bg-hud-3 shadow-[0_0_48px_rgba(0,0,0,0.8)] sm:rounded-2xl"
       >
         <div className="flex items-center gap-3 border-b border-slate-700/60 px-5 py-3.5">
-          <Search size={18} className="text-amber-300" />
+          <Search size={18} className="text-emerald-300" />
           <h3 className="font-display text-base font-bold tracking-wide text-slate-100">
-            ELIGE UN POKÉMON
+            {t.pickerTitle}
             <span className="ml-2 font-mono text-xs font-normal text-slate-500">
-              Ranura {slot + 1}
+              {t.pickerSlot(slot + 1)}
             </span>
           </h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar selector"
+            aria-label={t.closePicker}
             className="ml-auto rounded-md p-1.5 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <X size={18} />
@@ -220,18 +229,18 @@ function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filtra por nombre (ej. pikachu)…"
-            aria-label="Filtrar Pokémon por nombre"
-            className="h-11 w-full rounded-lg border border-slate-700/80 bg-[#0a101d]/90 px-4 font-mono text-sm text-slate-200 outline-none transition focus:border-amber-400/70 focus:shadow-[0_0_16px_-2px_rgba(251,191,36,0.55)]"
+            placeholder={t.pickerPlaceholder}
+            aria-label={t.pickerFilterAria}
+            className="h-11 w-full rounded-lg border border-slate-700/80 bg-hud-1/90 px-4 font-mono text-sm text-slate-200 outline-none transition focus:border-emerald-400/70 focus:shadow-[0_0_16px_-2px_rgba(16,185,129,0.55)]"
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4">
           {/* The species on screen right now gets a fast lane at the top. */}
           {current && !query && (
             <div className="mb-3 border-b border-slate-800 pb-3">
               <p className="mb-1.5 font-mono text-xs tracking-widest text-emerald-400/90 uppercase">
-                En pantalla ahora
+                {t.onScreenNow}
               </p>
               <EntryButton
                 entry={current}
@@ -243,18 +252,17 @@ function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
           )}
           {failed && (
             <p className="font-mono text-sm text-red-400">
-              No se pudo cargar el índice de especies. Cierra y vuelve a
-              intentarlo.
+              {t.indexErrorRetryClose}
             </p>
           )}
           {!entries && !failed && (
             <p className="font-mono text-sm text-slate-500">
-              Cargando especies…
+              {t.loadingSpecies}
             </p>
           )}
           {entries && results.length === 0 && (
             <p className="font-mono text-sm text-slate-500">
-              Sin resultados para «{query.trim()}» (los nombres van en inglés).
+              {t.noResultsEnglishNames(query.trim())}
             </p>
           )}
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -279,11 +287,15 @@ function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
 function TeamSlot({
   index,
   onOpenPicker,
+  onOpenBuild,
 }: {
   index: number;
   onOpenPicker: (slot: number) => void;
+  /** Opens the «Configuración de Combate» editor for this slot. */
+  onOpenBuild: (slot: number) => void;
 }) {
   const { team, remove, setLevel } = useTeam();
+  const t = useT().team;
   const member = team[index];
 
   if (!member) {
@@ -291,13 +303,13 @@ function TeamSlot({
       <button
         type="button"
         onClick={() => onOpenPicker(index)}
-        aria-label={`Elegir Pokémon para la ranura ${index + 1}`}
-        title="Elegir Pokémon"
-        className="flex aspect-[5/6] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-400/25 bg-black/30 text-slate-500 transition hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-300 hover:shadow-[0_0_24px_-2px_rgba(251,191,36,0.8)]"
+        aria-label={t.pickerDialogAria(index + 1)}
+        title={t.choosePokemon}
+        className="flex aspect-[5/6] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-400/25 bg-black/30 text-slate-500 transition hover:border-emerald-400/60 hover:bg-emerald-400/10 hover:text-emerald-300 hover:shadow-[0_0_24px_-2px_rgba(16,185,129,0.8)]"
       >
         <Plus size={34} />
         <span className="font-mono text-xs tracking-wider uppercase">
-          Elegir
+          {t.choose}
         </span>
         <span className="font-pixel text-[10px] text-slate-600">
           {index + 1}
@@ -309,22 +321,26 @@ function TeamSlot({
   return (
     <div
       style={{ "--aura": typeAura(member.types[0]) } as CSSProperties}
-      className="group relative flex aspect-[5/6] flex-col items-center gap-1.5 rounded-xl border border-[color-mix(in_srgb,var(--aura)_45%,transparent)] bg-gradient-to-b from-[#0a101d] to-[#050810] p-3 shadow-[0_0_22px_-6px_var(--aura)]"
+      className="group relative flex aspect-[5/6] flex-col items-center gap-1.5 rounded-xl border border-[color-mix(in_srgb,var(--aura)_45%,transparent)] bg-gradient-to-b from-hud-1 to-hud-3 p-3 shadow-[0_0_22px_-6px_var(--aura)]"
     >
       <button
         type="button"
         onClick={() => remove(member.id)}
-        aria-label={`Quitar a ${formatName(member.name)} del equipo`}
-        className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-red-500/60 bg-[#0a101d] text-red-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20 focus-visible:opacity-100 max-sm:opacity-100"
+        aria-label={t.removeNameFromTeam(formatName(member.name))}
+        className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-red-500/60 bg-hud-1 text-red-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20 focus-visible:opacity-100 max-sm:opacity-100"
       >
         <X size={15} />
       </button>
       <p className="font-pixel text-[10px] text-slate-500">
         {formatDexNumber(member.id)}
       </p>
-      <Link
-        href={`/pokemon/${member.name}`}
-        className="relative min-h-0 w-full flex-1"
+      {/* Clicking the Pokémon opens its combat build (ability + 4 moves). */}
+      <button
+        type="button"
+        onClick={() => onOpenBuild(index)}
+        aria-label={t.buildChooseForAria(formatName(member.name))}
+        title={t.buildChooseTitle}
+        className="relative min-h-0 w-full flex-1 transition hover:scale-105"
       >
         <Image
           src={artworkUrl(member.id)}
@@ -333,18 +349,22 @@ function TeamSlot({
           sizes="160px"
           className="object-contain drop-shadow-[0_0_10px_var(--aura)]"
         />
-      </Link>
-      <p className="w-full truncate text-center font-mono text-sm font-semibold tracking-wide text-slate-100">
+      </button>
+      <Link
+        href={`/pokemon/${member.name}`}
+        title={t.viewEntryTitle(formatName(member.name))}
+        className="w-full truncate text-center font-mono text-sm font-semibold tracking-wide text-slate-100 transition hover:text-emerald-300"
+      >
         {formatName(member.name)}
-      </p>
+      </Link>
       <div className="flex flex-wrap justify-center gap-1">
         {member.types.map((type) => (
           <TypeBadge key={type} type={type} />
         ))}
       </div>
-      {/* Nivel de combate, listo para el futuro modo combate. */}
+      {/* Nivel de combate. */}
       <label className="flex items-center gap-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase">
-        Nv.
+        {t.levelAbbr}
         <input
           type="number"
           min={1}
@@ -354,10 +374,45 @@ function TeamSlot({
             const value = e.target.valueAsNumber;
             if (!Number.isNaN(value)) setLevel(member.id, value);
           }}
-          aria-label={`Nivel de ${formatName(member.name)}`}
+          aria-label={t.levelOfAria(formatName(member.name))}
           className="h-6 w-12 rounded border border-slate-700/80 bg-black/40 px-1 text-center font-mono text-xs text-slate-100 outline-none transition focus:border-[var(--aura)]"
         />
       </label>
+      {/* Acceso a la build vestido como función premium: chip de jade macizo
+          con corona, sello PRO y el barrido de luz del banner MI EQUIPO.
+          Verde literal (no tokens) para que brille igual en el tema claro. */}
+      <button
+        type="button"
+        onClick={() => onOpenBuild(index)}
+        aria-label={t.buildConfigureAria(formatName(member.name))}
+        title={member.build ? t.buildCustomTitle : t.buildChooseTitle}
+        className={cn(
+          // Three slots per row on phones leaves each ~105px, so below `sm`
+          // the chip drops its letter-spacing and side padding to fit the
+          // label instead of ellipsing it.
+          "team-sweep relative flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-md border px-1 py-1.5 font-mono text-[11px] font-bold uppercase transition max-sm:gap-1 sm:px-2 sm:tracking-wider",
+          member.build
+            ? "border-emerald-400/70 bg-emerald-400/15 text-emerald-300 shadow-[inset_0_0_14px_-8px_rgba(16,185,129,0.8)] hover:bg-emerald-400/25 hover:shadow-[0_0_16px_-4px_rgba(16,185,129,0.7)]"
+            : "border-emerald-300/80 bg-gradient-to-b from-[#6ee7b7] to-[#059669] text-[#03150f] shadow-[0_0_16px_-4px_rgba(16,185,129,0.7)] hover:from-[#a7f3d0] hover:to-[#34d399] hover:shadow-[0_0_22px_-2px_rgba(16,185,129,0.9)]",
+        )}
+      >
+        <Crown size={13} className="shrink-0 max-sm:hidden" />
+        <span className="truncate">
+          {member.build ? t.buildEditHint : t.buildChooseHint}
+        </span>
+        {member.build ? (
+          <span aria-hidden className="shrink-0">
+            ✓
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className="shrink-0 rounded-sm border border-[#03150f]/40 bg-[#03150f]/15 px-1 text-[9px] font-bold tracking-[0.15em] max-sm:hidden"
+          >
+            PRO
+          </span>
+        )}
+      </button>
     </div>
   );
 }
@@ -369,6 +424,7 @@ function TeamSlot({
 function TeamSearch() {
   const { add, has, isFull } = useTeam();
   const { entries, failed } = useTeamIndex();
+  const t = useT().team;
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
@@ -387,20 +443,20 @@ function TeamSearch() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Busca cualquier Pokémon para ficharlo (ej. pikachu)…"
-          aria-label="Buscar Pokémon para añadir al equipo"
-          className="h-12 w-full rounded-lg border border-slate-700/80 bg-[#0a101d]/90 pr-4 pl-11 font-mono text-sm text-slate-200 outline-none transition focus:border-amber-400/70 focus:shadow-[0_0_16px_-2px_rgba(251,191,36,0.55)]"
+          placeholder={t.searchPlaceholder}
+          aria-label={t.searchAria}
+          className="h-12 w-full rounded-lg border border-slate-700/80 bg-hud-1/90 pr-4 pl-11 font-mono text-sm text-slate-200 outline-none transition focus:border-emerald-400/70 focus:shadow-[0_0_16px_-2px_rgba(16,185,129,0.55)]"
         />
       </label>
 
       {failed && (
         <p className="mt-2 font-mono text-xs text-red-400">
-          No se pudo cargar el índice de especies. Recarga e inténtalo de nuevo.
+          {t.indexErrorRetryReload}
         </p>
       )}
       {query.trim().length >= 2 && entries && results.length === 0 && (
         <p className="mt-2 font-mono text-xs text-slate-500">
-          Sin resultados para «{query.trim()}» (los nombres van en inglés).
+          {t.noResultsEnglishNames(query.trim())}
         </p>
       )}
 
@@ -458,10 +514,11 @@ function CoachReportView({
   resolveSub: (sub: Substitution) => SubstitutionStatus;
   onApply: (sub: Substitution) => void;
 }) {
+  const t = useT().team;
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
       <p className="font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
-        Informe del Coach Bot
+        {t.coachReportTitle}
       </p>
       <p className="text-base leading-relaxed text-slate-100">
         {report.resumen}
@@ -473,8 +530,8 @@ function CoachReportView({
       </ol>
       {report.sustituciones.length > 0 && (
         <div className="border-t border-cyan-400/20 pt-3">
-          <p className="mb-2 font-mono text-xs tracking-widest text-amber-300 uppercase">
-            Cambios sugeridos
+          <p className="mb-2 font-mono text-xs tracking-widest text-emerald-300 uppercase">
+            {t.suggestedSwaps}
           </p>
           <ul className="flex flex-col gap-2 text-sm text-slate-300">
             {report.sustituciones.map((s, i) => {
@@ -493,7 +550,7 @@ function CoachReportView({
                   </span>
                   {status === "applied" ? (
                     <span className="font-mono text-xs text-emerald-400">
-                      ✓ Aplicado
+                      {t.swapApplied}
                     </span>
                   ) : (
                     <button
@@ -502,12 +559,12 @@ function CoachReportView({
                       onClick={() => onApply(s)}
                       title={
                         status === "unavailable"
-                          ? "No se pudo localizar la especie sugerida"
-                          : `Cambiar ${formatName(s.sale)} por ${formatName(s.entra)}`
+                          ? t.swapUnavailable
+                          : t.swapTitle(formatName(s.sale), formatName(s.entra))
                       }
                       className="rounded border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 font-mono text-xs text-emerald-300 transition enabled:hover:bg-emerald-400/20 disabled:opacity-40"
                     >
-                      Aplicar
+                      {t.apply}
                     </button>
                   )}
                 </li>
@@ -537,7 +594,11 @@ export function TeamDrawer() {
     setDrawerOpen,
   } = useTeam();
   const { entries } = useTeamIndex();
+  const { lang, dict } = useI18n();
+  const t = dict.team;
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  /** Slot whose «Configuración de Combate» editor is open, if any. */
+  const [buildSlot, setBuildSlot] = useState<number | null>(null);
   const [reportFor, setReportFor] = useState<string | null>(null);
   const [report, setReport] = useState<CoachReport | null>(null);
   const [pending, setPending] = useState(false);
@@ -550,6 +611,10 @@ export function TeamDrawer() {
   const [genNote, setGenNote] = useState<{ text: string; roster: string } | null>(
     null,
   );
+
+  // Abierto, el cajón cubre la página: la rueda y el arrastre se quedan
+  // dentro en vez de mover la portada por debajo.
+  useScrollLock(open);
 
   const analysis = useMemo(() => analyzeTeam(team), [team]);
   /** Cache key: the report belongs to this exact roster. */
@@ -569,13 +634,13 @@ export function TeamDrawer() {
         | (CoachResponse & { error?: string })
         | null;
       if (!res.ok || !data?.report) {
-        setError(data?.error ?? "El Coach Bot no responde. Inténtalo de nuevo.");
+        setError(data?.error ?? t.coachNoReply);
         return;
       }
       setReport(data.report);
       setReportFor(rosterKey);
     } catch {
-      setError("Sin conexión con el Coach Bot…");
+      setError(t.coachOffline);
     } finally {
       setPending(false);
     }
@@ -589,15 +654,13 @@ export function TeamDrawer() {
       const res = await fetch("/api/team-suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: wish }),
+        body: JSON.stringify({ prompt: wish, team }),
       });
       const data = (await res.json().catch(() => null)) as
         | (TeamSuggestResponse & { error?: string })
         | null;
       if (!res.ok || !Array.isArray(data?.team) || data.team.length === 0) {
-        setGenError(
-          data?.error ?? "El Coach Bot no responde. Inténtalo de nuevo.",
-        );
+        setGenError(data?.error ?? t.coachNoReply);
         return;
       }
       replace(data.team);
@@ -607,7 +670,7 @@ export function TeamDrawer() {
       });
       setWish("");
     } catch {
-      setGenError("Sin conexión con el Coach Bot…");
+      setGenError(t.coachOffline);
     } finally {
       setGenPending(false);
     }
@@ -644,7 +707,7 @@ export function TeamDrawer() {
       {open && (
         <button
           type="button"
-          aria-label="Cerrar el equipo"
+          aria-label={t.closeTeamAria}
           onClick={() => setDrawerOpen(false)}
           className="fixed inset-0 z-30 bg-black/60 backdrop-blur-[2px]"
         />
@@ -652,28 +715,37 @@ export function TeamDrawer() {
 
       {/* Bottom sheet. */}
       <section
-        aria-label="Creador de equipos"
+        aria-label={t.drawerAria}
+        // Closed, the sheet is only translated off-screen — it stays in the
+        // DOM (so the slide animates) and, until now, in the Tab order: a
+        // keyboard user tabbing past the footer fell into ~30 invisible
+        // controls. `inert` takes the whole subtree out of focus, hit-testing
+        // and the accessibility tree while it is hidden.
+        inert={!open}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[88vh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl border-x border-t border-amber-400/40 bg-[#050810]/95 shadow-[0_-12px_48px_rgba(0,0,0,0.7),0_-2px_32px_-8px_rgba(251,191,36,0.35)] backdrop-blur transition-transform duration-300",
+          "fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[88vh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl border-x border-t border-emerald-400/40 bg-hud-3/95 shadow-[0_-12px_48px_rgba(0,0,0,0.7),0_-2px_32px_-8px_rgba(16,185,129,0.35)] backdrop-blur transition-transform duration-300",
           open ? "translate-y-0" : "translate-y-full",
         )}
       >
-        {/* Gold hairline crowning the sheet: the premium seal of the section. */}
+        {/* Jade hairline crowning the sheet: the premium seal of the section. */}
         <div
           aria-hidden
-          className="h-[3px] w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent"
+          className="h-[3px] w-full bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
         />
-        <div className="flex items-center gap-3 border-b border-amber-400/20 bg-gradient-to-b from-amber-400/[0.06] to-transparent px-6 py-4">
-          <Crown size={22} className="text-amber-300" />
-          <h2 className="flex items-center gap-2.5 font-display text-lg font-bold tracking-wide">
-            <span className="premium-text">MI EQUIPO</span>
-            <span className="font-mono text-sm font-normal text-amber-300">
+        <div className="flex items-center gap-2 border-b border-emerald-400/20 bg-gradient-to-b from-emerald-400/[0.06] to-transparent px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+          <Crown size={22} className="shrink-0 text-emerald-300" />
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold tracking-wide whitespace-nowrap sm:gap-2.5">
+            <span className="team-text">{t.myTeam}</span>
+            <span className="font-mono text-sm font-normal text-emerald-300">
               {team.length}/{TEAM_SIZE}
             </span>
-            <span className="rounded-sm border border-amber-400/60 bg-amber-400/15 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em] text-amber-300">
+            <span className="rounded-sm border border-emerald-400/60 bg-emerald-400/15 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em] text-emerald-300 max-sm:hidden">
               PRO
             </span>
           </h2>
+          {/* Mismo botón «Vaciar» que el banner de la portada: desde el móvil
+              esta es la única forma de vaciar el equipo, porque allí el del
+              banner se oculta. */}
           {team.length > 0 && (
             <button
               type="button"
@@ -681,23 +753,29 @@ export function TeamDrawer() {
                 clear();
                 setReport(null);
                 setReportFor(null);
+                setGenNote(null);
               }}
-              className="font-mono text-sm text-slate-500 transition hover:text-red-400"
+              aria-label={t.clearAria}
+              // Icon-only on phones: the title, the counter and the close
+              // chevron already fill a 375px header row. `aria-label` keeps
+              // it announced either way.
+              className="inline-flex shrink-0 items-center gap-2 rounded-md border border-emerald-400/40 bg-black/30 px-2.5 py-2 font-mono text-sm font-bold tracking-wider text-emerald-200/80 uppercase transition hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-400 sm:px-3"
             >
-              Vaciar
+              <Trash2 size={15} />
+              <span className="max-sm:hidden">{t.clear}</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
-            aria-label="Cerrar el equipo"
-            className="ml-auto rounded-md p-2 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
+            aria-label={t.closeTeamAria}
+            className="ml-auto shrink-0 rounded-md p-2 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <ChevronDown size={22} />
           </button>
         </div>
 
-        <div className="flex flex-col gap-6 overflow-y-auto px-6 py-5">
+        <div className="flex flex-col gap-6 overscroll-contain overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {/* Slots */}
           <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
             {Array.from({ length: TEAM_SIZE }, (_, i) => (
@@ -705,57 +783,10 @@ export function TeamDrawer() {
                 key={team[i]?.id ?? `empty-${i}`}
                 index={i}
                 onOpenPicker={setPickerSlot}
+                onOpenBuild={setBuildSlot}
               />
             ))}
           </div>
-
-          {/* Rationale of the last AI-generated roster, while it's intact. */}
-          {genNote && genNote.roster === rosterKey && team.length > 0 && (
-            <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
-              <p className="mb-1.5 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
-                Equipo generado por el Coach Bot
-              </p>
-              <p className="text-sm leading-relaxed text-slate-200">
-                {genNote.text}
-              </p>
-            </div>
-          )}
-
-          {/* AI generator: an empty roster can be described in words. */}
-          {team.length === 0 && (
-            <div className="flex flex-col gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
-              <p className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
-                <Sparkles size={15} /> ¿Sin equipo? Pídeselo a la IA
-              </p>
-              <p className="text-sm leading-relaxed text-slate-300">
-                Describe el equipo que quieres y el Coach Bot montará uno
-                optimizado de 6 Pokémon.
-              </p>
-              <textarea
-                value={wish}
-                onChange={(e) => setWish(e.target.value)}
-                rows={2}
-                maxLength={500}
-                placeholder="Ej.: un equipo equilibrado de la Gen I con Charizard de estrella, o un equipo de tipo Agua resistente…"
-                aria-label="Describe el equipo que quieres generar"
-                className="w-full resize-none rounded-lg border border-slate-700/80 bg-[#0a101d]/90 px-4 py-3 font-mono text-sm text-slate-200 outline-none transition focus:border-cyan-400/70 focus:shadow-[0_0_16px_-2px_rgba(34,211,238,0.55)]"
-              />
-              <button
-                type="button"
-                onClick={generateTeam}
-                disabled={genPending || !wish.trim()}
-                className="inline-flex h-12 items-center justify-center gap-2.5 self-start rounded-md border border-cyan-400/50 bg-cyan-400/10 px-6 font-mono text-base tracking-wider text-cyan-300 uppercase transition enabled:hover:bg-cyan-400/20 enabled:hover:shadow-[0_0_20px_-2px_rgba(34,211,238,0.7)] disabled:opacity-50"
-              >
-                <Bot size={19} className={cn(genPending && "animate-pulse")} />
-                {genPending ? "Montando equipo…" : "✨ Generar equipo con IA"}
-              </button>
-              {genError && (
-                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-sm text-red-400">
-                  {genError}
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Search picker */}
           <TeamSearch />
@@ -765,18 +796,18 @@ export function TeamDrawer() {
             <div className="grid gap-5 lg:grid-cols-3">
               <div>
                 <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-red-400 uppercase">
-                  <Swords size={15} /> Debilidades críticas
+                  <Swords size={15} /> {t.criticalWeaknesses}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {analysis.criticalWeaknesses.length === 0 ? (
                     <p className="font-mono text-sm text-slate-500">
-                      Ninguna: ningún tipo golpea a {PRESSURE_THRESHOLD}+
-                      miembros.
+                      {t.noCriticalWeaknesses(PRESSURE_THRESHOLD)}
                     </p>
                   ) : (
                     analysis.criticalWeaknesses.map((p) => (
                       <AnalysisChip key={p.type} tone="danger">
-                        ⚠️ {typeLabel(p.type)} · {p.weakCount} de {team.length}
+                        ⚠️ {typeLabel(p.type, lang)} ·{" "}
+                        {t.memberCount(p.weakCount, team.length)}
                       </AnalysisChip>
                     ))
                   )}
@@ -784,36 +815,38 @@ export function TeamDrawer() {
               </div>
               <div>
                 <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-emerald-400 uppercase">
-                  <Shield size={15} /> Resistencias fuertes
+                  <Shield size={15} /> {t.strongResistances}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {analysis.strongResistances.length === 0 ? (
                     <p className="font-mono text-sm text-slate-500">
-                      Aún ninguna resistencia compartida por{" "}
-                      {PRESSURE_THRESHOLD}+ miembros.
+                      {t.noStrongResistances(PRESSURE_THRESHOLD)}
                     </p>
                   ) : (
                     analysis.strongResistances.map((p) => (
                       <AnalysisChip key={p.type} tone="good">
-                        {typeLabel(p.type)} · {p.resistCount} de {team.length}
+                        {typeLabel(p.type, lang)} ·{" "}
+                        {t.memberCount(p.resistCount, team.length)}
                       </AnalysisChip>
                     ))
                   )}
                 </div>
               </div>
               <div>
+                {/* Amber, like its chips: this column is the "gap" side of the
+                    red / green / amber analysis, not the team livery. */}
                 <h3 className="mb-2.5 font-mono text-sm tracking-widest text-amber-400 uppercase">
-                  Sin cobertura ofensiva
+                  {t.missingCoverage}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {analysis.missingCoverage.length === 0 ? (
                     <p className="font-mono text-sm text-slate-500">
-                      Tu STAB golpea con eficacia a los 18 tipos.
+                      {t.fullCoverage}
                     </p>
                   ) : (
                     analysis.missingCoverage.map((type) => (
                       <AnalysisChip key={type} tone="warn">
-                        {typeLabel(type)}
+                        {typeLabel(type, lang)}
                       </AnalysisChip>
                     ))
                   )}
@@ -822,48 +855,103 @@ export function TeamDrawer() {
             </div>
           )}
 
-          {/* AI coach */}
-          {team.length > 0 && (
-            <div className="flex flex-col gap-3">
+          {/* Coach Bot: un solo panel con las dos acciones de IA. «Analizar»
+              devuelve el informe; «Solicitar actualización» reescribe el
+              roster (niveles, habilidades y movimientos incluidos) a partir
+              del mensaje. */}
+          <div className="flex flex-col gap-3 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.04] p-4">
+            <p className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
+              <Sparkles size={15} />{" "}
+              {team.length === 0 ? t.aiTitleEmpty : t.aiTitleModify}
+            </p>
+            <p className="text-sm leading-relaxed text-slate-300">
+              {team.length === 0 ? t.aiBodyEmpty : t.aiBodyModify}
+            </p>
+            <textarea
+              value={wish}
+              onChange={(e) => setWish(e.target.value)}
+              rows={2}
+              maxLength={500}
+              placeholder={
+                team.length === 0 ? t.aiPlaceholderEmpty : t.aiPlaceholderModify
+              }
+              aria-label={t.aiWishAria}
+              className="w-full resize-none rounded-lg border border-slate-700/80 bg-hud-1/90 px-4 py-3 font-mono text-sm text-slate-200 outline-none transition focus:border-cyan-400/70 focus:shadow-[0_0_16px_-2px_rgba(34,211,238,0.55)]"
+            />
+            <div className="flex flex-wrap gap-2.5">
               <button
                 type="button"
-                onClick={askCoach}
-                disabled={pending}
-                className="inline-flex h-12 items-center justify-center gap-2.5 self-start rounded-md border border-cyan-400/50 bg-cyan-400/10 px-6 font-mono text-base tracking-wider text-cyan-300 uppercase transition enabled:hover:bg-cyan-400/20 enabled:hover:shadow-[0_0_20px_-2px_rgba(34,211,238,0.7)] disabled:opacity-50"
+                onClick={generateTeam}
+                disabled={genPending || !wish.trim()}
+                className="inline-flex h-12 items-center justify-center gap-2.5 rounded-md border border-cyan-400/50 bg-cyan-400/10 px-6 font-mono text-base tracking-wider text-cyan-300 uppercase transition enabled:hover:bg-cyan-400/20 enabled:hover:shadow-[0_0_20px_-2px_rgba(34,211,238,0.7)] disabled:opacity-50"
               >
-                <Bot size={19} className={cn(pending && "animate-pulse")} />
-                {pending
-                  ? "Analizando…"
-                  : reportFor === rosterKey
-                    ? "🤖 Volver a analizar"
-                    : "🤖 Analizar con IA"}
+                <Sparkles size={19} className={cn(genPending && "animate-pulse")} />
+                {genPending
+                  ? t.aiBuilding
+                  : team.length === 0
+                    ? t.aiGenerate
+                    : t.aiRequestUpdate}
               </button>
-              {error && (
-                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-sm text-red-400">
-                  {error}
-                </p>
-              )}
-              {report && (
-                <>
-                  {reportFor !== rosterKey && (
-                    <p className="font-mono text-sm text-amber-400/90">
-                      El equipo cambió desde este informe: vuelve a analizar.
-                    </p>
-                  )}
-                  <CoachReportView
-                    report={report}
-                    resolveSub={resolveSub}
-                    onApply={applySub}
-                  />
-                </>
+              {team.length > 0 && (
+                <button
+                  type="button"
+                  onClick={askCoach}
+                  disabled={pending}
+                  className="inline-flex h-12 items-center justify-center gap-2.5 rounded-md border border-cyan-400/50 bg-cyan-400/10 px-6 font-mono text-base tracking-wider text-cyan-300 uppercase transition enabled:hover:bg-cyan-400/20 enabled:hover:shadow-[0_0_20px_-2px_rgba(34,211,238,0.7)] disabled:opacity-50"
+                >
+                  <Bot size={19} className={cn(pending && "animate-pulse")} />
+                  {pending
+                    ? t.analyzing
+                    : reportFor === rosterKey
+                      ? t.analyzeAgain
+                      : t.analyzeWithAi}
+                </button>
               )}
             </div>
-          )}
+
+            {genError && (
+              <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-sm text-red-400">
+                {genError}
+              </p>
+            )}
+            {error && (
+              <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-sm text-red-400">
+                {error}
+              </p>
+            )}
+
+            {/* Rationale of the last AI-generated roster, while it's intact. */}
+            {genNote && genNote.roster === rosterKey && team.length > 0 && (
+              <div className="border-t border-cyan-400/20 pt-3">
+                <p className="mb-1.5 font-mono text-xs tracking-[0.2em] text-cyan-300 uppercase">
+                  {t.generatedByCoach}
+                </p>
+                <p className="text-sm leading-relaxed text-slate-200">
+                  {genNote.text}
+                </p>
+              </div>
+            )}
+
+            {report && (
+              <>
+                {reportFor !== rosterKey && (
+                  // Stays amber: it warns the report no longer matches the team.
+                  <p className="font-mono text-sm text-amber-400/90">
+                    {t.staleReport}
+                  </p>
+                )}
+                <CoachReportView
+                  report={report}
+                  resolveSub={resolveSub}
+                  onApply={applySub}
+                />
+              </>
+            )}
+          </div>
 
           {team.length === 0 && (
             <p className="pb-2 text-center font-mono text-base text-slate-500">
-              También puedes pulsar «+» en una ranura, buscar arriba, o fichar
-              desde cualquier tarjeta del listado.
+              {t.emptyTeamHint}
             </p>
           )}
         </div>
@@ -871,6 +959,13 @@ export function TeamDrawer() {
 
       {pickerSlot !== null && (
         <TeamPicker slot={pickerSlot} onClose={() => setPickerSlot(null)} />
+      )}
+
+      {buildSlot !== null && team[buildSlot] && (
+        <BuildEditor
+          member={team[buildSlot]}
+          onClose={() => setBuildSlot(null)}
+        />
       )}
     </>
   );

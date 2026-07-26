@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { TeamMember } from "@/types/team";
+import type { MemberBuild, TeamMember } from "@/types/team";
 
 export const TEAM_SIZE = 6;
 
@@ -28,6 +28,8 @@ interface TeamContextValue {
   remove: (id: number) => void;
   /** Sets a member's combat level, clamped to 1-100. */
   setLevel: (id: number, level: number) => void;
+  /** Sets (or clears, with undefined) a member's hand-picked combat build. */
+  setBuild: (id: number, build: MemberBuild | undefined) => void;
   /** Replaces the whole roster (AI generator). */
   replace: (members: TeamMember[]) => void;
   /** Swaps one member for another, keeping its slot (AI substitutions). */
@@ -44,6 +46,20 @@ interface TeamContextValue {
 
 const TeamContext = createContext<TeamContextValue | null>(null);
 
+function isValidBuild(value: unknown): value is MemberBuild | undefined {
+  if (value === undefined) return true;
+  const b = value as MemberBuild;
+  return (
+    typeof b === "object" &&
+    b !== null &&
+    (b.ability === undefined || typeof b.ability === "string") &&
+    (b.moves === undefined ||
+      (Array.isArray(b.moves) &&
+        b.moves.length <= 4 &&
+        b.moves.every((m) => typeof m === "string")))
+  );
+}
+
 function isValidMember(value: unknown): value is TeamMember {
   const m = value as TeamMember;
   return (
@@ -53,7 +69,8 @@ function isValidMember(value: unknown): value is TeamMember {
     typeof m.name === "string" &&
     Array.isArray(m.types) &&
     m.types.every((t) => typeof t === "string") &&
-    (m.level === undefined || typeof m.level === "number")
+    (m.level === undefined || typeof m.level === "number") &&
+    isValidBuild(m.build)
   );
 }
 
@@ -120,6 +137,10 @@ export function TeamProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const setBuild = useCallback((id: number, build: MemberBuild | undefined) => {
+    setTeam((prev) => prev.map((m) => (m.id === id ? { ...m, build } : m)));
+  }, []);
+
   const replace = useCallback((members: TeamMember[]) => {
     const seen = new Set<number>();
     setTeam(
@@ -157,6 +178,7 @@ export function TeamProvider({ children }: { children: ReactNode }) {
         addCurrent,
         remove,
         setLevel,
+        setBuild,
         replace,
         swap,
         clear,

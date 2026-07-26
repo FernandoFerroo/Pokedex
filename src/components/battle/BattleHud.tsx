@@ -1,47 +1,228 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type CSSProperties } from "react";
-import { Backpack, DoorOpen, FlaskRound, Swords } from "lucide-react";
+import {
+  useCallback,
+  useId,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import {
+  Atom,
+  Brain,
+  Bug,
+  Circle,
+  Cog,
+  Droplets,
+  Feather,
+  Flame,
+  FlaskRound,
+  Flower,
+  Gem,
+  Ghost,
+  Hand,
+  Leaf,
+  Moon,
+  Mountain,
+  Shield,
+  Skull,
+  Snowflake,
+  Sparkles,
+  Swords,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { useSfx } from "@/components/audio/SfxProvider";
+import { CommandDial } from "./hud/CommandDial";
+import { StatusBox } from "./hud/StatusBox";
+import {
+  BAG_ITEM_IDS,
+  BAG_ITEMS,
+  bagCount,
+  isItemUseless,
+  type Bag,
+  type BagItemId,
+} from "@/lib/battle/items";
 import { effectiveness } from "@/lib/battle/type-chart";
-import { artworkUrl, typeAura, typeLabel } from "@/lib/pokemon-meta";
+import { useI18n, useT } from "@/lib/i18n/client";
+import type { Dict } from "@/lib/i18n";
+import {
+  artworkUrl,
+  typeAura,
+  typeLabel,
+  typeSurface,
+} from "@/lib/pokemon-meta";
 import { cn } from "@/lib/utils";
 import type { BattleMove, Battler } from "@/types/battle";
 
 /* ------------------------------------------------------------------ */
-/* Shared chrome: Sword/Shield-style dark translucent glass panels     */
+/* Shared chrome: Sun/Moon-style dark glass panels with angular cuts   */
 /* ------------------------------------------------------------------ */
 
-/** Dark glass databox, like the SwSh status bars over the field. */
+/** Dark glass panel, like the SuMo databoxes floating over the field.
+ *  Radius is set per use so each box can keep one sharp, angular corner. */
 const glass =
-  "rounded-xl border border-white/15 bg-[#101c2e]/90 shadow-[0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-sm";
+  "border border-white/15 bg-gradient-to-b from-[#1b2c44]/95 to-[#0c1626]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_18px_rgba(0,0,0,0.5)] backdrop-blur-sm";
 
 /** White label text with the soft outline the Switch games use. */
 const outlined =
   "text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_6px_rgba(0,0,0,0.5)]";
 
 /* ------------------------------------------------------------------ */
+/* Keyboard navigation                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Both the arrow cluster and WASD drive the menus, like a console D-pad. */
+const PREV_KEYS = new Set(["ArrowUp", "ArrowLeft", "w", "W", "a", "A"]);
+const NEXT_KEYS = new Set(["ArrowDown", "ArrowRight", "s", "S", "d", "D"]);
+
+/**
+ * D-pad navigation over a group of command buttons: arrows (or WASD) walk the
+ * enabled options and wrap around at the ends, Home/End jump to the extremes.
+ *
+ * Enter and Space are deliberately left alone — a native `<button>` already
+ * activates on both, and not intercepting them is exactly what keeps the menu
+ * working under a screen reader, which synthesizes clicks rather than keys.
+ * Every option also stays in the Tab order, so the arrows are an addition to
+ * the standard traversal, never a replacement for it.
+ */
+function useDpadNav() {
+  return useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
+    const { key } = event;
+    const step = PREV_KEYS.has(key) ? -1 : NEXT_KEYS.has(key) ? 1 : 0;
+    if (step === 0 && key !== "Home" && key !== "End") return;
+
+    const options = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        "button:not([disabled])",
+      ),
+    );
+    if (options.length === 0) return;
+    event.preventDefault();
+
+    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      key === "Home"
+        ? 0
+        : key === "End"
+          ? options.length - 1
+          : current === -1
+            ? step === 1
+              ? 0
+              : options.length - 1
+            : (current + step + options.length) % options.length;
+    options[next]?.focus();
+  }, []);
+}
+
+/**
+ * Moves the keyboard onto the first enabled option as soon as a menu opens.
+ * Without it a keyboard user would have to Tab back in from the top of the
+ * arena every single turn, since the menus mount and unmount with the phase.
+ */
+function useAutoFocusFirst<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    ref.current
+      ?.querySelector<HTMLButtonElement>("button:not([disabled])")
+      ?.focus();
+  }, []);
+  return ref;
+}
+
+/** Spoken-only hint, read out as part of each menu's group description. */
+function KeyboardHint() {
+  const a11y = useT().a11y;
+  return <p className="sr-only">{a11y.keyboardHint}</p>;
+}
+
+/* ------------------------------------------------------------------ */
 /* HP bar                                                             */
 /* ------------------------------------------------------------------ */
 
-function hpGradient(pct: number): string {
-  if (pct > 50) return "linear-gradient(180deg, #86efac, #22c55e 55%, #16a34a)";
-  if (pct > 20) return "linear-gradient(180deg, #fde68a, #f59e0b 55%, #d97706)";
-  return "linear-gradient(180deg, #fca5a5, #ef4444 55%, #dc2626)";
+/** The three health tiers, stacked so the bar crossfades between them. */
+const HP_GREEN = "linear-gradient(180deg, #86efac, #22c55e 55%, #16a34a)";
+const HP_AMBER = "linear-gradient(180deg, #fde68a, #f59e0b 55%, #d97706)";
+const HP_RED = "linear-gradient(180deg, #fca5a5, #ef4444 55%, #dc2626)";
+
+/** Smooth 0→1 ramp between two percentages (no hard color snap). */
+const ramp = (pct: number, from: number, to: number) =>
+  Math.min(1, Math.max(0, (pct - from) / (to - from)));
+
+/** Neon halo color matching the tier the bar is currently showing. */
+function hpGlow(pct: number): string {
+  if (pct > 50) return "#22c55e";
+  if (pct > 20) return "#f59e0b";
+  return "#ef4444";
 }
 
-export function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
+/**
+ * HP gauge. The bar itself carries `role="progressbar"` with the raw HP
+ * values (not the percentage), so a screen reader announces "Garchomp,
+ * 45 of 120 PS" instead of an abstract "38%".
+ */
+export function HpBar({
+  hp,
+  maxHp,
+  name,
+}: {
+  hp: number;
+  maxHp: number;
+  /** Battler this gauge belongs to, for the accessible name. */
+  name: string;
+}) {
+  const { battle, a11y } = useT();
   const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+  // Below a fifth of its health the gauge pulses, mirroring the alarm beep
+  // the soundboard starts at exactly the same threshold.
+  const critical = hp > 0 && pct <= 20;
   return (
     <div className="flex items-center gap-1.5">
-      <span className="rounded-sm bg-[#f59e0b] px-1 py-px font-display text-[9px] leading-none font-bold text-[#1c1204]">
-        PS
+      <span
+        aria-hidden
+        className="rounded-sm bg-[#f59e0b] px-1 py-px font-display text-[9px] leading-none font-bold text-[#1c1204]"
+      >
+        {battle.hp}
       </span>
-      <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-black/50 bg-[#0a1220] shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)]">
+      <div
+        role="progressbar"
+        aria-label={a11y.hpBarAria(name)}
+        aria-valuemin={0}
+        aria-valuemax={maxHp}
+        aria-valuenow={Math.max(0, hp)}
+        aria-valuetext={a11y.hpValueText(Math.max(0, hp), maxHp)}
+        style={{ "--hp-glow": hpGlow(pct) } as CSSProperties}
+        className={cn(
+          "relative h-2.5 flex-1 overflow-hidden rounded-full border border-white/20 bg-[#0a1220]/90 shadow-[inset_0_1px_3px_rgba(0,0,0,0.9),0_0_10px_-2px_var(--hp-glow)] backdrop-blur-sm transition-shadow duration-500",
+          critical && "hp-critical",
+        )}
+      >
+        {/* Pale trail draining behind the bar: the SuMo-style fluid HP loss. */}
         <div
-          className="h-full rounded-full transition-[width] duration-600 ease-out"
-          style={{ width: `${pct}%`, background: hpGradient(pct) }}
+          className="absolute inset-y-0 left-0 rounded-full bg-white/45 transition-[width] duration-1000 ease-out delay-300"
+          style={{ width: `${pct}%` }}
         />
+        {/* Fill: red underneath, amber and green fading out over it as the
+            health drops, so the color slides instead of snapping tiers. */}
+        <div
+          className="absolute inset-y-0 left-0 overflow-hidden rounded-full transition-[width] duration-500 ease-out"
+          style={{ width: `${pct}%` }}
+        >
+          <span className="absolute inset-0" style={{ background: HP_RED }} />
+          <span
+            className="absolute inset-0 transition-opacity duration-700"
+            style={{ background: HP_AMBER, opacity: ramp(pct, 12, 30) }}
+          />
+          <span
+            className="absolute inset-0 transition-opacity duration-700"
+            style={{ background: HP_GREEN, opacity: ramp(pct, 35, 55) }}
+          />
+          {/* Glass highlight riding the top of the fill. */}
+          <span className="absolute inset-x-0 top-0 h-1/2 rounded-full bg-gradient-to-b from-white/45 to-transparent" />
+        </div>
       </div>
     </div>
   );
@@ -51,53 +232,11 @@ export function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
 /* Databoxes (enemy: no numbers · player: numbers + EXP strip)         */
 /* ------------------------------------------------------------------ */
 
-export function Databox({
-  battler,
-  side,
-  team,
-}: {
-  battler: Battler;
-  side: "player" | "enemy";
-  /** Full roster, for the Poké Ball row of remaining Pokémon. */
-  team: Battler[];
-}) {
-  return (
-    <div className={cn(glass, "w-60 max-w-[46vw] px-3.5 py-2.5")}>
-      <div className="flex items-baseline justify-between gap-2">
-        <p className={cn(outlined, "truncate text-sm font-bold tracking-wide")}>
-          {battler.label}
-        </p>
-        <p className={cn(outlined, "shrink-0 text-xs font-semibold")}>
-          <span className="mr-0.5 text-[10px] text-slate-300">Nv.</span>
-          {battler.level}
-        </p>
-      </div>
-      <div className="mt-1.5">
-        <HpBar hp={battler.hp} maxHp={battler.maxHp} />
-      </div>
-      {side === "player" ? (
-        <>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <TeamPips team={team} />
-            <p className={cn(outlined, "text-xs font-bold")}>
-              {battler.hp}
-              <span className="text-slate-300">/{battler.maxHp}</span>
-            </p>
-          </div>
-          {/* EXP strip, decorative like in the games (fills with level). */}
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#0a1220]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#38bdf8] to-[#818cf8]"
-              style={{ width: `${battler.level}%` }}
-            />
-          </div>
-        </>
-      ) : (
-        <TeamPips team={team} className="mt-1.5" />
-      )}
-    </div>
-  );
-}
+/**
+ * Caja de estado del combatiente. El panel hexagonal vive en `hud/StatusBox`;
+ * este envoltorio conserva el nombre que usa la arena.
+ */
+export const Databox = StatusBox;
 
 /** Row of mini Poké Balls: one per team member, grayed out when fainted. */
 export function TeamPips({
@@ -107,17 +246,26 @@ export function TeamPips({
   team: Battler[];
   className?: string;
 }) {
+  const a11y = useT().a11y;
+  const alive = team.filter((b) => b.hp > 0).length;
   return (
-    <div className={cn("flex gap-1", className)}>
+    // The pips are a picture of a number: give assistive tech the number and
+    // hide the decorative balls, instead of reading six unlabeled dots.
+    <div
+      role="img"
+      aria-label={a11y.teamPipsAria(alive, team.length)}
+      className={cn("flex gap-1", className)}
+    >
       {team.map((b) => (
         <span
           key={b.id}
+          aria-hidden
           title={b.label}
           className={cn(
             "h-2.5 w-2.5 rounded-full border",
             b.hp > 0
               ? "border-black/60 bg-gradient-to-b from-[#ef4444] from-50% to-[#f8fafc] to-50% shadow-[0_0_4px_rgba(239,68,68,0.6)]"
-              : "border-slate-600 bg-slate-700",
+              : "border-[#475569] bg-[#334155]",
           )}
         />
       ))}
@@ -129,7 +277,19 @@ export function TeamPips({
 /* Message bar with typewriter text (bottom strip, like the Switch)    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The battle log. Visually it is the Switch-style text window with its
+ * typewriter reveal; for assistive tech it is a polite live region.
+ *
+ * The two are deliberately separated: announcing the animating slice would
+ * make a screen reader stutter its way through "Ga… Garch… Garchomp usó…" as
+ * every tick re-fires the region. So the typed text is hidden from the
+ * accessibility tree and the *whole* line is mirrored in an off-screen
+ * `role="status"`, which announces each event once, complete, and without
+ * stealing focus mid-turn.
+ */
 export function MessageBox({ text }: { text: string }) {
+  const a11y = useT().a11y;
   // Render-phase reset: a new message restarts the typewriter from zero.
   const [typed, setTyped] = useState({ text, count: text.length });
   if (typed.text !== text) setTyped({ text, count: 0 });
@@ -153,14 +313,37 @@ export function MessageBox({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <div className={cn(glass, "flex min-h-[3.75rem] items-center px-5 py-3")}>
-      <p className={cn(outlined, "text-base leading-snug font-semibold sm:text-lg")}>
+    // Console text window: angled glass panel with a lit leading edge, cut
+    // from the same shape language as the status boxes.
+    <div
+      className={cn(
+        "relative flex min-h-[3.6rem] items-center px-6 py-3",
+        "[clip-path:polygon(0_14%,1.4%_0,100%_0,100%_86%,98.6%_100%,0_100%)]",
+        "border-y border-white/12 bg-gradient-to-b from-[#1a2b46]/92 to-[#080f1c]/95 backdrop-blur-md",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_-2px_18px_rgba(0,0,0,0.6)]",
+      )}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-gradient-to-b from-transparent via-[#ff7a7a] to-transparent shadow-[0_0_10px_1px_#ff7a7a]"
+      />
+      <p
+        aria-hidden
+        className={cn(outlined, "text-base leading-snug font-semibold sm:text-lg")}
+      >
         {text.slice(0, count)}
         {count < text.length && (
-          <span aria-hidden className="cursor-blink ml-1 text-red-400">
-            ▼
-          </span>
+          <span className="cursor-blink ml-1 text-[#ff7a7a]">▼</span>
         )}
+      </p>
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label={a11y.battleLogAria}
+        className="sr-only"
+      >
+        {text}
       </p>
     </div>
   );
@@ -170,97 +353,36 @@ export function MessageBox({ text }: { text: string }) {
 /* Command pills (the SwSh bottom-right column)                        */
 /* ------------------------------------------------------------------ */
 
-/** Glossy rounded command pill with the Switch-style top shine. */
-function CommandPill({
-  onClick,
-  disabled,
-  className,
-  children,
-  big,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-  children: React.ReactNode;
-  big?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "relative flex w-full items-center justify-center gap-2.5 rounded-full border-2 border-white/30 font-display font-bold tracking-widest uppercase transition",
-        outlined,
-        "shadow-[inset_0_2px_0_rgba(255,255,255,0.35),0_3px_10px_rgba(0,0,0,0.5)]",
-        "enabled:hover:scale-[1.03] enabled:hover:brightness-110 enabled:active:scale-95",
-        "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
-        big ? "h-14 text-lg" : "h-11 text-sm",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Mini Poké Ball icon for the Pokémon command. */
-function BallIcon() {
-  return (
-    <span
-      aria-hidden
-      className="relative h-4.5 w-4.5 shrink-0 rounded-full border-2 border-[#101c2e] bg-gradient-to-b from-[#ef4444] from-48% to-white to-52% shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-    >
-      <span className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#101c2e] bg-white" />
-    </span>
-  );
-}
-
 export function ActionMenu({
   onFight,
   onBag,
   onSwitch,
   onFlee,
-  potions,
+  bag,
   canSwitch,
 }: {
   onFight: () => void;
   onBag: () => void;
   onSwitch: () => void;
   onFlee: () => void;
-  potions: number;
+  bag: Bag;
   canSwitch: boolean;
 }) {
+  const onKeyDown = useDpadNav();
+  const ref = useAutoFocusFirst<HTMLDivElement>();
+  // The four commands are neon-glass keys with their own drawn glyphs; the
+  // group keeps the D-pad navigation and the autofocus the menus rely on.
   return (
-    <div className="flex flex-col gap-2">
-      <CommandPill
-        big
-        onClick={onFight}
-        className="bg-gradient-to-b from-[#ff6b57] via-[#ef2f3e] to-[#c01327]"
-      >
-        <Swords size={20} /> Lucha
-      </CommandPill>
-      <CommandPill
-        onClick={onSwitch}
-        disabled={!canSwitch}
-        className="bg-gradient-to-b from-[#57d374] via-[#27ad4e] to-[#158a3d]"
-      >
-        <BallIcon /> Pokémon
-      </CommandPill>
-      <CommandPill
-        onClick={onBag}
-        disabled={potions === 0}
-        className="bg-gradient-to-b from-[#ffd45e] via-[#f5a623] to-[#d97706]"
-      >
-        <Backpack size={17} /> Mochila
-      </CommandPill>
-      <CommandPill
-        onClick={onFlee}
-        className="bg-gradient-to-b from-[#5db4ff] via-[#2f80e4] to-[#1560bd]"
-      >
-        <DoorOpen size={17} /> Huir
-      </CommandPill>
-    </div>
+    <CommandDial
+      groupRef={ref}
+      onKeyDown={onKeyDown}
+      onFight={onFight}
+      onSwitch={onSwitch}
+      onBag={onBag}
+      onFlee={onFlee}
+      canSwitch={canSwitch}
+      canUseBag={bagCount(bag) > 0}
+    />
   );
 }
 
@@ -268,10 +390,50 @@ export function ActionMenu({
 /* Move pills (type-colored, with PP and the effectiveness hint)       */
 /* ------------------------------------------------------------------ */
 
-function effectivenessHint(mult: number): { text: string; className: string } | null {
-  if (mult === 0) return { text: "Sin efecto", className: "text-slate-300" };
-  if (mult > 1) return { text: "¡Súper eficaz!", className: "text-amber-200" };
-  if (mult < 1) return { text: "Poco eficaz", className: "text-slate-200/80" };
+/** Symbol per type: the move pill is recognizable before reading it. */
+const TYPE_ICON: Record<string, LucideIcon> = {
+  normal: Circle,
+  fire: Flame,
+  water: Droplets,
+  electric: Zap,
+  grass: Leaf,
+  ice: Snowflake,
+  fighting: Hand,
+  poison: Skull,
+  ground: Mountain,
+  flying: Feather,
+  psychic: Brain,
+  bug: Bug,
+  rock: Gem,
+  ghost: Ghost,
+  dragon: Atom,
+  dark: Moon,
+  steel: Cog,
+  fairy: Flower,
+};
+
+/** Damage class glyph: blades for physical, sparks for special, a shield for
+ *  status — the same three categories the games print on the move sheet. */
+const CLASS_ICON: Record<BattleMove["damageClass"], LucideIcon> = {
+  physical: Swords,
+  special: Sparkles,
+  status: Shield,
+};
+
+/**
+ * The effectiveness tag is text-only on purpose: it used to be color-coded
+ * (amber for super-effective, gray for no effect), which both leaned on color
+ * alone to carry meaning — WCAG 1.4.1 — and could not clear 4.5:1 across the
+ * eighteen type colors it sits on. Emphasis now comes from weight, and the
+ * ink is whatever `typeSurface` guarantees is readable on that pill.
+ */
+function effectivenessHint(
+  mult: number,
+  t: Dict["battle"],
+): { text: string; strong: boolean } | null {
+  if (mult === 0) return { text: t.hintNoEffect, strong: false };
+  if (mult > 1) return { text: t.hintSuper, strong: true };
+  if (mult < 1) return { text: t.hintNotVery, strong: false };
   return null;
 }
 
@@ -287,51 +449,130 @@ export function MoveMenu({
   onPick: (move: BattleMove) => void;
   onBack: () => void;
 }) {
+  const { lang, dict } = useI18n();
+  const a11y = dict.a11y;
+  const sfx = useSfx();
+  const onKeyDown = useDpadNav();
+  const ref = useAutoFocusFirst<HTMLDivElement>();
   return (
-    <div className="flex flex-col gap-2">
+    // Arrows / WASD walk the four moves (and the back pill) and wrap around;
+    // Enter and Space confirm, natively. Focus lands on the first usable move
+    // the moment the menu opens, so a turn never needs the mouse.
+    <div
+      ref={ref}
+      role="group"
+      aria-label={a11y.movesMenuAria}
+      onKeyDown={onKeyDown}
+      className="flex flex-col gap-2"
+    >
+      <KeyboardHint />
       {moves.map((move) => {
         const aura = typeAura(move.type);
-        const hint = effectivenessHint(effectiveness(move.type, targetTypes));
+        const { ink, base, inkShadow } = typeSurface(move.type);
+        const TypeIcon = TYPE_ICON[move.type] ?? Circle;
+        const ClassIcon = CLASS_ICON[move.damageClass];
+        const category =
+          move.damageClass === "physical"
+            ? dict.battle.classPhysical
+            : move.damageClass === "special"
+              ? dict.battle.classSpecial
+              : dict.battle.classStatus;
+        // Status moves show their category instead of a meaningless
+        // effectiveness hint.
+        const hint =
+          move.damageClass === "status"
+            ? { text: dict.battle.classStatus, strong: false }
+            : effectivenessHint(
+                effectiveness(move.type, targetTypes),
+                dict.battle,
+              );
+        const type = typeLabel(move.type, lang);
         return (
           <button
             key={move.slug}
             type="button"
             disabled={move.pp === 0}
-            onClick={() => onPick(move)}
+            onClick={() => {
+              sfx.play("confirm");
+              onPick(move);
+            }}
+            onPointerEnter={() => move.pp > 0 && sfx.play("menu")}
+            // The pill's own layout (name / tag / "PP 12/15") reads as
+            // disconnected fragments out loud, so the whole option gets one
+            // spoken sentence instead.
+            // Category and power ride along with the spoken option so the
+            // pill's new chips are not sighted-only information.
+            aria-label={`${a11y.moveOptionAria(
+              move.label,
+              type,
+              move.pp,
+              move.maxPp,
+              move.pp === 0 ? a11y.moveNoPp : (hint?.text ?? null),
+            )} ${category}${
+              move.damageClass === "status" || move.power === null
+                ? ""
+                : `, ${dict.battle.powerShort} ${move.power}`
+            }.`}
             style={
               {
-                background: `linear-gradient(180deg, color-mix(in srgb, ${aura} 80%, #fff 12%), ${aura} 45%, color-mix(in srgb, ${aura} 55%, #000))`,
+                // The light stop stays inside the top third, where the gloss
+                // sits and no glyph reaches; from 34% down the pill is a flat
+                // `base`, the surface `typeSurface` measured `ink` against.
+                background: `linear-gradient(180deg, color-mix(in srgb, ${base} 84%, #fff) 0%, ${base} 34%, ${base} 100%)`,
+                boxShadow: `inset 0 2px 0 rgba(255,255,255,0.3), 0 3px 10px rgba(0,0,0,0.5), 0 0 20px -5px ${aura}`,
+                color: ink,
+                textShadow: inkShadow,
               } as CSSProperties
             }
             className={cn(
-              "w-full rounded-full border-2 border-white/30 px-4 py-1.5 text-left transition",
-              "shadow-[inset_0_2px_0_rgba(255,255,255,0.3),0_3px_10px_rgba(0,0,0,0.5)]",
+              "w-full rounded-[16px_6px_16px_6px] border-2 border-white/30 px-4 py-1.5 text-left transition",
               "enabled:hover:scale-[1.03] enabled:hover:brightness-110 enabled:active:scale-95",
               "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
             )}
           >
-            <span className="flex items-baseline justify-between gap-2">
-              <span className={cn(outlined, "truncate text-sm font-bold tracking-wide")}>
+            <span aria-hidden className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-sm font-bold tracking-wide">
                 {move.label}
               </span>
               {hint && (
                 <span
                   className={cn(
-                    "shrink-0 text-[11px] font-bold [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
-                    hint.className,
+                    "shrink-0 text-[11px]",
+                    hint.strong ? "font-extrabold" : "font-semibold opacity-90",
                   )}
                 >
                   {hint.text}
                 </span>
               )}
             </span>
-            <span className="mt-0.5 flex items-center justify-between gap-2">
-              <span className="rounded-sm bg-black/35 px-1.5 py-px text-[10px] font-bold tracking-widest text-white uppercase">
-                {typeLabel(move.type)}
+            <span
+              aria-hidden
+              className="mt-0.5 flex items-center justify-between gap-1.5"
+            >
+              {/* Pinned #000 at 65%: the chip must stay dark on the colored
+                  pill in both themes (bg-black flips to white in light mode),
+                  and 65% is what keeps its white label above 4.5:1 even on
+                  the brightest auras (eléctrico, hielo). */}
+              <span className="flex min-w-0 items-center gap-1 rounded-sm bg-[#000000]/65 px-1.5 py-px text-[10px] font-bold tracking-widest text-white uppercase [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                <TypeIcon size={11} className="shrink-0" />
+                <span className="truncate">{type}</span>
               </span>
-              <span className={cn(outlined, "text-[11px] font-semibold")}>
-                PP {move.pp}
-                <span className="text-slate-300">/{move.maxPp}</span>
+              {/* Category glyph + base power, the two numbers that decide the
+                  turn, next to the PP counter. */}
+              <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold">
+                <span
+                  title={category}
+                  className="flex items-center gap-0.5 opacity-95"
+                >
+                  <ClassIcon size={12} />
+                  {move.damageClass !== "status" && (
+                    <span className="tabular-nums">{move.power ?? "—"}</span>
+                  )}
+                </span>
+                <span className="tabular-nums">
+                  PP {move.pp}
+                  <span className="opacity-80">/{move.maxPp}</span>
+                </span>
               </span>
             </span>
           </button>
@@ -342,19 +583,25 @@ export function MoveMenu({
   );
 }
 
-/** Dark "Volver" pill closing a submenu, like the B-button hint. */
+/** Dark "back" pill closing a submenu, like the B-button hint. */
 function BackPill({ onClick }: { onClick: () => void }) {
+  const t = useT();
+  const sfx = useSfx();
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        sfx.play("cancel");
+        onClick();
+      }}
+      onPointerEnter={() => sfx.play("menu")}
       className={cn(
         glass,
         outlined,
-        "h-9 w-full rounded-full text-xs font-bold tracking-widest uppercase transition hover:bg-[#1b2b44]/90",
+        "h-9 w-full rounded-[14px_6px_14px_6px] text-xs font-bold tracking-widest uppercase transition hover:brightness-125",
       )}
     >
-      ← Volver
+      {t.battle.back}
     </button>
   );
 }
@@ -363,36 +610,91 @@ function BackPill({ onClick }: { onClick: () => void }) {
 /* Bag                                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Lo que el jugador metió en la mochila antes del combate. Solo se listan los
+ * objetos que quedan; los que ahora mismo no harían nada (una Poción a PS
+ * llenos, Revivir sin nadie debilitado) se muestran apagados con el motivo.
+ */
 export function BagMenu({
-  potions,
-  onPotion,
+  bag,
+  active,
+  hasFaintedAlly,
+  onUse,
   onBack,
 }: {
-  potions: number;
-  onPotion: () => void;
+  bag: Bag;
+  /** Battler the item would act on, to grey out what wouldn't do anything. */
+  active: Battler;
+  hasFaintedAlly: boolean;
+  onUse: (item: BagItemId) => void;
   onBack: () => void;
 }) {
+  const { bag: t, a11y } = useT();
+  const sfx = useSfx();
+  const onKeyDown = useDpadNav();
+  const ref = useAutoFocusFirst<HTMLDivElement>();
+  const carried = BAG_ITEM_IDS.filter((id) => (bag[id] ?? 0) > 0);
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={onPotion}
-        disabled={potions === 0}
-        className={cn(
-          "w-full rounded-2xl border-2 border-white/30 bg-gradient-to-b from-[#c084fc] via-[#9333ea] to-[#6b21a8] px-4 py-2.5 text-left transition",
-          "shadow-[inset_0_2px_0_rgba(255,255,255,0.3),0_3px_10px_rgba(0,0,0,0.5)]",
-          "enabled:hover:scale-[1.02] enabled:hover:brightness-110 enabled:active:scale-95",
-          "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
-        )}
-      >
-        <span className={cn(outlined, "flex items-center gap-2 text-sm font-bold")}>
-          <FlaskRound size={16} /> Poción
-          <span className="ml-auto">×{potions}</span>
-        </span>
-        <span className="mt-0.5 block text-xs text-purple-100/90">
-          Restaura 60 PS. Gasta el turno.
-        </span>
-      </button>
+    <div
+      ref={ref}
+      role="group"
+      aria-label={a11y.bagMenuAria}
+      onKeyDown={onKeyDown}
+      className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto"
+    >
+      <KeyboardHint />
+      {carried.length === 0 && (
+        <p className={cn(glass, outlined, "rounded-lg px-3 py-2 text-xs")}>
+          {t.noneLeft}
+        </p>
+      )}
+      {carried.map((id) => {
+        const count = bag[id] ?? 0;
+        const useless = isItemUseless(id, active, hasFaintedAlly);
+        const tint = BAG_ITEMS[id].tint;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => {
+              sfx.play("confirm");
+              onUse(id);
+            }}
+            onPointerEnter={() => !useless && sfx.play("menu")}
+            disabled={useless}
+            title={useless ? t.useless : undefined}
+            aria-label={`${t.itemName[id]} ×${count}. ${t.itemDesc[id]} ${
+              useless ? t.useless : t.turnCost
+            }`}
+            style={
+              {
+                // Gradiente en el color del objeto, con la parada clara
+                // confinada al 34% superior para que el texto blanco mantenga
+                // contraste, igual que los mandos del menú principal.
+                background: `linear-gradient(180deg, ${tint} 0%, color-mix(in srgb, ${tint} 45%, #000) 34%, color-mix(in srgb, ${tint} 25%, #000) 100%)`,
+                boxShadow: `inset 0 2px 0 rgba(255,255,255,0.3), 0 3px 10px rgba(0,0,0,0.5), 0 0 20px -5px ${tint}`,
+              } as CSSProperties
+            }
+            className={cn(
+              "w-full rounded-[18px_6px_18px_6px] border-2 border-white/30 px-4 py-2 text-left transition",
+              "enabled:hover:scale-[1.02] enabled:hover:brightness-110 enabled:active:scale-95",
+              "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
+            )}
+          >
+            <span
+              className={cn(outlined, "flex items-center gap-2 text-sm font-bold")}
+            >
+              <FlaskRound size={16} /> {t.itemName[id]}
+              <span className="ml-auto">×{count}</span>
+            </span>
+            <span
+              className={cn(outlined, "mt-0.5 block text-[11px] font-medium")}
+            >
+              {t.itemDesc[id]}
+            </span>
+          </button>
+        );
+      })}
       <BackPill onClick={onBack} />
     </div>
   );
@@ -406,6 +708,7 @@ export function SwitchMenu({
   team,
   active,
   forced,
+  mode = "switch",
   onPick,
   onBack,
 }: {
@@ -413,30 +716,79 @@ export function SwitchMenu({
   active: number;
   /** Forced replacement after a faint: no back button. */
   forced: boolean;
+  /** "revive" flips the selection: only fainted members can be picked. */
+  mode?: "switch" | "revive";
   onPick: (index: number) => void;
   onBack: () => void;
 }) {
+  const { battle: t, bag: tBag, a11y } = useT();
+  const sfx = useSfx();
+  const onKeyDown = useDpadNav();
+  const ref = useAutoFocusFirst<HTMLDivElement>();
+  const reviving = mode === "revive";
+  const titleId = useId();
+  const title = reviving
+    ? tBag.whichPokemon
+    : forced
+      ? t.whichSwitch
+      : t.choosePokemon;
   return (
-    <div className="absolute inset-0 z-30 flex flex-col gap-3 overflow-y-auto bg-[#07101d]/90 p-4 backdrop-blur-sm sm:p-6">
-      <p className={cn(outlined, "text-base font-bold tracking-wide")}>
-        {forced ? "¿A qué Pokémon envías ahora?" : "Elige un Pokémon."}
-      </p>
-      <div className="grid flex-1 content-start gap-2 sm:grid-cols-2">
+    // A forced replacement has no way out, so it is a modal dialog: it covers
+    // the arena and the battle cannot continue until a Pokémon is chosen.
+    <div
+      ref={ref}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      onKeyDown={onKeyDown}
+      className="absolute inset-0 z-30 flex flex-col gap-3 overflow-y-auto bg-[#07101d]/90 p-4 backdrop-blur-sm sm:p-6"
+    >
+      <h2
+        id={titleId}
+        className={cn(outlined, "text-base font-bold tracking-wide")}
+      >
+        {title}
+      </h2>
+      <KeyboardHint />
+      <div
+        role="group"
+        aria-label={a11y.partyMenuAria}
+        className="grid flex-1 content-start gap-2 sm:grid-cols-2"
+      >
         {team.map((b, i) => {
           const fainted = b.hp <= 0;
-          const disabled = fainted || i === active;
+          const disabled = reviving ? !fainted : fainted || i === active;
           const aura = typeAura(b.types[0]);
+          const status = fainted
+            ? t.statusFainted
+            : i === active
+              ? t.statusActive
+              : null;
           return (
             <button
               key={b.id}
               type="button"
               disabled={disabled}
-              onClick={() => onPick(i)}
+              onClick={() => {
+                sfx.play("confirm");
+                onPick(i);
+              }}
+              onPointerEnter={() => !disabled && sfx.play("menu")}
+              // Name, level, HP and status as one sentence — the visual row
+              // is four separate fragments plus a gauge.
+              aria-label={[
+                b.label,
+                `${t.lvShort} ${b.level}`,
+                a11y.hpValueText(Math.max(0, b.hp), b.maxHp),
+                status,
+              ]
+                .filter(Boolean)
+                .join(", ")}
               style={{ "--aura": aura } as CSSProperties}
               className={cn(
                 "flex items-center gap-3 rounded-full border-2 bg-gradient-to-r from-[#18293f]/95 to-[#101c2e]/95 py-1.5 pr-4 pl-2 text-left transition",
                 i === active
-                  ? "border-cyan-300/70 shadow-[0_0_16px_-4px_rgba(103,232,249,0.7)]"
+                  ? "border-[#67e8f9]/70 shadow-[0_0_16px_-4px_rgba(103,232,249,0.7)]"
                   : "border-white/15",
                 !disabled &&
                   "hover:scale-[1.015] hover:border-[color-mix(in_srgb,var(--aura)_70%,white)] hover:shadow-[0_0_18px_-4px_var(--aura)]",
@@ -444,7 +796,14 @@ export function SwitchMenu({
                 disabled && "cursor-not-allowed",
               )}
             >
-              <span className="relative h-12 w-12 shrink-0 rounded-full border border-white/20 bg-black/40">
+              {/* The row is spoken through the button's aria-label above, so
+                  its pieces (including the nested HP gauge, which would
+                  otherwise be announced as a second progressbar) stay out of
+                  the accessibility tree. */}
+              <span
+                aria-hidden
+                className="relative h-12 w-12 shrink-0 rounded-full border border-white/20 bg-black/40"
+              >
                 <Image
                   src={artworkUrl(b.id)}
                   alt=""
@@ -453,33 +812,37 @@ export function SwitchMenu({
                   className={cn("object-contain p-0.5", fainted && "grayscale")}
                 />
               </span>
-              <span className="min-w-0 flex-1">
+              <span aria-hidden className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className={cn(outlined, "truncate text-sm font-bold")}>
                     {b.label}
                   </span>
                   <span className={cn(outlined, "shrink-0 text-xs font-semibold")}>
-                    <span className="mr-0.5 text-[10px] text-slate-300">Nv.</span>
+                    <span className="mr-0.5 text-[10px] text-[#cbd5e1]">
+                      {t.lvShort}
+                    </span>
                     {b.level}
                   </span>
                 </span>
-                <HpBar hp={b.hp} maxHp={b.maxHp} />
+                <HpBar hp={b.hp} maxHp={b.maxHp} name={b.label} />
                 <span className="mt-0.5 flex items-center justify-between">
                   <span
                     className={cn(
                       "text-[10px] font-bold tracking-widest uppercase",
+                      // Pinned hexes: the party overlay keeps its dark glass
+                      // in both themes, so the status colors must not remap.
                       fainted
-                        ? "text-red-400"
+                        ? "text-[#f87171]"
                         : i === active
-                          ? "text-cyan-300"
+                          ? "text-[#67e8f9]"
                           : "text-transparent",
                     )}
                   >
-                    {fainted ? "Debilitado" : i === active ? "En combate" : "—"}
+                    {status ?? "—"}
                   </span>
                   <span className={cn(outlined, "text-[11px] font-semibold")}>
                     {b.hp}
-                    <span className="text-slate-300">/{b.maxHp}</span>
+                    <span className="text-[#cbd5e1]">/{b.maxHp}</span>
                   </span>
                 </span>
               </span>
@@ -509,20 +872,30 @@ export function DialogueBubble({
   name: string;
   text: string;
 }) {
+  const a11y = useT().a11y;
   return (
-    <div className="fx-bubble-pop pointer-events-none flex max-w-sm items-start gap-2">
-      <span className="relative mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-[#101c2e] shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+    // A labelled group, not a live region: the rival's banter is flavour and
+    // would fight the battle log for the announcement queue every turn.
+    <div
+      role="group"
+      aria-label={a11y.dialogueAria(name)}
+      className="fx-bubble-pop pointer-events-none flex max-w-sm items-start gap-2"
+    >
+      <span
+        aria-hidden
+        className="relative mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-[#101c2e] shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+      >
         {avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={avatar} alt="" className="h-full w-full object-cover" />
         ) : (
-          <span className="font-display text-sm font-bold text-red-400">
+          <span className="font-display text-sm font-bold text-[#f87171]">
             {name.charAt(0)}
           </span>
         )}
       </span>
       <div className={cn(glass, "rounded-2xl rounded-tl-sm px-3.5 py-2")}>
-        <p className="text-[11px] font-bold tracking-wider text-red-300 uppercase">
+        <p className="text-[11px] font-bold tracking-wider text-[#fca5a5] uppercase">
           {name}
         </p>
         <p className={cn(outlined, "mt-0.5 text-xs leading-snug font-semibold")}>

@@ -1,26 +1,32 @@
 import { NextResponse } from "next/server";
 import { chatJSON } from "@/lib/battle/openai";
 import { effectiveness } from "@/lib/battle/type-chart";
+import { battleDict } from "@/lib/i18n/dictionaries/battle";
+import type { Lang } from "@/lib/i18n/config";
+import { getLang } from "@/lib/i18n/server";
 import { TYPE_LABELS_ES } from "@/lib/pokemon-meta";
 import type { BattleAction, RivalTurnResponse } from "@/types/battle";
 
 const TYPE_SLUGS = Object.keys(TYPE_LABELS_ES);
 
-const SYSTEM_PROMPT = `Eres el cerebro táctico de un Entrenador Pokémon rival en un combate 1 contra 1 con banquillo. Cada turno recibes el estado del combate y decides UNA acción, además de una frase corta de diálogo con la personalidad del entrenador.
+/** Base prompt stays Spanish; a per-language line pins the dialogue language. */
+const systemPrompt = (lang: Lang) =>
+  `Eres el cerebro táctico de un Entrenador Pokémon rival en un combate 1 contra 1 con banquillo. Cada turno recibes el estado del combate y decides UNA acción, además de una frase corta de diálogo con la personalidad del entrenador.
 
 Responde SOLO con un objeto JSON válido, sin markdown:
 {
   "accion": "movimiento" | "cambio",
   "movimiento": "slug del movimiento elegido (si accion=movimiento)",
   "cambio": "slug del Pokémon del banquillo (si accion=cambio)",
-  "frase": "frase de 4-14 palabras, estilo anime, en español"
+  "frase": "frase de 4-14 palabras, estilo anime"
 }
 
 Cómo decidir:
 - Prioriza el movimiento con mejor daño esperado: eficacia de tipo (te la doy calculada), potencia y STAB. Remata si el rival está bajo de PS.
 - Cambia de Pokémon solo si tu activo está en clara desventaja de tipo o casi debilitado y el banquillo ofrece algo mejor. No cambies dos turnos seguidos.
 - La frase reacciona al momento: chulería si vas ganando, rabia o sorpresa si vas perdiendo ("¡No contaba con ese golpe crítico!"), épica al sacar a tu as.
-- Nunca menciones que eres una IA. Sin emojis.`;
+- Nunca menciones que eres una IA. Sin emojis.
+- ${battleDict[lang].api.answerIn}`;
 
 /** Client-supplied snapshot of one battler (already-public game data). */
 interface Snapshot {
@@ -35,6 +41,7 @@ interface MoveSnapshot {
   slug: string;
   label: string;
   type: string;
+  isStatus: boolean;
   power: number;
   pp: number;
 }
@@ -55,7 +62,15 @@ function cleanMoves(value: unknown): MoveSnapshot[] {
       slug: String(m.slug ?? "").slice(0, 40),
       label: String(m.label ?? "").slice(0, 40),
       type: TYPE_SLUGS.includes(m.type as string) ? (m.type as string) : "normal",
-      power: typeof m.power === "number" ? m.power : 0,
+      isStatus: m.damageClass === "status",
+      // Variable-power attacks (client sends null) score as a middle ~60 so
+      // the heuristic and the LLM still consider them; status moves deal 0.
+      power:
+        m.damageClass === "status"
+          ? 0
+          : typeof m.power === "number"
+            ? m.power
+            : 60,
       pp: typeof m.pp === "number" ? Math.max(0, m.pp) : 0,
     }))
     .filter((m) => m.slug)
@@ -81,6 +96,7 @@ const pct = (n: number) => `${Math.round(n)}%`;
 function fallbackDecision(
   rival: ReturnType<typeof cleanSnapshot>,
   playerTypes: string[],
+  lang: Lang,
 ): RivalTurnResponse {
   const usable = rival.moves.filter((m) => m.pp > 0);
   const best = [...usable].sort(
@@ -90,17 +106,17 @@ function fallbackDecision(
   )[0];
   return {
     action: { kind: "move", move: best?.slug ?? rival.moves[0]?.slug ?? "" },
-    dialogue: "¡Sigue atacando, no les des tregua!",
+    dialogue: battleDict[lang].api.turnFallbackDialogue,
   };
 }
 
 export async function POST(request: Request) {
+  const lang = await getLang();
+  const t = battleDict[lang].api;
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Falta OPENAI_API_KEY en el servidor." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: t.errNoKey }, { status: 500 });
   }
 
   let body: {
@@ -113,7 +129,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+    return NextResponse.json({ error: t.errBadJson }, { status: 400 });
   }
 
   const rival = cleanSnapshot(body.rivalActive);
@@ -129,14 +145,14 @@ export async function POST(request: Request) {
     .map((e) => e.slice(0, 120));
 
   if (!rival.name || rival.moves.length === 0) {
-    return NextResponse.json(
-      { error: "Estado de combate incompleto." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: t.errIncompleteState }, { status: 400 });
   }
 
   const moveLines = rival.moves
     .map((m) => {
+      if (m.isStatus) {
+        return `  · ${m.slug} (${m.label}, tipo ${m.type}, movimiento de ESTADO — no hace daño, aplica su efecto, PP ${m.pp})`;
+      }
       const eff = effectiveness(m.type, player.types);
       return `  · ${m.slug} (${m.label}, tipo ${m.type}, potencia ${m.power}, PP ${m.pp}, eficacia ×${eff} contra el rival)`;
     })
@@ -163,7 +179,7 @@ Decide tu acción y tu frase (JSON).`;
     const parsed = (await chatJSON(
       apiKey,
       [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt(lang) },
         { role: "user", content: userMessage },
       ],
       { temperature: 0.9, maxTokens: 200 },
@@ -191,14 +207,14 @@ Decide tu acción y tu frase (JSON).`;
     if (action) {
       decision = {
         action,
-        dialogue: frase ?? "¡A por ellos!",
+        dialogue: frase ?? t.turnDefaultDialogue,
       };
     }
   } catch (err) {
     console.error("battle/turn LLM failed", err);
   }
 
-  if (!decision) decision = fallbackDecision(rival, player.types);
+  if (!decision) decision = fallbackDecision(rival, player.types, lang);
 
   // "switch" decisions are returned with the BENCH index; the client maps it
   // back to a team index because only it knows the full ordering.

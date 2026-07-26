@@ -1,26 +1,24 @@
-const STAT_LABELS: Record<string, string> = {
-  hp: "PS",
-  attack: "Ataque",
-  defense: "Defensa",
-  "special-attack": "Ataque Esp.",
-  "special-defense": "Defensa Esp.",
-  speed: "Velocidad",
-};
+import { DEFAULT_LANG, type Lang } from "@/lib/i18n/config";
+import { getDict } from "@/lib/i18n";
+import { STAT_LABELS } from "@/lib/stats";
 
 /** Practical max for a base stat (Blissey's HP is 255). */
 const MAX_BASE_STAT = 255;
 
 interface StatsPanelProps {
   stats: Array<{ name: string; value: number }>;
+  lang?: Lang;
 }
 
-export function StatsPanel({ stats }: StatsPanelProps) {
+export function StatsPanel({ stats, lang = DEFAULT_LANG }: StatsPanelProps) {
+  const d = getDict(lang).detail;
+  const statLabels = STAT_LABELS[lang];
   const total = stats.reduce((sum, stat) => sum + stat.value, 0);
 
   return (
-    <section aria-label="Estadísticas base">
+    <section aria-label={d.baseStats}>
       <h2 className="mb-3 text-xs font-semibold tracking-wider text-slate-300 uppercase dark:text-slate-400">
-        Estadísticas base
+        {d.baseStats}
       </h2>
       <dl className="flex flex-col gap-2.5">
         {stats.map((stat) => (
@@ -29,7 +27,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
             className="grid grid-cols-[7.5rem_2.5rem_1fr] items-center gap-2 text-sm"
           >
             <dt className="text-slate-400 dark:text-slate-300">
-              {STAT_LABELS[stat.name] ?? stat.name}
+              {statLabels[stat.name] ?? stat.name}
             </dt>
             <dd className="text-right font-mono text-[13px] font-semibold tabular-nums">
               {stat.value}
@@ -48,7 +46,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
           </div>
         ))}
         <div className="grid grid-cols-[7.5rem_2.5rem_1fr] items-center gap-2 border-t border-slate-200 pt-2 text-sm dark:border-slate-800">
-          <dt className="font-medium">Total</dt>
+          <dt className="font-medium">{d.total}</dt>
           <dd className="text-right font-mono text-[13px] font-bold tabular-nums">
             {total}
           </dd>

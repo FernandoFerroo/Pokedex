@@ -2,6 +2,7 @@
 
 import { Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 interface CryButtonProps {
   /** URL of the cry audio (OGG from PokéAPI). */
@@ -12,6 +13,7 @@ interface CryButtonProps {
 
 /** Plays the creature's cry. Styled like the rest of the HUD chrome. */
 export function CryButton({ src, name }: CryButtonProps) {
+  const d = useT().detail;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -40,15 +42,13 @@ export function CryButton({ src, name }: CryButtonProps) {
     <button
       type="button"
       onClick={play}
-      aria-label={`Reproducir el grito de ${name}`}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[13px] font-medium tracking-widest uppercase transition ${
-        playing
-          ? "border-[var(--aura)] text-[var(--aura)] shadow-[0_0_14px_-4px_var(--aura)]"
-          : "border-slate-700 bg-black/40 text-slate-300 hover:border-[var(--aura)] hover:text-[var(--aura)]"
+      aria-label={d.cryAria(name)}
+      className={`glass-btn inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-[13px] font-medium tracking-widest uppercase ${
+        playing ? "glass-btn-on" : ""
       }`}
     >
       <Volume2 size={13} className={playing ? "animate-pulse" : undefined} />
-      Grito
+      {d.cry}
     </button>
   );
 }
