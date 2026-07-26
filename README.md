@@ -12,7 +12,7 @@
 [![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![PokéAPI](https://img.shields.io/badge/PokéAPI-EF4444?logo=pokemon&logoColor=white)](https://pokeapi.co)
 
-**[🔴 DEMO EN VIVO → pokedex-bin-par.vercel.app](https://pokedex-bin-par.vercel.app)**
+**[🔴 DEMO EN VIVO → pokedex-bin-par.vercel.app](https://pokedex-bin-par.vercel.app)** 
 
 </div>
 
