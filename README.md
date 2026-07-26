@@ -17,7 +17,7 @@
 </div>
 
 ---
-
+ 
 ## 🚀 Puesta en marcha 
 
 **Opción A — npm (desarrollo):**
