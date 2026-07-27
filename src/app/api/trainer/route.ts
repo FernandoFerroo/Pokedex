@@ -1,20 +1,36 @@
 import { NextResponse } from "next/server";
+import { fetchLearnset, legalSlugsAt } from "@/lib/battle/learnset";
+import { fetchPokemon } from "@/lib/battle/loadout";
+import { getDict } from "@/lib/i18n";
+import { isLang, type Lang } from "@/lib/i18n/config";
+import { getLang } from "@/lib/i18n/server";
+import { getPokemonIndex } from "@/lib/index/build-index";
 import {
   CATEGORY_LABELS_ES,
   COLOR_LABELS_ES,
   EGG_GROUP_LABELS_ES,
+  formatName,
   HABITAT_LABELS_ES,
   SHAPE_LABELS_ES,
   TYPE_LABELS_ES,
 } from "@/lib/pokemon-meta";
+import { filterPokemon } from "@/lib/search/evolution-search";
 import { SORT_OPTIONS } from "@/lib/sort";
+import type { PokemonIndex, PokemonIndexEntry } from "@/types/pokemon";
+import { DEFAULT_LEVEL, type TeamMember } from "@/types/team";
 import type { TrainerAction, TrainerFilterPatch } from "@/types/trainer";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 /** Hard cap on tool-call round-trips per user message. */
-const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_ROUNDS = 6;
+
+/** Slots in a team, mirroring TEAM_SIZE on the client. */
+const TEAM_SIZE = 6;
+
+/** Species names a single `list_pokemon` answer may carry back to the model. */
+const MAX_LISTED = 60;
 
 const TYPE_SLUGS = Object.keys(TYPE_LABELS_ES);
 const COLOR_SLUGS = Object.keys(COLOR_LABELS_ES);
@@ -40,16 +56,25 @@ PERSONALIDAD
 - Puedes mantener conversación normal sobre cualquier tema, pero siempre desde tu personaje de profesor.
 
 LA POKÉDEX QUE CONTROLAS
-La página lista todas las especies de Gen I a IX. Tienes herramientas para manejarla:
-- set_pokedex_filters: aplica o cambia filtros de la lista (búsqueda, tipo, generación, color, hábitat, forma, grupo huevo, categoría, etapa evolutiva y orden). Los campos que no envíes se mantienen; envía null en un campo para limpiarlo.
+La página lista todas las especies de Gen I a IX, y el usuario tiene un equipo de hasta ${TEAM_SIZE} Pokémon con nivel, habilidad y movimientos. Puedes hacer prácticamente todo lo que haría el usuario:
+- set_pokedex_filters: aplica o cambia filtros de la lista (búsqueda, tipo, generación, color, hábitat, forma, grupo huevo, categoría, etapa evolutiva, orden y EXCLUSIONES). Los campos que no envíes se mantienen; envía null en un campo para limpiarlo.
 - clear_filters: limpia todos los filtros.
 - open_pokemon: abre la ficha detallada de una especie.
+- list_pokemon: consulta qué especies cumplen unos filtros y te devuelve sus nombres. ÚSALA SIEMPRE antes de afirmar qué Pokémon cumplen algo o antes de fichar a varios a la vez.
+- add_to_team / remove_from_team / clear_team: gestionan el equipo del usuario.
+- set_team_levels: pone el nivel de combate de uno, varios o todos los miembros.
+- set_pokemon_moves: elige la habilidad y hasta 4 movimientos de un miembro del equipo. Solo valen movimientos que esa especie conozca A SU NIVEL: el servidor descarta los ilegales y te dice cuáles ha aceptado.
+- open_team: abre el panel «Mi Equipo».
+- start_battle: lleva al usuario al Modo Combate.
 
 REGLAS DE HERRAMIENTAS
-- Úsalas cuando el usuario quiera ver, buscar o filtrar Pokémon en la lista, o abrir una ficha («enséñame los de tipo fuego», «abre a Charizard», «legendarios de Kanto»…). No las uses para preguntas puramente conversacionales.
-- Tras usarlas, confirma en una frase lo que has hecho, con tu estilo.
-- El campo q busca por nombre o cadena evolutiva y espera nombres en inglés en minúsculas (ej.: "pikachu").
-- open_pokemon espera el slug inglés de PokéAPI en minúsculas: "charizard", "mr-mime", "nidoran-f", "ho-oh", "mewtwo"…
+- Úsalas siempre que el usuario quiera ver, buscar, filtrar, abrir fichas o tocar su equipo («enséñame los de tipo eléctrico menos Pikachu y sus evoluciones», «añade a Charizard a mi equipo», «pon a todos a nivel 5», «dale Lanzallamas»…). No las uses para preguntas puramente conversacionales.
+- Encadena varias si hace falta: para «ficha a todos los de tipo eléctrico menos Pikachu y sus evoluciones», primero list_pokemon con esos filtros y luego add_to_team con los nombres que te devuelva.
+- El equipo tiene ${TEAM_SIZE} plazas. Si lo que pide el usuario no cabe, ficha lo que quepa y díselo con naturalidad.
+- Tras usarlas, confirma en una o dos frases lo que has hecho, con tu estilo. Si una herramienta te dice que algo no se pudo hacer, admítelo en vez de inventártelo.
+- El campo q busca por nombre o cadena evolutiva y espera nombres en inglés en minúsculas (ej.: "pikachu"). OJO: q="pikachu" trae también a Pichu y Raichu, porque la búsqueda arrastra la familia evolutiva entera.
+- Para «menos X» usa exclude: ["x"], y exclude_family: true cuando el usuario diga «y sus evoluciones», «y su familia» o similar.
+- Los nombres de especie y de movimiento van SIEMPRE en slug inglés de PokéAPI en minúsculas: "charizard", "mr-mime", "nidoran-f", "ho-oh", "thunder-shock", "flamethrower".
 - Slugs válidos por filtro:
   · type: ${listSlugs(TYPE_LABELS_ES)}
   · color: ${listSlugs(COLOR_LABELS_ES)}
@@ -61,6 +86,63 @@ REGLAS DE HERRAMIENTAS
   · sort: id-asc, id-desc, name-asc, name-desc
   · gen: número del 1 al 9`;
 
+/** Extra system line for non-Spanish UIs; the es prompt stays intact. The
+ * note itself is in Spanish (the prompt's language) and names the professor's
+ * official localized identity so the persona survives translation. */
+const languageNote = (idioma: string, oak: string) => `
+
+IDIOMA
+- El usuario está usando la versión en ${idioma} de la Pokédex: responde SIEMPRE en ${idioma}, salvo que el usuario escriba claramente en otro idioma. Mantén exactamente la misma personalidad del Profesor Oak (conocido en ese idioma como ${oak}).`;
+
+const LANGUAGE_NOTE: Record<Lang, string> = {
+  es: "",
+  en: `
+
+IDIOMA
+- El usuario está usando la versión en inglés de la Pokédex: responde SIEMPRE en inglés, salvo que el usuario escriba claramente en otro idioma. Mantén exactamente la misma personalidad del Profesor Oak.`,
+  fr: languageNote("francés", "Professeur Chen"),
+  de: languageNote("alemán", "Professor Eich"),
+  it: languageNote("italiano", "Professor Oak"),
+  ja: languageNote("japonés", "オーキド博士"),
+  ko: languageNote("coreano", "오박사"),
+  "zh-Hans": languageNote("chino simplificado", "大木博士"),
+  "zh-Hant": languageNote("chino tradicional", "大木博士"),
+};
+
+/** Filter properties shared by `set_pokedex_filters` and `list_pokemon`. */
+const FILTER_PROPERTIES = {
+  q: {
+    type: ["string", "null"],
+    description:
+      "Búsqueda por nombre o cadena evolutiva, en inglés minúsculas (arrastra la familia entera)",
+  },
+  type: { type: ["string", "null"], enum: [...TYPE_SLUGS, null] },
+  gen: { type: ["integer", "null"], minimum: 1, maximum: 9 },
+  sort: { type: ["string", "null"], enum: [...SORT_OPTIONS, null] },
+  color: { type: ["string", "null"], enum: [...COLOR_SLUGS, null] },
+  habitat: { type: ["string", "null"], enum: [...HABITAT_SLUGS, null] },
+  shape: { type: ["string", "null"], enum: [...SHAPE_SLUGS, null] },
+  egg: { type: ["string", "null"], enum: [...EGG_SLUGS, null] },
+  cat: { type: ["string", "null"], enum: [...CATEGORY_SLUGS, null] },
+  stage: { type: ["string", "null"], enum: [...STAGE_SLUGS, null] },
+  exclude: {
+    type: ["array", "null"],
+    items: { type: "string" },
+    description: 'Especies a dejar fuera, ej. ["pikachu"] para «menos Pikachu»',
+  },
+  exclude_family: {
+    type: ["boolean", "null"],
+    description:
+      "true cuando la exclusión debe arrastrar toda la familia evolutiva",
+  },
+} as const;
+
+const NAMES_PARAM = {
+  type: "array",
+  items: { type: "string" },
+  description: 'Slugs ingleses en minúsculas, ej. ["pikachu", "charizard"]',
+} as const;
+
 const TOOLS = [
   {
     type: "function",
@@ -70,22 +152,7 @@ const TOOLS = [
         "Aplica filtros a la lista de la Pokédex. Los campos omitidos no cambian; un campo a null se limpia.",
       parameters: {
         type: "object",
-        properties: {
-          q: {
-            type: ["string", "null"],
-            description:
-              "Búsqueda por nombre o cadena evolutiva, en inglés minúsculas",
-          },
-          type: { type: ["string", "null"], enum: [...TYPE_SLUGS, null] },
-          gen: { type: ["integer", "null"], minimum: 1, maximum: 9 },
-          sort: { type: ["string", "null"], enum: [...SORT_OPTIONS, null] },
-          color: { type: ["string", "null"], enum: [...COLOR_SLUGS, null] },
-          habitat: { type: ["string", "null"], enum: [...HABITAT_SLUGS, null] },
-          shape: { type: ["string", "null"], enum: [...SHAPE_SLUGS, null] },
-          egg: { type: ["string", "null"], enum: [...EGG_SLUGS, null] },
-          cat: { type: ["string", "null"], enum: [...CATEGORY_SLUGS, null] },
-          stage: { type: ["string", "null"], enum: [...STAGE_SLUGS, null] },
-        },
+        properties: FILTER_PROPERTIES,
         additionalProperties: false,
       },
     },
@@ -114,11 +181,161 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_pokemon",
+      description:
+        "Devuelve qué especies cumplen unos filtros, sin tocar la pantalla. Úsala antes de enumerar Pokémon o de ficharlos en bloque.",
+      parameters: {
+        type: "object",
+        properties: {
+          ...FILTER_PROPERTIES,
+          limit: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: MAX_LISTED,
+            description: `Cuántos nombres devolver como máximo (por defecto ${MAX_LISTED})`,
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_team",
+      description: `Ficha especies para el equipo del usuario (máximo ${TEAM_SIZE} en total).`,
+      parameters: {
+        type: "object",
+        properties: {
+          names: NAMES_PARAM,
+          level: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 100,
+            description: "Nivel de combate para los que fiches ahora",
+          },
+        },
+        required: ["names"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_from_team",
+      description: "Quita del equipo las especies indicadas.",
+      parameters: {
+        type: "object",
+        properties: { names: NAMES_PARAM },
+        required: ["names"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "clear_team",
+      description: "Vacía por completo el equipo del usuario.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_team_levels",
+      description:
+        "Cambia el nivel de combate. Sin 'names', se aplica a todo el equipo.",
+      parameters: {
+        type: "object",
+        properties: {
+          level: { type: "integer", minimum: 1, maximum: 100 },
+          names: { ...NAMES_PARAM, description: "Miembros concretos (opcional)" },
+        },
+        required: ["level"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_pokemon_moves",
+      description:
+        "Elige habilidad y hasta 4 movimientos de un miembro del equipo. Solo se aceptan los que conozca a su nivel.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: 'Miembro, ej. "charizard"' },
+          moves: {
+            type: ["array", "null"],
+            items: { type: "string" },
+            description: 'Hasta 4 slugs, ej. ["flamethrower", "dragon-claw"]',
+          },
+          ability: {
+            type: ["string", "null"],
+            description: 'Slug inglés de la habilidad, ej. "blaze"',
+          },
+        },
+        required: ["name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "open_team",
+      description: "Abre el panel «Mi Equipo» para que el usuario lo vea.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "start_battle",
+      description:
+        "Lleva al usuario al Modo Combate con su equipo actual. Necesita al menos 1 Pokémon.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
 ];
 
 interface IncomingMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+/** Loose species matcher shared with the other AI routes. */
+function normalize(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function slugOf(value: unknown): string {
+  return typeof value === "string"
+    ? value.toLowerCase().trim().replace(/[^a-z0-9-]/g, "").slice(0, 60)
+    : "";
+}
+
+/** Reads a `names` argument into clean slugs. */
+function slugList(value: unknown, max = TEAM_SIZE * 4): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.map(slugOf).filter(Boolean))].slice(0, max)
+    : [];
+}
+
+function clampLevel(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(100, Math.max(1, Math.round(value)))
+    : null;
 }
 
 /** Keep only whitelisted, well-typed fields from the model's arguments. */
@@ -145,53 +362,302 @@ function sanitizePatch(args: Record<string, unknown>): TrainerFilterPatch {
   else if (typeof gen === "number" && gen >= 1 && gen <= 9) {
     patch.gen = Math.trunc(gen);
   }
+  if (args.exclude === null) {
+    patch.x = null;
+    patch.xfam = null;
+  } else if (Array.isArray(args.exclude)) {
+    const names = slugList(args.exclude);
+    patch.x = names.length > 0 ? names.join(",") : null;
+    if (names.length === 0) patch.xfam = null;
+  }
+  if (args.exclude_family === null) patch.xfam = null;
+  else if (typeof args.exclude_family === "boolean") {
+    patch.xfam = args.exclude_family || null;
+  }
   return patch;
 }
 
-/** Runs one tool call, appending the resulting UI action. */
-function executeTool(
+/** The filter arguments as the pure search engine wants them. */
+function toSearchFilters(args: Record<string, unknown>) {
+  const str = (key: string, valid: string[]) => {
+    const v = args[key];
+    return typeof v === "string" && valid.includes(v) ? v : null;
+  };
+  return {
+    query: typeof args.q === "string" ? args.q : "",
+    type: str("type", TYPE_SLUGS),
+    generation:
+      typeof args.gen === "number" && args.gen >= 1 && args.gen <= 9
+        ? Math.trunc(args.gen)
+        : null,
+    color: str("color", COLOR_SLUGS),
+    habitat: str("habitat", HABITAT_SLUGS),
+    shape: str("shape", SHAPE_SLUGS),
+    eggGroup: str("egg", EGG_SLUGS),
+    category: str("cat", CATEGORY_SLUGS) as null,
+    stage: str("stage", STAGE_SLUGS) as null,
+    exclude: slugList(args.exclude, 30),
+    excludeFamily: args.exclude_family === true,
+  };
+}
+
+/** Whitelists the roster the client sent along with the conversation. */
+function sanitizeTeam(value: unknown): TeamMember[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (m): m is TeamMember =>
+        typeof m === "object" &&
+        m !== null &&
+        typeof (m as TeamMember).id === "number" &&
+        typeof (m as TeamMember).name === "string" &&
+        Array.isArray((m as TeamMember).types),
+    )
+    .map((m) => ({
+      id: m.id,
+      name: slugOf(m.name),
+      types: m.types.filter((t) => TYPE_SLUGS.includes(t)).slice(0, 2),
+      level: clampLevel(m.level) ?? DEFAULT_LEVEL,
+      build: m.build,
+    }))
+    .filter((m) => m.name)
+    .slice(0, TEAM_SIZE);
+}
+
+/** Everything a tool needs to read the Pokédex and rewrite the team. */
+interface ToolContext {
+  index: PokemonIndex;
+  byName: Map<string, PokemonIndexEntry>;
+  team: TeamMember[];
+  /** Set once any tool touched the roster, so one set_team action is emitted. */
+  teamChanged: boolean;
+  actions: TrainerAction[];
+}
+
+type ToolResult = Record<string, unknown>;
+
+/** Runs one tool call, mutating the context and appending any UI action. */
+async function executeTool(
   name: string,
   args: Record<string, unknown>,
-  actions: TrainerAction[],
-): { ok: boolean; detail?: string } {
-  if (name === "set_pokedex_filters") {
-    const patch = sanitizePatch(args);
-    if (Object.keys(patch).length === 0) {
-      return { ok: false, detail: "sin campos válidos" };
+  ctx: ToolContext,
+): Promise<ToolResult> {
+  switch (name) {
+    case "set_pokedex_filters": {
+      const patch = sanitizePatch(args);
+      if (Object.keys(patch).length === 0) {
+        return { ok: false, detail: "sin campos válidos" };
+      }
+      ctx.actions.push({ type: "set_filters", patch });
+      return { ok: true, applied: patch };
     }
-    actions.push({ type: "set_filters", patch });
-    return { ok: true };
+
+    case "clear_filters":
+      ctx.actions.push({ type: "clear_filters" });
+      return { ok: true };
+
+    case "open_pokemon": {
+      const slug = slugOf(args.name);
+      if (!slug) return { ok: false, detail: "slug vacío" };
+      if (!ctx.byName.has(normalize(slug))) {
+        return { ok: false, detail: `"${slug}" no existe en la Pokédex` };
+      }
+      ctx.actions.push({ type: "open_pokemon", name: slug });
+      return { ok: true };
+    }
+
+    case "list_pokemon": {
+      const limit = clampLevel(args.limit) ?? MAX_LISTED;
+      const results = filterPokemon(ctx.index, toSearchFilters(args));
+      return {
+        ok: true,
+        total: results.length,
+        names: results.slice(0, Math.min(limit, MAX_LISTED)).map((e) => e.name),
+        truncated: results.length > Math.min(limit, MAX_LISTED),
+      };
+    }
+
+    case "add_to_team": {
+      const level = clampLevel(args.level);
+      const added: string[] = [];
+      const unknown: string[] = [];
+      let full = false;
+      for (const slug of slugList(args.names)) {
+        const entry = ctx.byName.get(normalize(slug));
+        if (!entry) {
+          unknown.push(slug);
+          continue;
+        }
+        if (ctx.team.some((m) => m.id === entry.id)) continue;
+        if (ctx.team.length >= TEAM_SIZE) {
+          full = true;
+          break;
+        }
+        ctx.team.push({
+          id: entry.id,
+          name: entry.name,
+          types: entry.types,
+          level: level ?? DEFAULT_LEVEL,
+        });
+        ctx.teamChanged = true;
+        added.push(entry.name);
+      }
+      return {
+        ok: added.length > 0,
+        added,
+        unknown,
+        full,
+        team: ctx.team.map((m) => m.name),
+        freeSlots: TEAM_SIZE - ctx.team.length,
+      };
+    }
+
+    case "remove_from_team": {
+      const wanted = new Set(slugList(args.names).map(normalize));
+      const removed = ctx.team
+        .filter((m) => wanted.has(normalize(m.name)))
+        .map((m) => m.name);
+      if (removed.length > 0) {
+        ctx.team = ctx.team.filter((m) => !wanted.has(normalize(m.name)));
+        ctx.teamChanged = true;
+      }
+      return { ok: removed.length > 0, removed, team: ctx.team.map((m) => m.name) };
+    }
+
+    case "clear_team": {
+      if (ctx.team.length === 0) return { ok: false, detail: "ya estaba vacío" };
+      ctx.team = [];
+      ctx.teamChanged = true;
+      return { ok: true };
+    }
+
+    case "set_team_levels": {
+      const level = clampLevel(args.level);
+      if (level === null) return { ok: false, detail: "nivel inválido" };
+      const wanted = slugList(args.names).map(normalize);
+      const targets =
+        wanted.length > 0
+          ? ctx.team.filter((m) => wanted.includes(normalize(m.name)))
+          : ctx.team;
+      if (targets.length === 0) {
+        return { ok: false, detail: "esos Pokémon no están en el equipo" };
+      }
+      for (const member of targets) {
+        member.level = level;
+        // A level change can invalidate hand-picked moves; the build editor
+        // and the battle loadout drop what the Pokémon no longer knows, so
+        // re-validate here too instead of leaving an illegal set behind.
+        if (member.build?.moves?.length) {
+          member.build = await revalidateBuild(member);
+        }
+      }
+      ctx.teamChanged = true;
+      return { ok: true, level, changed: targets.map((m) => m.name) };
+    }
+
+    case "set_pokemon_moves": {
+      const slug = slugOf(args.name);
+      const member = ctx.team.find((m) => normalize(m.name) === normalize(slug));
+      if (!member) {
+        return { ok: false, detail: `"${slug}" no está en el equipo` };
+      }
+      const wantedMoves = slugList(args.moves, 4);
+      const wantedAbility = slugOf(args.ability);
+      try {
+        const pokemon = await fetchPokemon(member.name);
+        const abilities = new Set(
+          [
+            ...pokemon.abilities,
+            ...(pokemon.past_abilities ?? []).flatMap((p) => p.abilities),
+          ]
+            .filter((a) => a.ability !== null)
+            .map((a) => a.ability!.name),
+        );
+        const level = member.level ?? DEFAULT_LEVEL;
+        const legal = legalSlugsAt(await fetchLearnset(pokemon), level);
+        const accepted = wantedMoves.filter((m) => legal.has(m));
+        const rejected = wantedMoves.filter((m) => !legal.has(m));
+        const ability = abilities.has(wantedAbility) ? wantedAbility : undefined;
+        member.build =
+          accepted.length > 0 || ability
+            ? { ability, moves: accepted.length > 0 ? accepted : undefined }
+            : undefined;
+        ctx.teamChanged = true;
+        return {
+          ok: accepted.length > 0 || Boolean(ability),
+          accepted,
+          rejected,
+          ability: ability ?? null,
+          level,
+          detail:
+            rejected.length > 0
+              ? `no los conoce a nivel ${level}: ${rejected.join(", ")}`
+              : undefined,
+        };
+      } catch {
+        return { ok: false, detail: "no se pudo leer el repertorio de esa especie" };
+      }
+    }
+
+    case "open_team":
+      ctx.actions.push({ type: "open_team" });
+      return { ok: true };
+
+    case "start_battle": {
+      if (ctx.team.length === 0) {
+        return { ok: false, detail: "el equipo está vacío" };
+      }
+      ctx.actions.push({ type: "start_battle" });
+      return { ok: true };
+    }
+
+    default:
+      return { ok: false, detail: "herramienta desconocida" };
   }
-  if (name === "clear_filters") {
-    actions.push({ type: "clear_filters" });
-    return { ok: true };
+}
+
+/** Drops the moves a member no longer knows after a level change. */
+async function revalidateBuild(member: TeamMember) {
+  if (!member.build?.moves?.length) return member.build;
+  try {
+    const pokemon = await fetchPokemon(member.name);
+    const legal = legalSlugsAt(
+      await fetchLearnset(pokemon),
+      member.level ?? DEFAULT_LEVEL,
+    );
+    const moves = member.build.moves.filter((m) => legal.has(m));
+    return member.build.ability || moves.length > 0
+      ? { ability: member.build.ability, moves: moves.length > 0 ? moves : undefined }
+      : undefined;
+  } catch {
+    return member.build; // Upstream hiccup: battle setup re-checks anyway.
   }
-  if (name === "open_pokemon") {
-    const slug = String(args.name ?? "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9-]/g, "");
-    if (!slug) return { ok: false, detail: "slug vacío" };
-    actions.push({ type: "open_pokemon", name: slug });
-    return { ok: true };
-  }
-  return { ok: false, detail: "herramienta desconocida" };
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "Falta OPENAI_API_KEY en el servidor." },
-      { status: 500 },
-    );
-  }
-
-  let body: { messages?: IncomingMessage[]; filters?: Record<string, unknown> };
+  let body: {
+    messages?: IncomingMessage[];
+    filters?: Record<string, unknown>;
+    team?: unknown;
+    lang?: string;
+  };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+    // No usable body: fall back to the language cookie.
+    return NextResponse.json(
+      { error: getDict(await getLang()).trainer.errBadJson },
+      { status: 400 },
+    );
+  }
+
+  // The chat sends its language explicitly; the cookie covers older clients.
+  const lang: Lang = isLang(body.lang) ? body.lang : await getLang();
+  const t = getDict(lang).trainer;
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: t.errMissingKey }, { status: 500 });
   }
 
   const history = (body.messages ?? [])
@@ -202,7 +668,7 @@ export async function POST(request: Request) {
     )
     .slice(-20);
   if (history.length === 0 || history[history.length - 1].role !== "user") {
-    return NextResponse.json({ error: "Falta el mensaje." }, { status: 400 });
+    return NextResponse.json({ error: t.errNoMessage }, { status: 400 });
   }
 
   const activeFilters = Object.entries(body.filters ?? {})
@@ -210,18 +676,38 @@ export async function POST(request: Request) {
     .map(([key, v]) => `${key}=${String(v)}`)
     .join(", ");
 
+  const index = await getPokemonIndex();
+  const ctx: ToolContext = {
+    index,
+    byName: new Map(index.entries.map((e) => [normalize(e.name), e])),
+    team: sanitizeTeam(body.team),
+    teamChanged: false,
+    actions: [],
+  };
+
+  const describeTeam = () =>
+    ctx.team.length === 0
+      ? "El usuario no tiene ningún Pokémon en su equipo ahora mismo."
+      : `Equipo actual del usuario (${ctx.team.length}/${TEAM_SIZE}): ${ctx.team
+          .map((m) => {
+            const moves = m.build?.moves?.length
+              ? `, movimientos: ${m.build.moves.join("/")}`
+              : "";
+            return `${m.name} (nivel ${m.level ?? DEFAULT_LEVEL}${moves})`;
+          })
+          .join("; ")}.`;
+
   const conversation: Record<string, unknown>[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT + LANGUAGE_NOTE[lang] },
     {
       role: "system",
       content: activeFilters
         ? `Filtros activos ahora mismo en la Pokédex: ${activeFilters}.`
         : "Ahora mismo la Pokédex no tiene ningún filtro activo.",
     },
+    { role: "system", content: describeTeam() },
     ...history,
   ];
-
-  const actions: TrainerAction[] = [];
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const isLastRound = round === MAX_TOOL_ROUNDS;
@@ -245,10 +731,7 @@ export async function POST(request: Request) {
       console.error("OpenAI error", res.status, detail.slice(0, 500));
       return NextResponse.json(
         {
-          error:
-            res.status === 401
-              ? "La API key de OpenAI no es válida o ha caducado."
-              : "El transmisor de la Pokédex falló al contactar con la IA.",
+          error: res.status === 401 ? t.errBadApiKey : t.errUpstream,
         },
         { status: 502 },
       );
@@ -266,8 +749,8 @@ export async function POST(request: Request) {
         message:
           typeof message?.content === "string" && message.content.trim()
             ? message.content
-            : "¡Uy! Me he quedado sin palabras… ¡inténtalo otra vez!",
-        actions,
+            : t.fallbackEmpty,
+        actions: finalActions(ctx, t),
       });
     }
 
@@ -279,7 +762,7 @@ export async function POST(request: Request) {
       } catch {
         // Malformed arguments: report failure back to the model.
       }
-      const result = executeTool(call.function.name, args, actions);
+      const result = await executeTool(call.function.name, args, ctx);
       conversation.push({
         role: "tool",
         tool_call_id: call.id,
@@ -289,5 +772,36 @@ export async function POST(request: Request) {
   }
 
   // Unreachable: the last round runs without tools, so it always returns.
-  return NextResponse.json({ message: "¡Vaya! Algo salió mal.", actions });
+  return NextResponse.json({
+    message: t.fallbackError,
+    actions: finalActions(ctx, t),
+  });
+}
+
+/** Appends the single roster action, if the professor touched the team. */
+function finalActions(
+  ctx: ToolContext,
+  t: ReturnType<typeof getDict>["trainer"],
+): TrainerAction[] {
+  if (!ctx.teamChanged) return ctx.actions;
+  return [
+    ...ctx.actions,
+    {
+      type: "set_team",
+      members: ctx.team,
+      summary:
+        ctx.team.length === 0
+          ? t.actionTeamCleared
+          : t.actionTeamSet(
+              ctx.team
+                .map((m) =>
+                  t.actionMemberLevel(
+                    formatName(m.name),
+                    m.level ?? DEFAULT_LEVEL,
+                  ),
+                )
+                .join(", "),
+            ),
+    },
+  ];
 }

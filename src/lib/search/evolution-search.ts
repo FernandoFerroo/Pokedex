@@ -12,13 +12,30 @@ import type {
  * therefore also returns "pichu" and "raichu", and branched chains (Eevee)
  * are handled for free because chain membership was flattened at build time.
  *
- * Semantics are an intersection: searchResults ∩ type ∩ generation.
+ * Semantics are an intersection: searchResults ∩ type ∩ generation, minus the
+ * `exclude` list — which is what makes "todos los eléctricos menos Pikachu y
+ * sus evoluciones" expressible in one query.
  */
 export function filterPokemon(
   index: PokemonIndex,
   filters: PokemonFilters,
 ): PokemonIndexEntry[] {
   const query = filters.query.trim().toLowerCase();
+
+  // Excluded species (and, optionally, their whole evolution family): the
+  // chain lookup is the same flattened map the search uses.
+  const excluded = new Set<string>();
+  for (const raw of filters.exclude ?? []) {
+    const name = raw.trim().toLowerCase();
+    if (!name) continue;
+    excluded.add(name);
+    if (filters.excludeFamily) {
+      const entry = index.entries.find((e) => e.name === name);
+      for (const member of (entry && index.chains[entry.chainId]) ?? []) {
+        excluded.add(member);
+      }
+    }
+  }
 
   let matchedBySearch: Set<string> | null = null;
   if (query) {
@@ -39,6 +56,7 @@ export function filterPokemon(
 
   return index.entries.filter(
     (entry) =>
+      !excluded.has(entry.name) &&
       (matchedBySearch === null || matchedBySearch.has(entry.name)) &&
       (filters.type === null || entry.types.includes(filters.type)) &&
       (filters.generation === null ||

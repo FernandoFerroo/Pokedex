@@ -14,7 +14,7 @@ const STAGE_OPTIONS = ["1", "2", "3", "final"] as const;
 
 /**
  * Filter state lives in the URL (?q=&type=&gen=&sort=&color=&habitat=&shape=
- * &egg=&cat=&stage=&page=), which is what preserves it when navigating back
+ * &egg=&cat=&stage=&x=&xfam=&page=), which is what preserves it when going back
  * from the detail view — and makes it shareable and refresh-proof for free.
  * `history: "replace"` keeps typing from polluting the back stack.
  */
@@ -33,6 +33,10 @@ export function useFilters() {
       stage: parseAsStringLiteral(STAGE_OPTIONS),
       /** Solo especies marcadas con el corazón (se guardan en localStorage). */
       fav: parseAsBoolean,
+      /** Especies excluidas, separadas por comas ("…menos Pikachu"). */
+      x: parseAsString,
+      /** Extiende `x` a toda la familia evolutiva de cada especie nombrada. */
+      xfam: parseAsBoolean,
       page: parseAsInteger.withDefault(1),
     },
     { history: "replace" },

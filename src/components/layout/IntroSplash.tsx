@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Lang } from "@/lib/i18n/config";
+import { layoutDict } from "@/lib/i18n/dictionaries/layout";
 
 /** Shown once per browser session. */
 const SEEN_KEY = "intro-seen";
@@ -11,11 +13,13 @@ const SEEN_KEY = "intro-seen";
  * la Pokédex. Dura ~2 s, se muestra una vez por sesión y se omite por
  * completo con `prefers-reduced-motion`.
  */
-export function IntroSplash() {
+export function IntroSplash({ lang }: { lang: Lang }) {
   const [phase, setPhase] = useState<"hidden" | "playing" | "leaving">(
     "hidden",
   );
 
+  // One-time kick-off after mount (same pattern as SoundtrackPlayer).
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time session check */
   useEffect(() => {
     try {
       if (sessionStorage.getItem(SEEN_KEY) === "1") return;
@@ -32,6 +36,7 @@ export function IntroSplash() {
       clearTimeout(done);
     };
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (phase === "hidden") return null;
 
@@ -91,7 +96,7 @@ export function IntroSplash() {
       </div>
 
       <p className="motion-safe:animate-[fade-in_500ms_ease_300ms_both] font-pixel text-xs tracking-widest text-red-400 [text-shadow:0_0_10px_rgba(239,68,68,0.7)]">
-        INICIANDO POKÉDEX
+        {layoutDict[lang].introBooting}
         <span className="cursor-blink ml-1 inline-block h-3 w-2 translate-y-0.5 bg-red-400" />
       </p>
     </div>

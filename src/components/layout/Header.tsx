@@ -1,5 +1,8 @@
-import Link from "next/link";
+import { BrandLink } from "@/components/layout/BrandLink";
+import { LangToggle, ThemeToggle } from "@/components/layout/HeaderToggles";
 import { TeamHeaderButton } from "@/components/team/TeamCta";
+import { getDict } from "@/lib/i18n";
+import type { Lang, Theme } from "@/lib/i18n/config";
 
 /** Blink phases for the classic Pokédex indicator LEDs. */
 const LEDS = [
@@ -14,14 +17,18 @@ const LEDS = [
   },
 ];
 
-export function Header() {
+export function Header({ lang, theme }: { lang: Lang; theme: Theme }) {
+  const t = getDict(lang).layout;
+  // z-[35]: por encima de los chips de los banners (z-[32]) para que al
+  // hacer scroll pasen por debajo, y por debajo del chat y el cajón del
+  // equipo (z-40).
   return (
-    <header className="sticky top-0 z-20 border-b border-red-500/20 bg-black/80 backdrop-blur">
-      <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="group flex items-center gap-3.5">
+    <header className="sticky top-0 z-[35] border-b border-red-500/20 bg-black/80 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-2 px-3 sm:h-20 sm:px-4">
+        <BrandLink className="group flex min-w-0 items-center gap-2 sm:gap-3.5">
           {/* Poké Ball + LEDs on the Kanto Pokédex lid */}
           <span aria-hidden className="flex items-center gap-2">
-            <span className="relative flex h-12 w-12 items-center justify-center rounded-full ring-2 ring-slate-600/80 shadow-[0_0_14px_1px_rgba(239,68,68,0.35)] transition duration-300 group-hover:rotate-12 group-hover:ring-red-400/80 group-hover:shadow-[0_0_22px_3px_rgba(239,68,68,0.55)]">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-2 ring-slate-600/80 shadow-[0_0_14px_1px_rgba(239,68,68,0.35)] transition duration-300 group-hover:rotate-12 group-hover:ring-red-400/80 group-hover:shadow-[0_0_22px_3px_rgba(239,68,68,0.55)] sm:h-12 sm:w-12">
               <svg viewBox="0 0 36 36" className="h-full w-full">
                 {/* Lower half: white */}
                 <circle cx="18" cy="18" r="16.5" fill="#f8fafc" />
@@ -64,7 +71,9 @@ export function Header() {
                 />
               </svg>
             </span>
-            <span className="flex flex-col gap-1.5">
+            {/* Pure decoration: on phones the ~14px they cost is better spent
+                on the wordmark and the controls opposite. */}
+            <span className="flex flex-col gap-1.5 max-sm:hidden">
               {LEDS.map(({ color, delay }) => (
                 <span
                   key={delay}
@@ -74,25 +83,30 @@ export function Header() {
               ))}
             </span>
           </span>
-          <span className="flex flex-col">
-            <span className="hero-title font-display text-2xl font-extrabold tracking-[0.18em] uppercase sm:text-3xl">
+          <span className="flex min-w-0 flex-col">
+            {/* One step smaller under 360px (SE-class screens), where the
+                controls opposite leave the wordmark ~60px and it would
+                otherwise ellipse to "POK…". */}
+            <span className="hero-title truncate font-display text-lg font-extrabold tracking-[0.14em] uppercase max-[359px]:text-sm max-[359px]:tracking-normal sm:text-3xl sm:tracking-[0.18em]">
               Pokédex
             </span>
             <span className="mt-1 hidden font-mono text-xs tracking-[0.32em] text-slate-400 uppercase sm:block">
-              Sistema Nacional · Gen I–IX
+              {t.headerTagline}
             </span>
           </span>
-        </Link>
+        </BrandLink>
 
-        <span className="flex items-center gap-3">
-          <TeamHeaderButton />
-          <span className="hidden items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase sm:flex">
+        <span className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <span className="hidden items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase md:flex">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_1px_rgba(52,211,153,0.8)]" />
             </span>
-            Online
+            {t.online}
           </span>
+          <TeamHeaderButton />
+          <ThemeToggle initial={theme} />
+          <LangToggle />
         </span>
       </div>
       {/* Tricolor energy strip echoing the LED row */}

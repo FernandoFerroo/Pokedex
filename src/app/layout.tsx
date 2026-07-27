@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Exo_2, Orbitron, Press_Start_2P } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { SfxProvider } from "@/components/audio/SfxProvider";
 import { SoundtrackPlayer } from "@/components/audio/SoundtrackPlayer";
 import { FavoritesProvider } from "@/components/favorites/FavoritesProvider";
 import { Footer } from "@/components/layout/Footer";
@@ -8,6 +9,10 @@ import { Header } from "@/components/layout/Header";
 import { IntroSplash } from "@/components/layout/IntroSplash";
 import { TeamDrawer } from "@/components/team/TeamDrawer";
 import { TeamProvider } from "@/components/team/TeamProvider";
+import { I18nProvider } from "@/lib/i18n/client";
+import { getDict } from "@/lib/i18n";
+import { getLang, getTheme } from "@/lib/i18n/server";
+import { ogDefaults, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 /**
@@ -45,43 +50,82 @@ const orbitron = Orbitron({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Pokédex",
-    template: "%s | Pokédex",
-  },
-  description:
-    "Pokédex construida con Next.js (App Router), TypeScript y Tailwind CSS sobre PokéAPI: filtros por tipo y generación, y búsqueda por nombre y cadena evolutiva.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang();
+  const dict = getDict(lang);
+  const title = {
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
+  };
+  return {
+    metadataBase: new URL(SITE_URL),
+    title,
+    description: dict.layout.metaDescription,
+    applicationName: SITE_NAME,
+    alternates: { canonical: "/" },
+    // Social cards. `og:image` comes from the file-based `opengraph-image.tsx`
+    // in this folder, which every route inherits unless it ships its own.
+    openGraph: {
+      ...ogDefaults(lang),
+      title,
+      description: dict.layout.metaDescription,
+      url: "/",
+    },
+    // Only the card style is set: Next fills twitter:title/description/image
+    // from the Open Graph block above (and from each route's own override).
+    twitter: { card: "summary_large_image" },
+    robots: { index: true, follow: true },
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [lang, theme] = await Promise.all([getLang(), getTheme()]);
+  const a11y = getDict(lang).a11y;
+
   return (
     <html
-      lang="es"
-      // The neon HUD experience is dark-only: the `.dark` class is permanent
-      // so every legacy `dark:` utility stays active without a toggle.
-      className={`dark ${exo2.variable} ${chakraPetch.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
+      lang={lang}
+      // Theme and language come from cookies so SSR always matches the choice.
+      // The header toggles mutate the attribute/cookie on the client, hence
+      // suppressHydrationWarning.
+      data-theme={theme}
+      suppressHydrationWarning
+      className={`${exo2.variable} ${chakraPetch.variable} ${pressStart.variable} ${orbitron.variable} h-full antialiased`}
     >
       {/* font-medium base: Exo 2 gains presence on the dark backdrop. */}
       <body className="flex min-h-full flex-col font-sans font-medium text-slate-100">
+        {/*
+          Primer tabulable del documento: deja saltar la cabecera (marca,
+          LEDs, equipo, tema, idioma) e ir directo al contenido — WCAG 2.4.1.
+          Sólo aparece cuando recibe foco de teclado.
+        */}
+        <a href="#main-content" className="skip-link">
+          {a11y.skipToContent}
+        </a>
         {/* Mini intro con la Poké Ball, una vez por sesión. */}
-        <IntroSplash />
+        <IntroSplash lang={lang} />
         <NuqsAdapter>
-          <TeamProvider>
-            <FavoritesProvider>
-              <Header />
-              {children}
-              <Footer />
-              {/* Cajón del equipo: fijo al borde inferior en todas las páginas. */}
-              <TeamDrawer />
-              {/* Soundtrack en bucle (embed de YouTube), sobre el cajón. */}
-              <SoundtrackPlayer />
-            </FavoritesProvider>
-          </TeamProvider>
+          <I18nProvider lang={lang}>
+            <TeamProvider>
+              <FavoritesProvider>
+                {/* Efectos de sonido (Web Audio): el combate los dispara y la
+                    barra de la arena ajusta su volumen. */}
+                <SfxProvider>
+                  <Header lang={lang} theme={theme} />
+                  {children}
+                  <Footer lang={lang} />
+                  {/* Cajón del equipo: fijo al borde inferior en todas las páginas. */}
+                  <TeamDrawer />
+                  {/* Soundtrack en bucle (embed de YouTube), sobre el cajón. */}
+                  <SoundtrackPlayer />
+                </SfxProvider>
+              </FavoritesProvider>
+            </TeamProvider>
+          </I18nProvider>
         </NuqsAdapter>
       </body>
     </html>

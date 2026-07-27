@@ -1,5 +1,8 @@
+import { LevelStats } from "@/components/pokemon/LevelStats";
+import { DEFAULT_LANG, type Lang } from "@/lib/i18n/config";
+import { getDict } from "@/lib/i18n";
 import { typeAccent } from "@/lib/pokemon-meta";
-import { STAT_LABELS_ES as STAT_LABELS, statRange, totalRank } from "@/lib/stats";
+import { STAT_LABELS, totalRank } from "@/lib/stats";
 
 /** Hexagon layout in the classic games' order: PS arriba, en sentido horario. */
 const AXIS_ORDER = [
@@ -20,20 +23,25 @@ const MAX_BASE_STAT = 255;
  */
 const BAR_SCALE = 180;
 
-const CX = 170;
-const CY = 155;
-const RADIUS = 105;
+const CX = 190;
+const CY = 172;
+const RADIUS = 128;
 
 /** Rings drawn at these fractions of the full scale. */
 const RING_STEPS = [0.25, 0.5, 0.75, 1];
 
-/** Color tier per stat value, mirroring how fan dex sites grade stats. */
-function statTone(value: number): { bar: string; text: string } {
-  if (value < 40) return { bar: "bg-red-400", text: "text-red-300" };
-  if (value < 70) return { bar: "bg-orange-400", text: "text-orange-300" };
-  if (value < 100) return { bar: "bg-yellow-300", text: "text-yellow-200" };
-  if (value < 130) return { bar: "bg-emerald-400", text: "text-emerald-300" };
-  return { bar: "bg-cyan-300", text: "text-cyan-200" };
+/**
+ * Color tier per stat value, mirroring how fan dex sites grade stats.
+ * `tier` picks the bar gradient (a `.stat-tier-N` class themed in
+ * globals.css) and `text` keeps the number in the same family so the row
+ * reads as one signal in both themes.
+ */
+function statTone(value: number): { tier: number; text: string } {
+  if (value < 40) return { tier: 0, text: "text-red-300" };
+  if (value < 70) return { tier: 1, text: "text-orange-300" };
+  if (value < 100) return { tier: 2, text: "text-yellow-200" };
+  if (value < 130) return { tier: 3, text: "text-emerald-300" };
+  return { tier: 4, text: "text-cyan-200" };
 }
 
 function vertex(axisIndex: number, fraction: number): [number, number] {
@@ -52,41 +60,50 @@ interface StatsDashboardProps {
   stats: Array<{ name: string; value: number; effort: number }>;
   /** Primary type slug — drives the accent color. */
   type: string;
+  lang?: Lang;
 }
 
-export function StatsDashboard({ stats, type }: StatsDashboardProps) {
+export function StatsDashboard({
+  stats,
+  type,
+  lang = DEFAULT_LANG,
+}: StatsDashboardProps) {
+  const d = getDict(lang).detail;
+  const statLabels = STAT_LABELS[lang];
   const byName = new Map(stats.map((s) => [s.name, s]));
   const axes = AXIS_ORDER.map((name, i) => {
     const value = byName.get(name)?.value ?? 0;
     return {
       name,
-      label: STAT_LABELS[name] ?? name,
+      label: statLabels[name] ?? name,
       value,
       point: vertex(i, Math.min(1, value / MAX_BASE_STAT)),
-      labelPoint: vertex(i, 1.22),
+      labelPoint: vertex(i, 1.2),
     };
   });
   const total = stats.reduce((sum, stat) => sum + stat.value, 0);
   const best = Math.max(...axes.map((a) => a.value));
   const polygon = axes.map((a) => a.point.join(",")).join(" ");
-  const rank = totalRank(total);
+  const rank = totalRank(total, lang);
   const evYield = AXIS_ORDER.map((name) => byName.get(name))
     .filter((s): s is NonNullable<typeof s> => Boolean(s && s.effort > 0))
-    .map((s) => `+${s.effort} ${STAT_LABELS[s.name] ?? s.name}`)
+    .map((s) => `+${s.effort} ${statLabels[s.name] ?? s.name}`)
     .join(" · ");
 
   return (
-    <div className="grid items-center gap-6 md:grid-cols-[minmax(0,340px)_1fr]">
+    <div className="grid items-center gap-8 md:grid-cols-[minmax(0,440px)_1fr]">
       <svg
-        viewBox="0 0 340 310"
+        viewBox="0 0 380 348"
         role="img"
-        aria-label={`Estadísticas base: ${axes
-          .map((a) => `${a.label} ${a.value}`)
-          .join(", ")}. Total ${total}.`}
-        className="mx-auto w-full max-w-90"
+        aria-label={d.statsAria(
+          axes.map((a) => `${a.label} ${a.value}`).join(", "),
+          total,
+        )}
+        className="mx-auto w-full max-w-110"
       >
-        {/* Recessive grid: concentric hexagons + spokes */}
-        <g className="stroke-slate-200 dark:stroke-slate-800" fill="none">
+        {/* Recessive grid: concentric hexagons + spokes. slate-800 flips to a
+            pale gray in the light theme via the inverted slate scale. */}
+        <g className="stroke-slate-800" fill="none">
           {RING_STEPS.map((step) => (
             <polygon key={step} points={ringPoints(step)} strokeWidth={1} />
           ))}
@@ -106,20 +123,21 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
           <polygon
             points={polygon}
             fill="currentColor"
-            fillOpacity={0.14}
+            fillOpacity={0.16}
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={2.5}
             strokeLinejoin="round"
+            style={{ filter: "drop-shadow(0 0 8px currentColor)" }}
           />
           {axes.map((axis) => (
             <circle
               key={axis.name}
               cx={axis.point[0]}
               cy={axis.point[1]}
-              r={3.5}
+              r={4}
               fill="currentColor"
               strokeWidth={2}
-              className="stroke-white dark:stroke-slate-900"
+              className="stroke-hud-1"
             />
           ))}
         </g>
@@ -131,7 +149,7 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
             x={axis.labelPoint[0]}
             y={axis.labelPoint[1]}
             textAnchor="middle"
-            className="fill-slate-500 text-[13px] dark:fill-slate-400"
+            className="fill-slate-400 text-[13px] tracking-wider uppercase"
           >
             <tspan x={axis.labelPoint[0]} dy="-0.2em">
               {axis.label}
@@ -139,7 +157,7 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
             <tspan
               x={axis.labelPoint[0]}
               dy="1.25em"
-              className="fill-slate-900 font-mono text-xs font-semibold dark:fill-slate-100"
+              className="fill-slate-100 font-mono text-sm font-bold"
             >
               {axis.value}
             </tspan>
@@ -148,20 +166,20 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
       </svg>
 
       <div>
-        <dl className="flex flex-col gap-2.5">
+        <dl className="flex flex-col gap-3">
           {axes.map((axis) => {
             const tone = statTone(axis.value);
             return (
               <div
                 key={axis.name}
-                className="grid grid-cols-[6.5rem_2.5rem_1fr] items-center gap-3 text-sm"
+                className="grid grid-cols-[6.5rem_2.75rem_1fr] items-center gap-3 text-sm"
               >
                 <dt className="font-mono text-xs tracking-wider text-slate-400 uppercase">
                   {axis.label}
                   {axis.value === best && (
                     <span
-                      aria-label="Mejor estadística"
-                      title="Mejor estadística"
+                      aria-label={d.bestStat}
+                      title={d.bestStat}
                       className="ml-1 text-amber-300"
                     >
                       ★
@@ -169,16 +187,16 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
                   )}
                 </dt>
                 <dd
-                  className={`text-right font-mono text-sm font-bold tabular-nums ${tone.text}`}
+                  className={`neon-value text-right font-mono text-base font-bold tabular-nums ${tone.text}`}
                 >
                   {axis.value}
                 </dd>
                 <dd
-                  className="h-2 overflow-hidden rounded-full bg-slate-800"
+                  className="h-2.5 overflow-hidden rounded-full bg-slate-800/80"
                   role="presentation"
                 >
                   <div
-                    className={`h-full rounded-full ${tone.bar} motion-safe:animate-[bar-grow_600ms_ease-out]`}
+                    className={`stat-bar stat-tier-${tone.tier} h-full rounded-full motion-safe:animate-[bar-grow_600ms_ease-out]`}
                     style={{
                       width: `${Math.min(100, (axis.value / BAR_SCALE) * 100)}%`,
                     }}
@@ -189,67 +207,31 @@ export function StatsDashboard({ stats, type }: StatsDashboardProps) {
           })}
         </dl>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-800 pt-3">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-800 pt-4">
           <p className="font-mono text-sm text-slate-300">
-            Total{" "}
-            <span className="text-lg font-bold text-white tabular-nums">
+            {d.total}{" "}
+            <span className="neon-value text-xl font-bold text-slate-50 tabular-nums">
               {total}
             </span>
           </p>
           <span
-            className={`rounded border px-1.5 py-0.5 font-mono text-xs tracking-widest uppercase ${rank.className}`}
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs tracking-widest uppercase ${rank.className}`}
           >
             {rank.label}
           </span>
           {evYield && (
             <p className="font-mono text-xs text-slate-400">
-              <span className="tracking-widest uppercase">EV al derrotarlo</span>{" "}
+              <span className="tracking-widest uppercase">{d.evYield}</span>{" "}
               <span className="font-semibold text-slate-200">{evYield}</span>
             </p>
           )}
         </div>
 
-        {/* Real reachable stats: what these bases translate to in-game. */}
-        <div className="mt-4 border-t border-slate-800 pt-3">
-          <p className="font-mono text-xs tracking-widest text-slate-400 uppercase">
-            Rangos reales{" "}
-            <span className="tracking-normal text-slate-500 normal-case">
-              (IV 0–31 · EV 0–252 · naturaleza incluida)
-            </span>
-          </p>
-          <div className="mt-2 grid grid-cols-[minmax(5rem,6.5rem)_1fr_1fr] gap-x-3 gap-y-1.5 font-mono text-xs">
-            <span aria-hidden />
-            <span className="text-right tracking-widest text-slate-500 uppercase">
-              Nv. 50
-            </span>
-            <span className="text-right tracking-widest text-slate-500 uppercase">
-              Nv. 100
-            </span>
-            {axes.map((axis) => {
-              const at50 = statRange(axis.name, axis.value, 50);
-              const at100 = statRange(axis.name, axis.value, 100);
-              return (
-                <div key={axis.name} className="col-span-3 grid grid-cols-subgrid">
-                  <span className="tracking-wider text-slate-400 uppercase">
-                    {axis.label}
-                  </span>
-                  <span className="text-right text-slate-300 tabular-nums">
-                    {at50.min}–
-                    <span className="font-semibold text-slate-100">
-                      {at50.max}
-                    </span>
-                  </span>
-                  <span className="text-right text-slate-300 tabular-nums">
-                    {at100.min}–
-                    <span className="font-semibold text-slate-100">
-                      {at100.max}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Real reachable stats: what these bases translate to in-game, at
+            whatever level the user dials in. */}
+        <LevelStats
+          stats={axes.map((axis) => ({ name: axis.name, value: axis.value }))}
+        />
       </div>
     </div>
   );

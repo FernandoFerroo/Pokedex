@@ -1,5 +1,9 @@
+import { getDict } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n/config";
+
 /** HUD system footer: data-source credits styled as a terminal readout. */
-export function Footer() {
+export function Footer({ lang }: { lang: Lang }) {
+  const t = getDict(lang).layout;
   return (
     <footer className="relative z-10 mt-12 border-t border-red-500/20 bg-black/70">
       {/* Tricolor energy strip echoing the header's LED row */}
@@ -12,13 +16,13 @@ export function Footer() {
           <span aria-hidden className="mr-2 text-red-500/80">
             ►
           </span>
-          Sistema Pokédex · Gen I–IX
+          {t.footerSystem}
           <span aria-hidden className="cursor-blink ml-1.5 text-emerald-500/80">
             ▊
           </span>
         </p>
         <p className="font-mono text-xs tracking-wider text-slate-500">
-          Datos{" "}
+          {t.footerData}{" "}
           <a
             href="https://pokeapi.co"
             target="_blank"
@@ -28,7 +32,7 @@ export function Footer() {
             PokéAPI
           </a>
           {" · "}
-          Cartas{" "}
+          {t.footerCards}{" "}
           <a
             href="https://tcgdex.dev"
             target="_blank"
@@ -39,8 +43,7 @@ export function Footer() {
           </a>
         </p>
         <p className="font-mono text-xs tracking-wider text-slate-600">
-          Proyecto de fans, sin ánimo de lucro. Pokémon © Nintendo / Game
-          Freak / The Pokémon Company.
+          {t.footerLegal}
         </p>
       </div>
     </footer>

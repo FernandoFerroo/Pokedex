@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { Model3D } from "@/components/pokemon/Model3D";
+import { useT } from "@/lib/i18n/client";
 
 export interface SpriteSet {
   artwork: { normal: string | null; shiny: string | null };
@@ -27,12 +28,6 @@ export interface SpriteSet {
 
 type ViewMode = "art" | "3d" | "2d";
 type Variant = "normal" | "shiny";
-
-const MODE_LABELS: Record<ViewMode, string> = {
-  art: "Arte",
-  "3d": "3D",
-  "2d": "2D",
-};
 
 /** Community glTF models keyed by National Dex id (regular + shiny). */
 const MODEL_BASE =
@@ -107,6 +102,12 @@ interface SpriteViewerProps {
 }
 
 export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
+  const { detail: d, a11y } = useT();
+  const modeLabels: Record<ViewMode, string> = {
+    art: d.modeArt,
+    "3d": d.mode3d,
+    "2d": d.mode2d,
+  };
   const [mode, setMode] = useState<ViewMode>("art");
   const [shiny, setShiny] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("front");
@@ -152,25 +153,33 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
   const current2d =
     facing === "back" ? (backSrc2d ?? sprite2d("front", variant)) : sprite2d("front", variant);
 
-  const variantLabel = showShiny ? `${name} shiny` : name;
+  // Spoken description of what is on the pedestal right now. The old value
+  // ("Garchomp shiny") named the subject but not the image, so a screen
+  // reader gave the artwork, the 3D model and the fallback render the exact
+  // same alt text even though they are three different things.
+  const variantLabel = showShiny ? a11y.shinyArtOf(name) : a11y.artOf(name);
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-3">
+      {/* Escaparate: resplandor ambiental + pedestal holográfico bajo la
+          criatura. El aro queda fijo; la criatura levita encima. */}
       <div
         key={`${mode}-${showShiny}`}
-        className="flex flex-1 flex-col items-center justify-center gap-2 motion-safe:animate-[fade-in_250ms_ease-out]"
+        className="relative flex flex-1 flex-col items-center justify-center gap-2 motion-safe:animate-[fade-in_250ms_ease-out]"
       >
+        <span aria-hidden className="hero-glow absolute inset-0" />
+        <span
+          aria-hidden
+          className="holo-pedestal bottom-[4%] h-[15%] w-[76%]"
+        />
+
         {mode === "2d" ? (
           <>
             <div className="relative flex aspect-square w-full max-w-70 items-end justify-center">
-              <span
-                aria-hidden
-                className="absolute bottom-4 left-1/2 h-5 w-44 -translate-x-1/2 rounded-[50%] bg-slate-900/10 blur-md dark:bg-black/50"
-              />
-              <div className="relative mb-3 h-[86%] w-full">
+              <div className="sprite-float relative mb-6 h-[80%] w-full">
                 <Image
                   src={current2d as string}
-                  alt={`${variantLabel} (${facing === "back" ? "espalda" : "frente"})`}
+                  alt={d.spriteAlt(variantLabel, facing)}
                   fill
                   unoptimized={(current2d as string).endsWith(".gif")}
                   sizes="280px"
@@ -181,8 +190,8 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
             {backSrc2d !== null && (
               <div
                 role="group"
-                aria-label="Lado del sprite"
-                className="flex rounded-md border border-slate-700 bg-black/50 p-0.5"
+                aria-label={d.spriteSideAria}
+                className="absolute top-1 left-1/2 flex -translate-x-1/2 rounded-full border border-slate-700/60 bg-black/50 p-0.5 backdrop-blur-md"
               >
                 {(["front", "back"] as const).map((side) => (
                   <button
@@ -190,13 +199,13 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
                     type="button"
                     onClick={() => setFacing(side)}
                     aria-pressed={facing === side}
-                    className={`rounded px-2.5 py-1 font-mono text-[13px] font-medium tracking-wider uppercase transition ${
+                    className={`rounded-full px-2.5 py-1 font-mono text-[13px] font-medium tracking-wider uppercase transition ${
                       facing === side
-                        ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
+                        ? "neon-aura"
                         : "text-slate-400 hover:text-slate-200"
                     }`}
                   >
-                    {side === "front" ? "Frente" : "Espalda"}
+                    {side === "front" ? d.front : d.back}
                   </button>
                 ))}
               </div>
@@ -211,36 +220,37 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
                 <Model3D
                   src={modelUrl(dexId, variant)}
                   poster={homeSrc ?? undefined}
-                  alt={variantLabel}
+                  alt={a11y.model3dOf(name)}
                   onFail={() =>
                     setModelFailed((prev) => ({ ...prev, [variant]: true }))
                   }
                 />
               )}
             </div>
-            <p className="pointer-events-none text-xs text-slate-300 dark:text-slate-400">
-              Arrastra para girar
+            <p className="pointer-events-none absolute top-1 left-1/2 -translate-x-1/2 font-mono text-xs whitespace-nowrap text-slate-400">
+              {d.dragToRotate}
             </p>
           </>
         ) : (
-          <div className="relative aspect-square w-full max-w-70">
+          <div className="sprite-float relative aspect-square w-full max-w-70">
             <Image
               src={artworkSrc as string}
               alt={variantLabel}
               fill
               priority
               sizes="280px"
-              className="object-contain"
+              className="object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]"
             />
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-2">
+      {/* Consola de cristal neón integrada al pie del escaparate. */}
+      <div className="relative z-10 flex items-center justify-center gap-2">
         <div
           role="group"
-          aria-label="Modo de visualización"
-          className="flex rounded-md border border-slate-700 bg-black/50 p-0.5"
+          aria-label={d.viewModeAria}
+          className="flex gap-1 rounded-full border border-slate-700/40 bg-black/30 p-1 backdrop-blur-md"
         >
           {availableModes.map((m) => (
             <button
@@ -248,13 +258,9 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
               type="button"
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
-              className={`rounded px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition ${
-                mode === m
-                  ? "bg-red-500/20 text-red-300 shadow-[0_0_10px_-2px_rgba(239,68,68,0.6)]"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              className="glass-btn rounded-full px-3 py-1.5 font-mono text-xs font-semibold tracking-wider uppercase"
             >
-              {MODE_LABELS[m]}
+              {modeLabels[m]}
             </button>
           ))}
         </div>
@@ -264,15 +270,15 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
           onClick={() => setShiny((s) => !s)}
           disabled={!hasShiny}
           aria-pressed={showShiny}
-          title={hasShiny ? "Alternar forma shiny" : "Sin sprite shiny"}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-xs font-medium tracking-wider uppercase transition disabled:cursor-not-allowed disabled:opacity-40 ${
-            showShiny
-              ? "border-amber-400/60 bg-amber-400/10 text-amber-300 shadow-[0_0_14px_-2px_rgba(251,191,36,0.6)]"
-              : "border-slate-700 bg-black/50 text-slate-400 hover:text-amber-200"
-          }`}
+          // The visible label is just "SHINY"; the accessible name says what
+          // pressing it does, and `aria-pressed` says which state it is in.
+          aria-label={hasShiny ? d.shinyToggleTitle : d.noShinyTitle}
+          title={hasShiny ? d.shinyToggleTitle : d.noShinyTitle}
+          style={showShiny ? ({ "--aura": "#fbbf24" } as React.CSSProperties) : undefined}
+          className="glass-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-mono text-xs font-semibold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Sparkles size={13} />
-          Shiny
+          {d.shiny}
         </button>
       </div>
     </div>

@@ -1,5 +1,7 @@
 /** Shared contracts between the team builder UI and the AI coach API route. */
 
+import type { LearnMethod } from "@/lib/battle/learnset";
+
 /** Minimal snapshot of a Pokémon stored in a team slot. */
 export interface TeamMember {
   /** National Pokédex id — drives the artwork URL and dedupe. */
@@ -10,6 +12,51 @@ export interface TeamMember {
   types: string[];
   /** Combat level 1-100; absent means the default (50). */
   level?: number;
+  /** Custom combat build; absent means "auto" (server picks everything). */
+  build?: MemberBuild;
+}
+
+/**
+ * Hand-picked combat configuration for one member. Every field is optional:
+ * gaps are autofilled at battle setup (strongest level-up moves, primary
+ * ability), so a partial build is always valid.
+ */
+export interface MemberBuild {
+  /** Chosen ability slug, e.g. "solar-power". */
+  ability?: string;
+  /** Up to 4 distinct move slugs, e.g. ["flamethrower"]. */
+  moves?: string[];
+}
+
+/** One selectable ability in the build editor. */
+export interface AbilityOption {
+  slug: string;
+  /** Spanish name, e.g. "Mar Llamas". */
+  label: string;
+  isHidden: boolean;
+}
+
+/** One selectable move in the build editor (status moves render disabled). */
+export interface MoveOption {
+  slug: string;
+  /** Spanish name, e.g. "Lanzallamas". */
+  label: string;
+  /** Type slug, e.g. "fire". */
+  type: string;
+  damageClass: "physical" | "special" | "status";
+  power: number | null;
+  accuracy: number | null;
+  pp: number | null;
+  /** How the species gets it — drives the "Nv. 24 / MT / Huevo / Tutor" tag. */
+  method: LearnMethod;
+  /** Level it is learned at; null for every non level-up method. */
+  learnLevel: number | null;
+}
+
+/** Response of `/api/battle/build-options?species=…`. */
+export interface BuildOptionsResponse {
+  abilities: AbilityOption[];
+  moves: MoveOption[];
 }
 
 /** Default combat level for members that never had theirs edited. */

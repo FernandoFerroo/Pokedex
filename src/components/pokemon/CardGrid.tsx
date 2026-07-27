@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 import type { TcgCard } from "@/lib/tcgdex";
 
 interface CardGridProps {
@@ -10,6 +11,7 @@ interface CardGridProps {
 }
 
 export function CardGrid({ cards }: CardGridProps) {
+  const t = useT();
   const [active, setActive] = useState<TcgCard | null>(null);
 
   return (
@@ -20,12 +22,12 @@ export function CardGrid({ cards }: CardGridProps) {
             <button
               type="button"
               onClick={() => setActive(card)}
-              aria-label={`Ampliar carta ${card.name}`}
+              aria-label={t.list.cardZoomAria(card.name)}
               className="group relative block aspect-63/88 w-full cursor-zoom-in overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:outline-none motion-safe:hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-800"
             >
               <Image
                 src={card.imageUrl}
-                alt={`Carta ${card.name}`}
+                alt={t.list.cardAlt(card.name)}
                 fill
                 sizes="(max-width: 640px) 45vw, (max-width: 1024px) 22vw, 160px"
                 className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
@@ -54,7 +56,13 @@ function HoloLightbox({
   card: TcgCard;
   onClose: () => void;
 }) {
+  const t = useT();
   const frameRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // The lightbox opens over the grid but focus stays behind it, so Escape is
+  // the only way out for a keyboard user unless the close button is focused.
+  useEffect(() => closeRef.current?.focus(), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -92,15 +100,15 @@ function HoloLightbox({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Carta ${card.name} ampliada`}
+      aria-label={t.list.cardDialogAria(card.name)}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm motion-safe:animate-[fade-in_200ms_ease-out]"
       onClick={onClose}
     >
       <button
         type="button"
         onClick={onClose}
-        aria-label="Cerrar"
-        className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+        aria-label={t.list.cardCloseAria}
+        className="absolute top-4 right-4 rounded-full bg-slate-100/10 p-2 text-slate-100/80 transition hover:bg-slate-100/20 hover:text-slate-100"
       >
         <X size={20} />
       </button>
@@ -118,7 +126,7 @@ function HoloLightbox({
           >
             <Image
               src={card.imageHighUrl}
-              alt={`Carta ${card.name}`}
+              alt={t.list.cardAlt(card.name)}
               fill
               priority
               sizes="380px"
@@ -128,10 +136,10 @@ function HoloLightbox({
             <div aria-hidden className="holo-card-glare absolute inset-0" />
           </div>
         </div>
-        <figcaption className="text-sm font-medium text-white/90">
+        <figcaption className="text-sm font-medium text-slate-100/90">
           {card.name}
-          <span className="ml-2 text-xs font-normal text-white/50">
-            Mueve el cursor sobre la carta
+          <span className="ml-2 text-xs font-normal text-slate-100/50">
+            {t.list.cardHoloHint}
           </span>
         </figcaption>
       </figure>

@@ -112,6 +112,24 @@ export interface MoveResponse {
   pp: number | null;
   type: NamedAPIResource;
   damage_class: NamedAPIResource | null;
+  /** Who the move points at ("user", "selected-pokemon"…). */
+  target?: NamedAPIResource | null;
+  /** Stage deltas, e.g. Swords Dance = [{ change: 2, stat: attack }]. */
+  stat_changes?: Array<{
+    change: number;
+    stat: NamedAPIResource;
+  }>;
+  /** Effect metadata: ailment, chances, healing and drain percentages. */
+  meta?: {
+    ailment: NamedAPIResource | null;
+    ailment_chance: number;
+    /** % of max HP restored to the user. */
+    healing: number;
+    /** % of dealt damage drained (negative = recoil). */
+    drain: number;
+    /** % chance the stat changes apply; 0 = always. */
+    stat_chance: number;
+  } | null;
   names: Array<{
     name: string;
     language: NamedAPIResource;
@@ -132,6 +150,10 @@ export interface PokemonResponse {
   height: number;
   weight: number;
   base_experience: number | null;
+  /** Species this form belongs to — for alternate forms (Mega, regional) the
+      species id differs from the Pokémon id, so gender/flavor lookups must
+      follow this link rather than reuse `id`. */
+  species: NamedAPIResource;
   abilities: Array<{
     ability: NamedAPIResource;
     is_hidden: boolean;

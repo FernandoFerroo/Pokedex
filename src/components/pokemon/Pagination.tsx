@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useT } from "@/lib/i18n/client";
 
 interface PaginationProps {
   current: number;
@@ -41,18 +42,19 @@ const buttonActive =
  * cyan hover, elided runs and a small readout on wider screens.
  */
 export function Pagination({ current, total, onChange }: PaginationProps) {
+  const t = useT();
   if (total <= 1) return null;
 
   return (
     <nav
-      aria-label="Paginación de resultados"
+      aria-label={t.list.paginationAria}
       className="flex flex-wrap items-center justify-center gap-1.5 py-2.5"
     >
       <button
         type="button"
         onClick={() => onChange(current - 1)}
         disabled={current === 1}
-        aria-label="Página anterior"
+        aria-label={t.list.prevPageAria}
         className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
       >
         <ChevronLeft size={14} />
@@ -72,7 +74,7 @@ export function Pagination({ current, total, onChange }: PaginationProps) {
             key={item}
             type="button"
             onClick={() => onChange(item)}
-            aria-label={`Ir a la página ${item}`}
+            aria-label={t.list.goToPageAria(item)}
             aria-current={item === current ? "page" : undefined}
             className={`${buttonBase} ${item === current ? buttonActive : buttonIdle}`}
           >
@@ -85,14 +87,17 @@ export function Pagination({ current, total, onChange }: PaginationProps) {
         type="button"
         onClick={() => onChange(current + 1)}
         disabled={current === total}
-        aria-label="Página siguiente"
+        aria-label={t.list.nextPageAria}
         className={`${buttonBase} ${buttonIdle} disabled:pointer-events-none disabled:opacity-35`}
       >
         <ChevronRight size={14} />
       </button>
 
       <span className="ml-3 hidden font-mono text-xs tracking-[0.25em] text-slate-400 uppercase sm:inline">
-        Pág {String(current).padStart(2, "0")}/{String(total).padStart(2, "0")}
+        {t.list.pageReadout(
+          String(current).padStart(2, "0"),
+          String(total).padStart(2, "0"),
+        )}
       </span>
     </nav>
   );

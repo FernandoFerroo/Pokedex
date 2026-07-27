@@ -1,6 +1,10 @@
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-5xl flex-1 px-4 py-6"
+    >
       <div className="h-8 w-36 animate-pulse rounded-md bg-slate-800/60" />
       <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,320px)_1fr]">
         <div className="aspect-square animate-pulse rounded-xl border border-slate-800/60 bg-slate-800/40" />

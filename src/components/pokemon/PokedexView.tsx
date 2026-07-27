@@ -7,8 +7,10 @@ import type { FilterPatch } from "@/components/filters/FilterBar";
 import { Pagination } from "@/components/pokemon/Pagination";
 import { PokemonCard } from "@/components/pokemon/PokemonCard";
 import { useFilters } from "@/hooks/use-filters";
+import { useT } from "@/lib/i18n/client";
 import { filterPokemon } from "@/lib/search/evolution-search";
 import { sortPokemon } from "@/lib/sort";
+import { cn } from "@/lib/utils";
 import type { PokemonIndex } from "@/types/pokemon";
 
 /** Multiple of every grid column count (2/3/4/5/6), so rows always fill. */
@@ -16,6 +18,16 @@ const PAGE_SIZE = 60;
 
 /** Height covered by the sticky header + filter bar, so jumps land below. */
 const STICKY_OFFSET = 160;
+
+/** `?x=pikachu,eevee` -> ["pikachu", "eevee"]. */
+export function parseExcluded(value: string | null): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((name) => name.trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+}
 
 interface PokedexViewProps {
   index: PokemonIndex;
@@ -29,6 +41,7 @@ interface PokedexViewProps {
  * links land on the same section.
  */
 export function PokedexView({ index }: PokedexViewProps) {
+  const t = useT();
   const [filters, setFilters] = useFilters();
   const {
     q,
@@ -42,6 +55,8 @@ export function PokedexView({ index }: PokedexViewProps) {
     cat,
     stage,
     fav,
+    x,
+    xfam,
     page,
   } = filters;
   const { favorites } = useFavorites();
@@ -57,6 +72,8 @@ export function PokedexView({ index }: PokedexViewProps) {
       eggGroup: egg,
       category: cat,
       stage,
+      exclude: parseExcluded(x),
+      excludeFamily: xfam === true,
     });
     // Favoritos viven en localStorage (no en el índice), así que se aplican
     // como una pasada extra sobre el resultado del resto de filtros.
@@ -77,6 +94,8 @@ export function PokedexView({ index }: PokedexViewProps) {
     cat,
     stage,
     fav,
+    x,
+    xfam,
     favorites,
   ]);
 
@@ -158,27 +177,48 @@ export function PokedexView({ index }: PokedexViewProps) {
   const handleFiltersChange = (patch: FilterPatch) =>
     setFilters({ ...patch, page: null });
 
-  const listKey = [q, type, gen, sort, color, habitat, shape, egg, cat, stage, fav]
+  const listKey = [
+    q,
+    type,
+    gen,
+    sort,
+    color,
+    habitat,
+    shape,
+    egg,
+    cat,
+    stage,
+    fav,
+    x,
+    xfam,
+  ]
     .map(String)
     .join("|");
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="sticky top-20 z-10 -mx-4 bg-[#020204]/85 px-4 py-3 backdrop-blur">
+    <div className="flex flex-col gap-4 max-sm:gap-2">
+      {/* `top` tracks the header's own height, which drops to h-16 on phones. */}
+      <div className="sticky top-16 z-10 -mx-4 bg-hud-0/85 px-4 py-3 backdrop-blur max-sm:py-1.5 sm:top-20">
         <FilterBar values={filters} onChange={handleFiltersChange} />
       </div>
 
+      {/* En móvil la línea de estado solo aparece cuando dice algo que no se
+          ve ya: con el listado completo se oculta para que las primeras filas
+          entren en pantalla, como en escritorio. */}
       <p
-        className="font-mono text-[13px] tracking-widest text-emerald-400/90 uppercase"
+        className={cn(
+          "font-mono text-[13px] tracking-widest text-emerald-400/90 uppercase",
+          results.length === index.entries.length && "max-sm:hidden",
+        )}
         role="status"
       >
         <span aria-hidden className="mr-2 text-slate-600">
           &gt;_
         </span>
         {results.length === index.entries.length
-          ? `${index.entries.length} entradas registradas · Gen I–IX`
-          : `${results.length} / ${index.entries.length} entradas encontradas`}
-        {totalPages > 1 && ` · pág. ${currentSection}/${totalPages}`}
+          ? t.list.statusAll(index.entries.length)
+          : t.list.statusFiltered(results.length, index.entries.length)}
+        {totalPages > 1 && ` · ${t.list.statusPage(currentSection, totalPages)}`}
         <span aria-hidden className="cursor-blink ml-1.5">
           ▊
         </span>
@@ -187,18 +227,19 @@ export function PokedexView({ index }: PokedexViewProps) {
       {results.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-700 bg-black/40 py-16 text-center">
           <p className="glitch font-pixel text-sm text-red-400">
-            ¡SIN RESULTADOS!
+            {t.list.noResultsTitle}
           </p>
-          <p className="mt-4 text-sm text-slate-300">
-            El Pokémon salvaje huyó… Prueba con otro nombre o ajusta los
-            filtros activos.
-          </p>
+          <p className="mt-4 text-sm text-slate-300">{t.list.noResultsBody}</p>
         </div>
       ) : (
         <>
           <ul
             key={listKey}
-            className="grid grid-cols-2 gap-3 motion-safe:animate-[fade-in_250ms_ease-out] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+            // Phones get three real entries per row instead of six thumbnails:
+            // at 375px that is a ~112px card, enough for the artwork plus the
+            // number, name and type chips the desktop card shows. Desktop
+            // (lg/xl) is untouched.
+            className="grid grid-cols-3 gap-2 motion-safe:animate-[fade-in_250ms_ease-out] min-[520px]:grid-cols-4 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
           >
             {results.map((entry, i) => (
               <li
@@ -220,7 +261,7 @@ export function PokedexView({ index }: PokedexViewProps) {
           </ul>
 
           {totalPages > 1 && (
-            <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-800/60 bg-[#020204]/85 px-4 backdrop-blur">
+            <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-800/60 bg-hud-0/85 px-4 backdrop-blur">
               <Pagination
                 current={currentSection}
                 total={totalPages}

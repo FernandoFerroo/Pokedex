@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { formatName, TYPE_LABELS_ES } from "@/lib/pokemon-meta";
+import { getDict } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n/config";
+import { getLang } from "@/lib/i18n/server";
+import { formatName, TYPE_LABELS, TYPE_LABELS_ES } from "@/lib/pokemon-meta";
 import { analyzeTeam } from "@/lib/team-analysis";
 import { DEFAULT_LEVEL, type CoachReport, type TeamMember } from "@/types/team";
 
@@ -8,7 +11,22 @@ const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
 const TYPE_SLUGS = Object.keys(TYPE_LABELS_ES);
 
-const SYSTEM_PROMPT = `Eres el "Coach Bot" de una Pokédex digital: un entrenador veterano experto en combate competitivo Pokémon (formatos singles estándar). Analizas equipos y das consejos claros, concretos y accionables, en español.
+/** Language name (in Spanish, the prompt's language) for the instruction line. */
+const LANG_NAME: Record<Lang, string> = {
+  es: "español",
+  en: "inglés",
+  fr: "francés",
+  de: "alemán",
+  it: "italiano",
+  ja: "japonés",
+  ko: "coreano",
+  "zh-Hans": "chino simplificado",
+  "zh-Hant": "chino tradicional",
+};
+
+const systemPrompt = (
+  lang: Lang,
+) => `Eres el "Coach Bot" de una Pokédex digital: un entrenador veterano experto en combate competitivo Pokémon (formatos singles estándar). Analizas equipos y das consejos claros, concretos y accionables, en ${LANG_NAME[lang]}.
 
 Recibirás el equipo del usuario (hasta 6 Pokémon con sus tipos y su nivel de combate, 1-100) y un análisis de cobertura ya calculado (debilidades críticas, resistencias fuertes y huecos de cobertura ofensiva STAB). Apóyate en esos datos —no los contradigas— y añade tu conocimiento real de la franquicia (estadísticas típicas, roles habituales, movimientos característicos de cada especie).
 
@@ -24,6 +42,7 @@ Reglas:
 - Ten en cuenta los niveles: señala miembros con nivel muy por debajo del resto y cómo compensarlo.
 - "sustituciones": solo si detectas fallos graves de cobertura (debilidad crítica compartida o hueco ofensivo importante); 0-2 entradas, nunca más. Si el equipo está bien construido, devuelve [].
 - En "sale" copia el nombre del miembro tal y como aparece en el equipo. En "entra" sugiere especies reales que cubran el hueco, usando su slug inglés de PokéAPI en minúsculas (ej.: "tyranitar", "mr-mime", "ho-oh").
+- Escribe TODOS los valores de texto ("resumen", "consejos" y "motivo") en ${LANG_NAME[lang]}: es el idioma del usuario. Las claves del JSON ("resumen", "consejos", "sustituciones", "sale", "entra", "motivo") no se traducen NUNCA; mantenlas exactamente como se indican.
 - Sin emojis en los valores JSON. Tono directo de entrenador, frases cortas.`;
 
 /** Whitelists the client payload down to well-formed members. */
@@ -51,7 +70,8 @@ function sanitizeTeam(value: unknown): TeamMember[] {
     .slice(0, 6);
 }
 
-const typeLabel = (slug: string) => TYPE_LABELS_ES[slug] ?? slug;
+/** Type label in the user's language, so the report quotes the right names. */
+const typeLabel = (slug: string, lang: Lang) => TYPE_LABELS[lang][slug] ?? slug;
 
 /** Clamps the model's JSON to the CoachReport shape the client renders. */
 function sanitizeReport(value: unknown): CoachReport | null {
@@ -78,27 +98,24 @@ function sanitizeReport(value: unknown): CoachReport | null {
 }
 
 export async function POST(request: Request) {
+  const lang = await getLang();
+  const t = getDict(lang).trainer;
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Falta OPENAI_API_KEY en el servidor." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: t.errMissingKey }, { status: 500 });
   }
 
   let body: { team?: unknown };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+    return NextResponse.json({ error: t.errBadJson }, { status: 400 });
   }
 
   const team = sanitizeTeam(body.team);
   if (team.length === 0) {
-    return NextResponse.json(
-      { error: "El equipo está vacío: añade al menos un Pokémon." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: t.coachErrEmptyTeam }, { status: 400 });
   }
 
   // Recompute the coverage server-side so the AI always reasons over data
@@ -107,7 +124,7 @@ export async function POST(request: Request) {
   const roster = team
     .map(
       (m) =>
-        `- ${formatName(m.name)} (${m.types.map(typeLabel).join("/")}) · Nivel ${m.level ?? DEFAULT_LEVEL}`,
+        `- ${formatName(m.name)} (${m.types.map((s) => typeLabel(s, lang)).join("/")}) · Nivel ${m.level ?? DEFAULT_LEVEL}`,
     )
     .join("\n");
   const userMessage = `EQUIPO (${team.length}/6):
@@ -116,16 +133,17 @@ ${roster}
 ANÁLISIS DE COBERTURA CALCULADO:
 - Debilidades críticas (3+ miembros débiles): ${
     analysis.criticalWeaknesses
-      .map((p) => `${typeLabel(p.type)} (${p.weakCount} miembros)`)
+      .map((p) => `${typeLabel(p.type, lang)} (${p.weakCount} miembros)`)
       .join(", ") || "ninguna"
   }
 - Resistencias fuertes (3+ miembros resisten): ${
     analysis.strongResistances
-      .map((p) => `${typeLabel(p.type)} (${p.resistCount} miembros)`)
+      .map((p) => `${typeLabel(p.type, lang)} (${p.resistCount} miembros)`)
       .join(", ") || "ninguna"
   }
 - Tipos sin cobertura ofensiva STAB: ${
-    analysis.missingCoverage.map(typeLabel).join(", ") || "ninguno"
+    analysis.missingCoverage.map((s) => typeLabel(s, lang)).join(", ") ||
+    "ninguno"
   }
 
 Genera el informe JSON.`;
@@ -139,7 +157,7 @@ Genera el informe JSON.`;
     body: JSON.stringify({
       model: MODEL,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt(lang) },
         { role: "user", content: userMessage },
       ],
       response_format: { type: "json_object" },
@@ -152,12 +170,7 @@ Genera el informe JSON.`;
     const detail = await res.text().catch(() => "");
     console.error("OpenAI coach error", res.status, detail.slice(0, 500));
     return NextResponse.json(
-      {
-        error:
-          res.status === 401
-            ? "La API key de OpenAI no es válida o ha caducado."
-            : "El Coach Bot no pudo contactar con la IA. Inténtalo de nuevo.",
-      },
+      { error: res.status === 401 ? t.errBadApiKey : t.coachErrUpstream },
       { status: 502 },
     );
   }
@@ -170,10 +183,7 @@ Genera el informe JSON.`;
     // Malformed JSON from the model: fall through to the error below.
   }
   if (!report) {
-    return NextResponse.json(
-      { error: "El Coach Bot devolvió un informe ilegible. Prueba otra vez." },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: t.coachErrUnreadable }, { status: 502 });
   }
 
   return NextResponse.json({ report });

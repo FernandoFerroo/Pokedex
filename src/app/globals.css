@@ -1,9 +1,22 @@
 @import "tailwindcss";
 
-/* The Pokédex is now a dark-only, neon "gaming HUD" experience. Legacy `dark:`
-   utilities in older components still resolve because <html> always carries
-   the `.dark` class. */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Two themes, driven by the `data-theme` attribute that the root layout sets
+   from the `theme` cookie (dark by default). `dark:` utilities key off it, so
+   components written light-first with `dark:` overrides switch automatically. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Named HUD surfaces. Components use bg-hud-N / from-hud-N instead of the old
+   hard-coded hexes so the light theme can remap every surface in one place. */
+@theme {
+  /* Page base: body backdrop and the translucent sticky bars. */
+  --color-hud-0: #020204;
+  /* Card gradient top / raised panel. */
+  --color-hud-1: #0a101d;
+  /* Mid surface (banner gradient middle). */
+  --color-hud-2: #070b14;
+  /* Card gradient bottom / drawers and side panels. */
+  --color-hud-3: #050810;
+}
 
 @theme inline {
   --font-sans: var(--font-exo2);
@@ -32,12 +45,36 @@ html {
   font-size: 106.25%;
 }
 
-/* Mobile: pull the HUD way back. A smaller rem base compacts every size and
-   spacing ~21%, so phones fit far more of the dex per screen. */
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Mobile: pull the HUD back a notch. A smaller rem base compacts every size
+   and spacing ~15%, so phones fit more of the dex per screen — but not so far
+   that labels stop being comfortable to read at arm's length. */
 @media (max-width: 640px) {
   html {
-    font-size: 84%;
+    font-size: 90%;
   }
+}
+
+/* iOS Safari zooms the whole page when a focused field computes under 16px,
+   and never zooms back out. The HUD's rem-based type lands well under that on
+   phones, so every text-entry control floors at 16px — `max()` leaves any
+   control that is already bigger untouched. */
+@media (max-width: 640px) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Phone resting height for the floating controls (BGM pill, Oak launcher):
+   high enough to clear the dex's sticky pager, plus the iPhone home indicator
+   underneath it. From `sm` up each control keeps its own desktop offset. */
+:root {
+  --float-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 /*
@@ -97,6 +134,104 @@ html {
 ::selection {
   background: rgba(239, 68, 68, 0.4);
   color: #fff;
+}
+
+/* ==========================================================================
+ * ACCESIBILIDAD — foco visible y salto de bloques.
+ * ========================================================================== */
+
+/*
+ * Anillo de foco neón, global (WCAG 2.4.7 «Focus Visible» y 2.4.11 «Focus
+ * Appearance»). Se pinta con `outline` + `outline-offset`, que no ocupan
+ * espacio ni desplazan el layout, y un halo cian en `box-shadow` para que
+ * respire como el resto del HUD. `:focus-visible` sólo se dispara con
+ * teclado o tecnología asistida: el ratón sigue sin dejar rastro.
+ *
+ * `--focus-ring` es sobreescribible: una sección puede teñir el anillo con
+ * su propio acento (p. ej. el dorado del equipo) sin tocar esta regla.
+ *
+ * `[tabindex="-1"]` queda fuera a propósito: son contenedores que se enfocan
+ * mediante script (el destino del enlace de salto) y no deben marcarse.
+ */
+:is(
+  a[href],
+  area,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [contenteditable="true"],
+  [tabindex]:not([tabindex="-1"]),
+  [role="button"],
+  [role="tab"],
+  [role="option"]
+):focus-visible {
+  outline: 3px solid var(--focus-ring, #22d3ee);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--focus-ring, #22d3ee) 22%, transparent),
+    0 0 18px -2px color-mix(in srgb, var(--focus-ring, #22d3ee) 85%, transparent);
+  /* Half the app's controls carry Tailwind's `transition` utility, which
+     includes `outline-color`: without this the ring would fade in from the
+     element's text color instead of snapping on. */
+  transition-property: none;
+}
+
+/* En tema claro el cian puro pierde contraste sobre blanco: baja dos pasos. */
+html[data-theme="light"] {
+  --focus-ring: #0e7490;
+}
+
+/*
+ * Colores de bando del comparador: azul para el Pokémon A y ámbar/naranja
+ * para el B. Viven como tokens porque los usan a la vez SVG (radar), estilos
+ * en línea (barras, marcos) y texto; en claro bajan un par de pasos para
+ * mantener el contraste sobre blanco.
+ */
+:root {
+  --vs-a: #38bdf8;
+  --vs-b: #f97316;
+}
+
+html[data-theme="light"] {
+  --vs-a: #0284c7;
+  --vs-b: #c2410c;
+}
+
+/*
+ * Enlace de salto (WCAG 2.4.1 «Bypass Blocks»): primer tabulable del
+ * documento, escondido fuera de la ventana hasta que recibe foco.
+ */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 300;
+  translate: 0 -200%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.7);
+  background: #05070c;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-chakra), monospace;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #67e8f9;
+  text-transform: uppercase;
+  box-shadow: 0 0 24px -4px rgba(34, 211, 238, 0.8);
+  transition: translate 160ms ease;
+}
+
+.skip-link:focus-visible {
+  translate: 0 0;
+}
+
+html[data-theme="light"] .skip-link {
+  background: #ffffff;
+  border-color: rgba(14, 116, 144, 0.7);
+  color: #0e7490;
+  box-shadow: 0 0 24px -6px rgba(14, 116, 144, 0.55);
 }
 
 /* Subtle CRT scanlines over the whole screen (purely decorative). */
@@ -332,9 +467,11 @@ body::after {
 }
 
 /*
- * Premium chrome for the team builder: a molten-gold gradient border (painted
+ * Premium chrome, the original gold tier: a molten gradient border (painted
  * via two stacked backgrounds so the frame itself can be a gradient), a gold
  * gradient text treatment, and a slow light sweep drifting across the panel.
+ * Now worn by the battle victory title and the bag builder — the team wears
+ * the jade `.team-*` variant below.
  */
 @keyframes premium-sweep {
   to {
@@ -384,6 +521,61 @@ body::after {
 
 .premium-text {
   background: linear-gradient(100deg, #fef3c7, #fbbf24 40%, #f59e0b 60%, #fde68a);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 6s linear infinite;
+}
+
+/*
+ * Livery of the "Mi Equipo" tier: the same molten frame, sweep and gradient
+ * text as the premium chrome above, recast from gold to jade. It is a separate
+ * set of classes rather than a recolour of .premium-* because that one is also
+ * worn by the battle victory title and the bag builder, which stay gold.
+ */
+.team-frame {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #06110c, #050810) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(16, 185, 129, 0.9),
+        rgba(6, 78, 59, 0.5) 30%,
+        rgba(16, 185, 129, 0.85) 50%,
+        rgba(6, 78, 59, 0.5) 72%,
+        rgba(110, 231, 183, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(16, 185, 129, 0.45),
+    inset 0 0 42px -24px rgba(16, 185, 129, 0.35);
+}
+
+.team-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(16, 185, 129, 0.6),
+    inset 0 0 42px -20px rgba(16, 185, 129, 0.45);
+}
+
+.team-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 35%;
+  transform: translateX(-100%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(167, 243, 208, 0.09),
+    transparent
+  );
+  animation: premium-sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.team-text {
+  background: linear-gradient(100deg, #ecfdf5, #34d399 40%, #059669 60%, #a7f3d0);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -445,11 +637,238 @@ body::after {
   animation: title-sheen 6s linear infinite;
 }
 
+/*
+ * Legend chrome for the AI comparator banner: the third exclusive tier, same
+ * molten frame, sweep and gradient text as the jade team and the ember battle
+ * banners, recast in electric blue so the three read as one family.
+ */
+.legend-frame {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #060a12, #050810) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(56, 189, 248, 0.9),
+        rgba(23, 62, 120, 0.5) 30%,
+        rgba(59, 130, 246, 0.85) 50%,
+        rgba(23, 62, 120, 0.5) 72%,
+        rgba(165, 243, 252, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(56, 189, 248, 0.45),
+    inset 0 0 42px -24px rgba(56, 189, 248, 0.35);
+}
+
+.legend-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(56, 189, 248, 0.6),
+    inset 0 0 42px -20px rgba(56, 189, 248, 0.45);
+}
+
+.legend-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 35%;
+  transform: translateX(-100%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(191, 219, 254, 0.09),
+    transparent
+  );
+  animation: premium-sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.legend-text {
+  background: linear-gradient(100deg, #e0f2fe, #38bdf8 40%, #2563eb 60%, #bae6fd);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .premium-sweep::after,
   .premium-text,
+  .team-sweep::after,
+  .team-text,
   .elite-sweep::after,
-  .elite-text {
+  .elite-text,
+  .legend-sweep::after,
+  .legend-text {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+ * ESCENARIO VERSUS — comparador de Pokémon.
+ *
+ * El fondo se parte en diagonal y cada mitad se ilumina con el aura del tipo
+ * principal de su Pokémon (`--aura-a` a la izquierda, `--aura-b` a la
+ * derecha). La costura es un elemento aparte para poder inclinarla sin tocar
+ * el recorte del contenedor.
+ * ========================================================================== */
+.versus-stage {
+  background:
+    linear-gradient(
+      118deg,
+      color-mix(in srgb, var(--aura-a, #38bdf8) 30%, transparent) 0%,
+      color-mix(in srgb, var(--aura-a, #38bdf8) 8%, transparent) 40%,
+      transparent 50%,
+      color-mix(in srgb, var(--aura-b, #f97316) 8%, transparent) 60%,
+      color-mix(in srgb, var(--aura-b, #f97316) 30%, transparent) 100%
+    ),
+    linear-gradient(180deg, #05070d, #020308);
+}
+
+.versus-seam {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--aura-a, #38bdf8) 55%, var(--aura-b, #f97316)) 50%,
+    transparent
+  );
+  box-shadow:
+    0 0 18px 2px color-mix(in srgb, var(--aura-a, #38bdf8) 35%, transparent),
+    0 0 18px 2px color-mix(in srgb, var(--aura-b, #f97316) 35%, transparent);
+}
+
+/* Choque de energía del botón VS: dos halos que laten a contratiempo. */
+@keyframes vs-clash {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.15;
+  }
+}
+
+.vs-clash::before,
+.vs-clash::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: vs-clash 2.4s ease-in-out infinite;
+}
+
+.vs-clash::before {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--aura-a, #38bdf8) 55%, transparent),
+    transparent 70%
+  );
+}
+
+.vs-clash::after {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--aura-b, #f97316) 55%, transparent),
+    transparent 70%
+  );
+  animation-delay: 1.2s;
+}
+
+/* ==========================================================================
+ * VEREDICTO — el bloque protagonista del comparador.
+ *
+ * El ganador ilumina el panel desde arriba con el color de su bando
+ * (`--side`) y desde abajo con el aura de su tipo (`--aura`); detrás gira un
+ * abanico de rayos muy tenue, como el foco de una pantalla de victoria.
+ * ========================================================================== */
+.verdict-hero {
+  background:
+    radial-gradient(
+      ellipse 70% 75% at 50% 0%,
+      color-mix(in srgb, var(--side, #38bdf8) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 90% 60% at 50% 108%,
+      color-mix(in srgb, var(--aura, #38bdf8) 20%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(180deg, #05070d, #02030a);
+}
+
+@keyframes verdict-rays {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.verdict-rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0.5;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--side, #38bdf8) 12%, transparent) 0deg 6deg,
+    transparent 6deg 18deg
+  );
+  mask-image: radial-gradient(circle, black 10%, transparent 62%);
+  animation: verdict-rays 90s linear infinite;
+}
+
+html[data-theme="light"] .verdict-hero {
+  background:
+    radial-gradient(
+      ellipse 70% 75% at 50% 0%,
+      color-mix(in srgb, var(--side, #0284c7) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 90% 60% at 50% 108%,
+      color-mix(in srgb, var(--aura, #0284c7) 14%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(180deg, #ffffff, #eef2f8);
+}
+
+html[data-theme="light"] .verdict-rays {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verdict-rays {
+    animation: none;
+  }
+}
+
+/* Barra de un duelo de estadística: la punta se satura hacia el color del
+   lado y el ganador añade su propio halo desde la utilidad de Tailwind. */
+.duel-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--side, #38bdf8) 35%, transparent),
+    var(--side, #38bdf8)
+  );
+}
+
+.duel-bar-left {
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--side, #f97316) 35%, transparent),
+    var(--side, #f97316)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-clash::before,
+  .vs-clash::after {
     animation: none;
   }
 }
@@ -718,7 +1137,7 @@ li:nth-child(3n) .aura-halo::before {
   }
 }
 
-/* Parpadeo blanco + sacudida del defensor al recibir daño. */
+/* Parpadeo blanco/rojo + sacudida del defensor al recibir daño. */
 @keyframes pk-hit {
   0%,
   100% {
@@ -733,16 +1152,138 @@ li:nth-child(3n) .aura-halo::before {
   40%,
   80% {
     transform: translateX(0.5rem);
-    filter: brightness(3) saturate(0.2);
+    filter: sepia(1) saturate(5) hue-rotate(-35deg) brightness(1.5);
   }
 }
 
-/* Debilitado: el sprite se hunde y desaparece, como en los juegos. */
+/* Parpadeo rojo intenso del golpe fuerte: más recorrido y más saturación. */
+@keyframes pk-hit-hard {
+  0%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  15%,
+  55% {
+    transform: translateX(-0.9rem) scale(0.97);
+    filter: brightness(4) saturate(0);
+  }
+  35%,
+  75% {
+    transform: translateX(0.9rem) scale(0.97);
+    filter: sepia(1) saturate(9) hue-rotate(-45deg) brightness(1.7);
+  }
+}
+
+/*
+ * Debilitado: el sprite se ladea, cae limpio hacia abajo y se desvanece,
+ * como cuando el Pokémon se retira de la plataforma en los juegos.
+ */
 @keyframes pk-faint {
-  to {
-    transform: translateY(65%);
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  15% {
+    transform: translateY(-5%);
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.85;
+  }
+  /* Se hunde recto tras la plataforma, sin voltereta: es la caída de la 7.ª
+     generación, donde el Pokémon baja por detrás del suelo y se apaga. */
+  100% {
+    transform: translateY(95%) scaleY(0.88);
     opacity: 0;
   }
+}
+
+/*
+ * Movimientos de dos turnos (Excavar, Vuelo, Buceo, Golpe Fantasma…).
+ * La ocultación termina fuera de pantalla y SE QUEDA ahí (fill both): la
+ * clase persiste hasta que el motor emite la reaparición o la interrupción.
+ */
+@keyframes pk-hide-under {
+  to {
+    transform: translateY(60%) scaleY(0.7);
+    opacity: 0;
+  }
+}
+
+@keyframes pk-hide-air {
+  30% {
+    transform: translateY(4%) scale(0.98);
+  }
+  to {
+    transform: translateY(-120%) scale(0.68);
+    opacity: 0;
+  }
+}
+
+@keyframes pk-hide-water {
+  to {
+    transform: translateY(38%) scaleY(0.55);
+    opacity: 0;
+    filter: blur(2px) saturate(1.4);
+  }
+}
+
+@keyframes pk-hide-vanish {
+  to {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.92);
+  }
+}
+
+.pk-hide-under {
+  animation: pk-hide-under 0.5s cubic-bezier(0.5, 0, 0.8, 0.4) both;
+}
+.pk-hide-air {
+  animation: pk-hide-air 0.55s cubic-bezier(0.3, 0.6, 0.4, 1) both;
+}
+.pk-hide-water {
+  animation: pk-hide-water 0.5s ease-in both;
+}
+.pk-hide-vanish {
+  animation: pk-hide-vanish 0.45s ease-out both;
+}
+
+/* Carga visible (Rayo Solar, Ataque Aéreo…): el sprite palpita con energía. */
+@keyframes pk-charge-glow {
+  0%,
+  100% {
+    filter: brightness(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.25));
+  }
+  50% {
+    filter: brightness(1.7) saturate(1.4)
+      drop-shadow(0 0 20px rgba(255, 255, 255, 0.65));
+  }
+}
+
+.pk-charge-glow {
+  animation: pk-charge-glow 0.85s ease-in-out infinite;
+}
+
+/* Turno 2: el sprite reaparece de golpe con un pequeño rebote. */
+@keyframes pk-reappear {
+  0% {
+    opacity: 0;
+    transform: translateY(35%) scale(0.8);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-7%) scale(1.07);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pk-reappear {
+  animation: pk-reappear 0.4s cubic-bezier(0.2, 0.8, 0.3, 1.15) both;
 }
 
 .pk-lunge-p {
@@ -754,8 +1295,11 @@ li:nth-child(3n) .aura-halo::before {
 .pk-hit {
   animation: pk-hit 0.5s ease-in-out;
 }
+.pk-hit-hard {
+  animation: pk-hit-hard 0.52s ease-in-out;
+}
 .pk-faint {
-  animation: pk-faint 0.8s ease-in both;
+  animation: pk-faint 0.9s cubic-bezier(0.55, 0, 0.85, 0.35) both;
 }
 
 @keyframes pk-shake-hard {
@@ -781,96 +1325,635 @@ li:nth-child(3n) .aura-halo::before {
   animation: pk-shake-hard 0.45s linear;
 }
 
+/* Sacudida máxima: golpes que se llevan más de la mitad de los PS. */
+@keyframes pk-shake-mega {
+  0%,
+  100% {
+    transform: none;
+  }
+  10% {
+    transform: translate(13px, -9px) rotate(0.5deg);
+  }
+  28% {
+    transform: translate(-12px, 7px) rotate(-0.5deg);
+  }
+  46% {
+    transform: translate(9px, 9px);
+  }
+  64% {
+    transform: translate(-8px, -6px);
+  }
+  82% {
+    transform: translate(5px, 3px);
+  }
+}
+
+.pk-shake-mega {
+  animation: pk-shake-mega 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
 /*
- * Proyectil de los movimientos especiales: viaja entre los anclajes fijos de
- * ambos sprites (posiciones en % del escenario) con un arco ligero.
+ * Destello de impacto sobre toda la arena: blanco corto en los golpes
+ * normales, blanco + viñeta roja en los contundentes.
  */
-@keyframes pk-shot-to-e {
+@keyframes pk-flash {
   0% {
-    left: 28%;
-    top: 56%;
-    transform: scale(0.6);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pk-flash {
+  background: rgba(255, 255, 255, 0.75);
+  animation: pk-flash 0.22s ease-out both;
+}
+
+.pk-flash-hard {
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.85) 0%,
+      rgba(255, 90, 70, 0.55) 55%,
+      rgba(120, 0, 0, 0.35) 100%
+    );
+  animation: pk-flash 0.34s ease-out both;
+}
+
+/*
+ * Barra de PS en zona crítica (≤20%): late en rojo al mismo ritmo que el
+ * pitido de alarma del soundboard, así el aviso llega por dos canales
+ * (WCAG 1.4.1: nunca solo por color).
+ */
+@keyframes hp-critical {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.9),
+      0 0 8px -2px var(--hp-glow);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.9),
+      0 0 16px 2px var(--hp-glow);
+  }
+}
+
+.hp-critical {
+  animation: hp-critical 0.84s ease-in-out infinite;
+}
+
+/* Cambio de escenario: el ambiente nuevo entra fundido. */
+@keyframes pk-scene-in {
+  from {
+    opacity: 0;
+    filter: saturate(0.4) brightness(0.6);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.pk-scene-in {
+  animation: pk-scene-in 0.9s ease-out both;
+}
+
+/* ==========================================================================
+ * ANIMACIONES DE MOVIMIENTO — el vocabulario de un combate Pokémon.
+ *
+ * Cada movimiento elige una coreografía en BattleStage2D (haz, rayo, orbe,
+ * ráfaga, cuerpo a cuerpo, terremoto, aura) y todas se montan con las
+ * piezas de aquí. Dos reglas mandan sobre el resto:
+ *
+ *   · Los tamaños van en `cqw`, no en rem: la arena es un contenedor de
+ *     consulta, así que un estallido ocupa lo mismo en el móvil que en el
+ *     monitor en vez de quedarse en una mota.
+ *   · Cada pieza se posiciona con left/top en % y se centra con
+ *     translate(-50%,-50%), porque los anclajes de los combatientes están
+ *     en % del plano del suelo.
+ * ========================================================================== */
+
+/* --- Núcleo del impacto --------------------------------------------- */
+
+@keyframes pk-bloom {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pk-bloom {
+  position: absolute;
+  width: var(--s, 16cqw);
+  height: var(--s, 16cqw);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #ffffff 0%,
+    var(--c, #fff) 32%,
+    color-mix(in srgb, var(--c, #fff) 45%, transparent) 58%,
+    transparent 72%
+  );
+  animation: pk-bloom 0.42s ease-out both;
+}
+
+/* Onda expansiva: un aro que se abre y se afina al crecer. */
+@keyframes pk-shockwave {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    border-width: 0.7cqw;
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    border-width: 0.1cqw;
+    opacity: 0;
+  }
+}
+
+.pk-shockwave {
+  position: absolute;
+  width: var(--s, 16cqw);
+  height: var(--s, 16cqw);
+  /* Achatado: la onda se abre sobre el suelo, no de frente a la cámara. */
+  border: 0.5cqw solid var(--c, #fff);
+  border-radius: 50%;
+  scale: 1 0.55;
+  animation: pk-shockwave 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/*
+ * Metralla: sale disparada y luego cae. Los cascotes de los juegos tienen
+ * peso — el tramo final añade `--fall` para que la parábola se note.
+ */
+@keyframes pk-debris {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(
+        calc(-50% + var(--dx, 0)),
+        calc(-50% + var(--dy, 0))
+      )
+      scale(1) rotate(140deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+        calc(-50% + var(--dx, 0) * 1.25),
+        calc(-50% + var(--dy, 0) + var(--fall, 6cqw))
+      )
+      scale(0.6) rotate(300deg);
+    opacity: 0;
+  }
+}
+
+.pk-debris {
+  position: absolute;
+  width: 1.8cqw;
+  height: 1.8cqw;
+  animation: pk-debris 0.66s cubic-bezier(0.15, 0.6, 0.4, 1) both;
+}
+
+/* Chispas: rectas, rápidas y se apagan antes que la metralla. */
+@keyframes pk-spark {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
     opacity: 0;
   }
   15% {
     opacity: 1;
   }
-  50% {
-    top: 38%;
-    transform: scale(1.15);
-  }
   100% {
-    left: 71%;
-    top: 38%;
-    transform: scale(1);
-    opacity: 0.9;
-  }
-}
-
-@keyframes pk-shot-to-p {
-  0% {
-    left: 71%;
-    top: 38%;
-    transform: scale(0.6);
+    transform: translate(calc(-50% + var(--dx, 0)), calc(-50% + var(--dy, 0)))
+      scale(0.2);
     opacity: 0;
   }
-  15% {
-    opacity: 1;
-  }
-  50% {
-    top: 44%;
-    transform: scale(1.15);
-  }
-  100% {
-    left: 27%;
-    top: 56%;
-    transform: scale(1);
-    opacity: 0.9;
-  }
 }
 
-.pk-shot-to-e {
-  animation: pk-shot-to-e 0.42s ease-in both;
-}
-.pk-shot-to-p {
-  animation: pk-shot-to-p 0.42s ease-in both;
+.pk-spark {
+  position: absolute;
+  width: 1cqw;
+  height: 1cqw;
+  border-radius: 50%;
+  background: var(--c, #fff);
+  box-shadow: 0 0 1.4cqw 0.3cqw var(--c, #fff);
+  animation: pk-spark 0.4s ease-out both;
 }
 
-/* Estallido de partículas tipadas en el impacto (dirección vía --dx/--dy). */
-@keyframes pk-burst {
+/* --- Haz sostenido --------------------------------------------------- */
+
+/*
+ * El haz se traza con guion: la línea entera está oculta tras su propio
+ * hueco y el trazo lo va destapando del atacante al objetivo. Es lo que da
+ * la sensación de chorro que sale disparado en vez de aparecer entero.
+ */
+@keyframes pk-beam {
   0% {
-    transform: translate(0, 0) scale(1) rotate(0deg);
+    stroke-dashoffset: var(--len, 100);
     opacity: 0;
   }
   10% {
     opacity: 1;
   }
+  34% {
+    stroke-dashoffset: 0;
+  }
+  76% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
   100% {
-    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0.25) rotate(160deg);
+    stroke-dashoffset: 0;
     opacity: 0;
   }
 }
 
-.pk-particle {
-  position: absolute;
-  width: 0.9rem;
-  height: 0.9rem;
-  animation: pk-burst 0.55s ease-out both;
+.pk-beam {
+  stroke-dasharray: var(--len, 100) var(--len, 100);
+  animation: pk-beam 0.82s cubic-bezier(0.25, 0.8, 0.4, 1) both;
 }
 
-/* Siluetas de partícula por familia de tipos. */
+/* --- Rayo ------------------------------------------------------------ */
+
+/* Descarga: aparece de golpe, parpadea y desaparece. */
+@keyframes pk-bolt {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  6%,
+  22% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 0.45;
+  }
+  46% {
+    opacity: 0;
+  }
+}
+
+.pk-bolt {
+  animation: pk-bolt 0.5s steps(1, end) both;
+}
+
+/* --- Proyectiles ----------------------------------------------------- */
+
+/*
+ * Orbe en vuelo. Se anima left/top (no transform) a propósito: los anclajes
+ * están en % del escenario y un translate en % se mediría contra el propio
+ * orbe, no contra la arena. El punto intermedio levanta el arco.
+ */
+@keyframes pk-orb {
+  0% {
+    left: var(--x0);
+    top: var(--y0);
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  50% {
+    left: var(--xm);
+    top: var(--ym);
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+  92% {
+    left: var(--x1);
+    top: var(--y1);
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    left: var(--x1);
+    top: var(--y1);
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.pk-orb {
+  position: absolute;
+  width: var(--s, 4.5cqw);
+  height: var(--s, 4.5cqw);
+  border-radius: 50%;
+  /* El blanco es solo el brillo especular: si ocupa medio orbe, un Bola
+     Sombra sale blanco y deja de leerse como fantasma. */
+  background: radial-gradient(
+    circle at 34% 30%,
+    #ffffff 0%,
+    color-mix(in srgb, var(--c, #fff) 55%, #fff) 16%,
+    var(--c, #fff) 42%,
+    color-mix(in srgb, var(--c, #fff) 45%, #000) 100%
+  );
+  box-shadow: 0 0 2.2cqw 0.5cqw color-mix(in srgb, var(--c, #fff) 70%, transparent);
+  animation: pk-orb 0.46s ease-in both;
+}
+
+/* Los disparos de una ráfaga van más secos que un orbe cargado. */
+.pk-orb-fast {
+  animation-duration: 0.32s;
+}
+
+/* --- Cuerpo a cuerpo -------------------------------------------------- */
+
+/* Estrella de impacto: el fotograma congelado del golpe. */
+@keyframes pk-impact-star {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2) rotate(-20deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5) rotate(16deg);
+    opacity: 0;
+  }
+}
+
+.pk-impact-star {
+  position: absolute;
+  width: 14cqw;
+  height: 14cqw;
+  /* Blanca en el centro y del color del tipo en las puntas: en plano es lo
+     que deja ver al que recibe el golpe en vez de taparlo del todo. */
+  background: radial-gradient(circle, #ffffff 0%, #ffffff 38%, var(--c, #fff) 100%);
+  clip-path: polygon(
+    50% 0,
+    60% 30%,
+    78% 12%,
+    72% 38%,
+    100% 50%,
+    72% 62%,
+    78% 88%,
+    60% 70%,
+    50% 100%,
+    40% 70%,
+    22% 88%,
+    28% 62%,
+    0 50%,
+    28% 38%,
+    22% 12%,
+    40% 30%
+  );
+  animation: pk-impact-star 0.34s ease-out both;
+}
+
+/* Tajos: barren el punto de impacto en el ángulo que les toque. */
+@keyframes pk-slash {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--rot, -38deg)) scaleX(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--rot, -38deg)) scaleX(1.7);
+    opacity: 0;
+  }
+}
+
+.pk-slash {
+  position: absolute;
+  width: 22cqw;
+  height: 0.9cqw;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #ffffff 35%,
+    var(--c, #fff) 55%,
+    transparent
+  );
+  box-shadow: 0 0 1.6cqw color-mix(in srgb, var(--c, #fff) 70%, transparent);
+  animation: pk-slash 0.36s ease-out both;
+}
+
+/* Polvareda: se levanta a los pies y se abre en horizontal. */
+@keyframes pk-dust {
+  0% {
+    transform: translate(-50%, -30%) scale(0.3, 0.2);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-50%, -60%) scale(1.6, 1);
+    opacity: 0;
+  }
+}
+
+.pk-dust {
+  position: absolute;
+  width: 16cqw;
+  height: 7cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--c, #a8a29e) 75%, transparent) 0%,
+    transparent 70%
+  );
+  animation: pk-dust 0.6s ease-out both;
+}
+
+/* La columna del terremoto sube más de lo que se abre. */
+.pk-dust-tall {
+  width: 10cqw;
+  height: 14cqw;
+  animation-duration: 0.85s;
+}
+
+/* --- Terremoto -------------------------------------------------------- */
+
+/* La grieta se abre de golpe y se cierra sola al pasar la sacudida. */
+@keyframes pk-fissure {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  16% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.5);
+  }
+}
+
+.pk-fissure {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pk-fissure 0.9s ease-out both;
+}
+
+/* --- Auras de estado --------------------------------------------------- */
+
+/* Aro que sube por el cuerpo del que se potencia. */
+@keyframes pk-aura-ring {
+  0% {
+    transform: translate(-50%, 10%) scale(1.1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -160%) scale(0.35);
+    opacity: 0;
+  }
+}
+
+.pk-aura-ring {
+  position: absolute;
+  width: 15cqw;
+  height: 5cqw;
+  border: 0.55cqw solid var(--c, #fff);
+  border-radius: 50%;
+  box-shadow: 0 0 2cqw color-mix(in srgb, var(--c, #fff) 60%, transparent);
+  animation: pk-aura-ring 0.9s ease-out both;
+}
+
+/* Columna de luz bajo el que se potencia. */
+@keyframes pk-pillar {
+  0% {
+    transform: translate(-50%, -100%) scaleY(0.2);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -100%) scaleY(1.15);
+    opacity: 0;
+  }
+}
+
+.pk-pillar {
+  position: absolute;
+  width: 13cqw;
+  height: 30cqw;
+  transform-origin: bottom center;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--c, #fff) 65%, transparent),
+    transparent 85%
+  );
+  /* Los lados también se desvanecen: sin esto la columna es un rectángulo
+     gris con bordes rectos, no un haz de luz. */
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 28%,
+    #000 72%,
+    transparent
+  );
+  animation: pk-pillar 0.95s ease-out both;
+}
+
+/* Aro hexagonal que se cierra sobre el rival: efecto recibido, no propio. */
+@keyframes pk-hex-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(1.9) rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.4) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.pk-hex-ring {
+  position: absolute;
+  /* A la medida del que lo recibe: más grande, el aro se sale del campo y
+     deja de leerse como algo que se cierra sobre él. */
+  width: 11cqw;
+  height: 9cqw;
+  border: 0.35cqw solid var(--c, #fff);
+  border-radius: 26%;
+  box-shadow: 0 0 2.4cqw color-mix(in srgb, var(--c, #fff) 55%, transparent);
+  animation: pk-hex-ring 0.75s ease-in both;
+}
+
+/* Motas del aura: suben envolviendo al que recibe el efecto… */
+@keyframes pk-mote {
+  0% {
+    transform: translate(-50%, 0) scale(0.4) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, calc(var(--rise, 10cqw) * -1)) scale(0.9)
+      rotate(200deg);
+    opacity: 0;
+  }
+}
+
+/* …o caen sobre él, que es como se leen los polvos y los estados. */
+@keyframes pk-mote-fall {
+  0% {
+    transform: translate(-50%, 0) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, var(--rise, 10cqw)) scale(0.8) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+.pk-mote {
+  position: absolute;
+  width: 1.8cqw;
+  height: 1.8cqw;
+  animation: pk-mote 0.95s ease-out both;
+}
+
+.pk-mote-fall {
+  animation-name: pk-mote-fall;
+}
+
+/* --- Siluetas de partícula por tipo ------------------------------------ */
+
 .pk-shape-flame {
   border-radius: 50% 0 50% 50%;
-  transform: rotate(-45deg);
 }
 .pk-shape-drop {
   border-radius: 50% 50% 50% 0;
-  transform: rotate(45deg);
 }
 .pk-shape-bolt {
   clip-path: polygon(60% 0, 20% 55%, 45% 55%, 35% 100%, 80% 40%, 55% 40%);
-  width: 1.1rem;
-  height: 1.3rem;
 }
 .pk-shape-leaf {
   border-radius: 0 60% 0 60%;
@@ -891,61 +1974,52 @@ li:nth-child(3n) .aura-halo::before {
     2% 35%,
     39% 35%
   );
-  width: 1.1rem;
-  height: 1.1rem;
 }
 .pk-shape-ring {
-  border: 3px solid;
+  border: 0.4cqw solid;
   border-radius: 50%;
   background: transparent;
 }
 .pk-shape-spark {
   border-radius: 50%;
 }
+.pk-shape-rock {
+  clip-path: polygon(22% 8%, 78% 0, 100% 55%, 70% 100%, 18% 92%, 0 42%);
+}
+.pk-shape-feather {
+  border-radius: 100% 0 100% 0;
+}
+.pk-shape-heart {
+  clip-path: polygon(
+    50% 100%,
+    12% 62%,
+    0 34%,
+    14% 8%,
+    36% 8%,
+    50% 28%,
+    64% 8%,
+    86% 8%,
+    100% 34%,
+    88% 62%
+  );
+}
 
-/* Tajos cruzados de los movimientos físicos. */
-@keyframes pk-slash {
-  0% {
-    transform: rotate(-40deg) scaleX(0);
-    opacity: 0;
-  }
-  30% {
-    opacity: 1;
-  }
+/* Retroceso de disparo: el cuerpo acusa el tiro sin salir de su sitio. */
+@keyframes pk-brace {
+  0%,
   100% {
-    transform: rotate(-40deg) scaleX(1.6);
-    opacity: 0;
+    transform: translateX(0) scale(1);
+  }
+  22% {
+    transform: translateX(-3%) scale(1.06, 0.95);
+  }
+  48% {
+    transform: translateX(2%) scale(0.97, 1.04);
   }
 }
 
-.pk-slash {
-  position: absolute;
-  top: -0.2rem;
-  left: -2.6rem;
-  height: 0.35rem;
-  width: 5.5rem;
-  border-radius: 999px;
-  transform-origin: center;
-  animation: pk-slash 0.4s ease-out both;
-}
-
-.pk-slash-2 {
-  transform: rotate(40deg) scaleX(0);
-  animation-name: pk-slash-2;
-}
-
-@keyframes pk-slash-2 {
-  0% {
-    transform: rotate(40deg) scaleX(0);
-    opacity: 0;
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(40deg) scaleX(1.6);
-    opacity: 0;
-  }
+.pk-brace {
+  animation: pk-brace 0.5s ease-out both;
 }
 
 @keyframes fx-screen-shake {
@@ -990,15 +2064,660 @@ li:nth-child(3n) .aura-halo::before {
   animation: fx-bubble-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 }
 
+/*
+ * MODO TORNEO — rótulo cinemático de ronda y confeti de campeón.
+ *
+ * El rótulo entra desde la izquierda con una estela dorada, como el cartel de
+ * "¡VS Entrenador!" de los juegos; el confeti solo cae en la pantalla de
+ * campeón y es puramente decorativo (se desactiva con movimiento reducido).
+ */
+@keyframes fx-round-banner {
+  0% {
+    transform: translateX(-28%) skewX(-8deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(2%) skewX(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) skewX(0deg);
+    opacity: 1;
+  }
+}
+
+.fx-round-banner {
+  animation: fx-round-banner 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes fx-confetti-fall {
+  0% {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+.fx-confetti {
+  position: absolute;
+  top: -3%;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: fx-confetti-fall 3.6s linear infinite;
+}
+
+/*
+ * CEREMONIA DE CAMPEÓN
+ *
+ * La entrega de la copa se monta por tiempos: primero sube el trofeo, luego
+ * entran título, Salón de la Fama y registro, cada bloque con su retardo
+ * puesto en línea desde el componente. Los focos de detrás giran despacio y
+ * sin fin, que es lo único que sigue vivo cuando la escena ya está montada.
+ */
+@keyframes champ-trophy-in {
+  0% {
+    transform: translateY(38px) scale(0.82);
+    opacity: 0;
+  }
+  62% {
+    transform: translateY(-8px) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes champ-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes champ-hof-in {
+  0% {
+    transform: translateY(22px) scale(0.9);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes champ-rays-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.champ-trophy {
+  animation: champ-trophy-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+.champ-in {
+  animation: champ-in 0.6s ease-out both;
+}
+
+.champ-hof {
+  animation: champ-hof-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+/* Abanico de focos: doce cuñas de luz girando detrás de la copa. */
+.champ-rays {
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(253, 230, 138, 0.26) 0deg 7deg,
+    transparent 7deg 30deg
+  );
+  mask-image: radial-gradient(closest-side, #000 18%, transparent 78%);
+  animation: champ-rays-spin 44s linear infinite;
+}
+
+/* Sin movimiento la ceremonia sigue estando: la copa, el equipo y las cifras
+   aparecen ya colocados, y los focos se quedan quietos detrás. */
 @media (prefers-reduced-motion: reduce) {
-  .fx-lunge-p,
-  .fx-lunge-r,
-  .fx-hit,
-  .fx-faint,
+  .champ-trophy,
+  .champ-in,
+  .champ-hof,
+  .champ-rays {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Vida del escenario 2.5D: respiración de los combatientes (con su sombra
+ * proyectada latiendo a la vez), nubes a la deriva y ascuas del volcán.
+ */
+@keyframes pk-idle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-2.2%) scale(1.005, 1.02);
+  }
+}
+
+.pk-idle-p {
+  transform-origin: 50% 100%;
+  animation: pk-idle 3.4s ease-in-out infinite;
+}
+.pk-idle-e {
+  transform-origin: 50% 100%;
+  animation: pk-idle 2.8s ease-in-out 0.7s infinite;
+}
+
+/* Sombra elíptica bajo el sprite: encoge cuando el Pokémon "sube". */
+.pk-ground-shadow {
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0) 70%);
+  transition: opacity 0.5s ease;
+}
+
+@keyframes pk-shadow-idle {
+  0%,
+  100% {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateX(-50%) scaleX(0.93);
+    opacity: 0.65;
+  }
+}
+
+.pk-shadow-p {
+  animation: pk-shadow-idle 3.4s ease-in-out infinite;
+}
+.pk-shadow-e {
+  animation: pk-shadow-idle 2.8s ease-in-out 0.7s infinite;
+}
+
+/*
+ * El entrenador rival de pie junto a su Pokémon: entra desde fuera del
+ * encuadre, como quien acaba de plantarse en el campo, y luego respira más
+ * despacio que las criaturas — es el único de los tres que no está peleando.
+ */
+@keyframes pk-trainer-in {
+  0% {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.pk-trainer-in {
+  animation: pk-trainer-in 0.65s cubic-bezier(0.2, 0.8, 0.3, 1) 0.25s both;
+}
+
+.pk-idle-t {
+  transform-origin: 50% 100%;
+  animation: pk-idle 4.6s ease-in-out 0.3s infinite;
+}
+.pk-shadow-t {
+  animation: pk-shadow-idle 4.6s ease-in-out 0.3s infinite;
+}
+
+/*
+ * Vida del fondo ilustrado: las estrellas titilan, las ventanas del pueblo
+ * parpadean como casas habitadas y la tira de nubes cruza el cielo. Los
+ * retardos se fijan inline por elemento, así nada late a la vez.
+ */
+@keyframes pk-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pk-star {
+  animation: pk-star-twinkle 4.5s ease-in-out infinite;
+}
+
+@keyframes pk-window-flicker {
+  0%,
+  86%,
+  100% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.25;
+  }
+  94% {
+    opacity: 0.85;
+  }
+}
+
+.pk-window {
+  animation: pk-window-flicker 11s ease-in-out infinite;
+}
+
+/* Las nubes se dibujan dos veces con 1600 unidades de separación (el ancho
+   del viewBox), así desplazar exactamente 1600 cierra el bucle. */
+@keyframes pk-cloud-band-drift {
+  to {
+    transform: translateX(-1600px);
+  }
+}
+
+.pk-cloud-band {
+  animation: pk-cloud-band-drift 90s linear infinite;
+}
+
+/* Tira de nubes al 200% de ancho: desplazar la mitad = bucle perfecto. */
+@keyframes pk-cloud-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.pk-clouds {
+  animation: pk-cloud-drift 80s linear infinite;
+}
+
+/*
+ * Clima del escenario. Cada partícula recibe su retardo y duración inline,
+ * así el mismo keyframe llena el estadio de papelillos o la cámara de motas
+ * sin que se note el bucle.
+ */
+
+/* Papelillos del estadio: caen volteando y meciéndose de lado a lado. */
+@keyframes pk-confetti {
+  0% {
+    transform: translate3d(0, -8%, 0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate3d(4vw, 52vh, 0) rotate(320deg);
+  }
+  92% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(-3vw, 108vh, 0) rotate(700deg);
+    opacity: 0;
+  }
+}
+
+.pk-confetti {
+  animation: pk-confetti 10s linear infinite;
+}
+
+/* Polvo de estrellas: sube en espiral suave y titila al apagarse. */
+@keyframes pk-stardust {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate3d(3vw, -60vh, 0) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.pk-stardust {
+  animation: pk-stardust 11s ease-out infinite;
+}
+
+/*
+ * Barrido del escáner de la cámara de simulación: una banda de luz que
+ * recorre la escena de arriba abajo, en unidades del viewBox del SVG.
+ */
+@keyframes pk-sim-sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(1020px);
+  }
+}
+
+.pk-sim-sweep {
+  animation: pk-sim-sweep 7s linear infinite;
+}
+
+/*
+ * MOVIMIENTO REDUCIDO — arena de combate.
+ *
+ * Aquí desaparece todo lo que parpadea, sacude o destella: son justo los
+ * patrones que disparan mareo o migraña (WCAG 2.3.3 «Animation from
+ * Interactions»). Los nombres son los reales de las clases `pk-*` que aplica
+ * BattleStage2D; una versión anterior listaba clases `fx-*` que ya no
+ * existen, así que la embestida, el impacto y el debilitamiento seguían
+ * animándose pese a la preferencia del sistema.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pk-send-in,
+  .pk-lunge-p,
+  .pk-lunge-e,
+  .pk-hit,
+  .pk-hit-hard,
+  .pk-shake-hard,
+  .pk-shake-mega,
+  .pk-flash,
+  .pk-flash-hard,
+  .pk-scene-in,
+  .hp-critical,
+  .pk-star,
+  .pk-window,
+  .pk-cloud-band,
+  .pk-confetti,
+  .pk-stardust,
+  .pk-sim-sweep,
   .fx-screen-shake,
-  .fx-bubble-pop {
+  .fx-bubble-pop,
+  .fx-round-banner,
+  .fx-confetti,
+  .pk-idle-p,
+  .pk-idle-e,
+  .pk-idle-t,
+  .pk-shadow-p,
+  .pk-shadow-e,
+  .pk-shadow-t,
+  .pk-trainer-in,
+  .pk-clouds,
+  .pk-charge-glow,
+  .pk-reappear,
+  .pk-slash,
+  .pk-bloom,
+  .pk-shockwave,
+  .pk-debris,
+  .pk-spark,
+  .pk-beam,
+  .pk-bolt,
+  .pk-orb,
+  .pk-impact-star,
+  .pk-dust,
+  .pk-fissure,
+  .pk-aura-ring,
+  .pk-pillar,
+  .pk-hex-ring,
+  .pk-mote,
+  .pk-brace,
+  .cursor-blink {
     animation: none;
   }
+
+  /* El destello blanco/rojo del defensor es el efecto más agresivo del
+     combate: sin animación se sustituye por un tinte fijo y breve, para que
+     recibir daño se siga viendo sin ningún parpadeo. */
+  .pk-hit {
+    filter: brightness(1.4) saturate(1.3);
+  }
+
+  /* Sin animación, la ocultación y el debilitamiento saltan directos a su
+     estado final: el sprite desaparece igualmente, para que la
+     semi-invulnerabilidad y el KO se sigan entendiendo. */
+  .pk-hide-under,
+  .pk-hide-air,
+  .pk-hide-water,
+  .pk-hide-vanish,
+  .pk-faint {
+    animation-duration: 1ms;
+  }
+}
+
+/* ==========================================================================
+ * Ficha de detalle "Next-Gen": cristal, aura y holografía.
+ * Todo deriva de `--aura` (fijada inline con typeAura()), así el mismo CSS
+ * tiñe la ficha de verde esmeralda para Venusaur, de cian para Blastoise…
+ * ========================================================================== */
+
+/* Panel de cristal teñido por el aura: blur profundo, borde luminoso del
+   color del tipo y una lámina interior que le da cuerpo al vidrio. */
+.glass-aura {
+  border: 1px solid color-mix(in srgb, var(--aura, #64748b) 30%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--aura, #64748b) 7%, transparent),
+      transparent 40%
+    ),
+    rgba(2, 6, 23, 0.8);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--aura, #94a3b8) 22%, transparent),
+    0 0 34px -14px color-mix(in srgb, var(--aura, transparent) 40%, transparent),
+    0 18px 40px -24px rgba(0, 0, 0, 0.9);
+}
+
+/* Botón retro-futurista de cristal neón (modos de vista, shiny, grito…). */
+.glass-btn {
+  border: 1px solid color-mix(in srgb, var(--aura, #64748b) 35%, transparent);
+  background: color-mix(in srgb, var(--aura, #94a3b8) 8%, rgba(2, 6, 23, 0.55));
+  backdrop-filter: blur(12px);
+  color: #cbd5e1;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.glass-btn:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--aura, #e2e8f0) 80%, white);
+  border-color: color-mix(in srgb, var(--aura, #94a3b8) 65%, transparent);
+  box-shadow: 0 0 16px -6px color-mix(in srgb, var(--aura, transparent) 70%, transparent);
+}
+
+/* Estado activo: el cristal se enciende con el aura. */
+.glass-btn[aria-pressed="true"],
+.glass-btn.glass-btn-on {
+  color: color-mix(in srgb, var(--aura, #e2e8f0) 85%, white);
+  border-color: color-mix(in srgb, var(--aura, #94a3b8) 75%, transparent);
+  background: color-mix(in srgb, var(--aura, #94a3b8) 20%, rgba(2, 6, 23, 0.5));
+  text-shadow: 0 0 10px color-mix(in srgb, var(--aura, transparent) 80%, transparent);
+  box-shadow:
+    inset 0 0 18px -8px color-mix(in srgb, var(--aura, transparent) 65%, transparent),
+    0 0 18px -6px color-mix(in srgb, var(--aura, transparent) 70%, transparent);
+}
+
+/* Resplandor ambiental tras el Pokémon: una piscina de luz del aura, ancha
+   y muy difuminada, que llena el escaparate sin quemar el artwork. */
+.hero-glow {
+  background: radial-gradient(
+    ellipse 62% 52% at 50% 46%,
+    color-mix(in srgb, var(--aura, transparent) 32%, transparent),
+    color-mix(in srgb, var(--aura, transparent) 12%, transparent) 55%,
+    transparent 78%
+  );
+  filter: blur(18px);
+}
+
+/* Pedestal holográfico: aro de luz elíptico bajo la criatura, con un anillo
+   interior nítido y un pulso de "proyector" lento. */
+@keyframes pedestal-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: translateX(-50%) scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1.06);
+  }
+}
+
+.holo-pedestal {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--aura, #94a3b8) 38%, transparent),
+    color-mix(in srgb, var(--aura, #94a3b8) 14%, transparent) 55%,
+    transparent 72%
+  );
+  box-shadow: 0 0 34px -6px color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+}
+
+.holo-pedestal::before {
+  content: "";
+  position: absolute;
+  inset: 18% 8%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--aura, #94a3b8) 60%, transparent);
+  box-shadow:
+    inset 0 0 16px -4px color-mix(in srgb, var(--aura, transparent) 60%, transparent),
+    0 0 12px -2px color-mix(in srgb, var(--aura, transparent) 50%, transparent);
+}
+
+.holo-pedestal::after {
+  content: "";
+  position: absolute;
+  inset: 40% 26%;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--aura, #94a3b8) 45%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .holo-pedestal {
+    animation: pedestal-pulse 3.6s ease-in-out infinite;
+  }
+}
+
+/* Levitación sutil de la criatura sobre el pedestal. */
+@keyframes sprite-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sprite-float {
+    animation: sprite-float 4.5s ease-in-out infinite;
+  }
+}
+
+/* Valores "fluorescentes": el número hereda su color y le añadimos bloom. */
+.neon-value {
+  text-shadow:
+    0 0 8px color-mix(in srgb, currentColor 65%, transparent),
+    0 0 22px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+/* Barra de stat con degradado dinámico: extremos vía --bar-from/--bar-to y
+   un halo del color final para que la punta parezca un LED. */
+.stat-bar {
+  background: linear-gradient(90deg, var(--bar-from, #475569), var(--bar-to, #94a3b8));
+  box-shadow: 0 0 12px -3px var(--bar-to, transparent);
+}
+
+/* Tramos de color de las stats (cola tenue → punta LED). El tema claro
+   los redefine con cola pálida y punta saturada oscura. */
+.stat-tier-0 { --bar-from: #7f1d1d; --bar-to: #f87171; }
+.stat-tier-1 { --bar-from: #7c2d12; --bar-to: #fb923c; }
+.stat-tier-2 { --bar-from: #713f12; --bar-to: #fde047; }
+.stat-tier-3 { --bar-from: #065f46; --bar-to: #34d399; }
+.stat-tier-4 { --bar-from: #155e75; --bar-to: #67e8f9; }
+
+/* Aura ambiental de la ficha: el tipo dominante baña el fondo de la página. */
+.detail-ambient {
+  background: radial-gradient(
+    ellipse 75% 60% at 50% -5%,
+    color-mix(in srgb, var(--aura, transparent) 16%, transparent),
+    transparent 72%
+  );
+}
+
+/* Pestañas principales de la ficha: cristal apagado que se enciende con el
+   aura al activarse, con una aguja de luz bajo la pestaña activa. */
+.detail-tab {
+  position: relative;
+  border: 1px solid transparent;
+  /* slate-400, no slate-500: sobre el lienzo casi negro el 500 se queda en
+     4,4:1 y no llega al mínimo AA de 4,5:1 para texto normal. */
+  color: #94a3b8;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.detail-tab:hover {
+  color: #cbd5e1;
+}
+
+.detail-tab[aria-selected="true"] {
+  color: color-mix(in srgb, var(--aura, #e2e8f0) 80%, white);
+  border-color: color-mix(in srgb, var(--aura, #64748b) 45%, transparent);
+  background: color-mix(in srgb, var(--aura, #94a3b8) 12%, rgba(2, 6, 23, 0.6));
+  text-shadow: 0 0 12px color-mix(in srgb, var(--aura, transparent) 70%, transparent);
+  box-shadow:
+    inset 0 0 22px -12px color-mix(in srgb, var(--aura, transparent) 70%, transparent),
+    0 0 20px -8px color-mix(in srgb, var(--aura, transparent) 55%, transparent);
+}
+
+.detail-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 18%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--aura, #94a3b8),
+    transparent
+  );
+  box-shadow: 0 0 10px var(--aura, transparent);
+}
+
+/* Píldora de dato (habilidades, análisis, crianza): tarjeta redondeada con
+   sombra suave que se acerca al aura al pasar el puntero. */
+.data-pill {
+  border: 1px solid rgba(51, 65, 85, 0.55);
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.9);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.data-pill:hover {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 40%, #1e293b);
+  box-shadow:
+    0 8px 26px -14px rgba(0, 0, 0, 0.9),
+    0 0 18px -8px color-mix(in srgb, var(--aura, transparent) 45%, transparent);
 }
 
 /*
@@ -1013,4 +2732,844 @@ li:nth-child(3n) .aura-halo::before {
 
 .sprite-3d.dragging {
   transition: none;
+}
+
+/* ==========================================================================
+ * CONTRASTE (WCAG 1.4.3, mínimo AA 4,5:1 para texto normal).
+ *
+ * `slate-500` es el gris de las notas y pistas secundarias, y sobre el fondo
+ * casi negro se queda en 4,4:1 — justo por debajo del mínimo. Se aclara un
+ * paso en cada tema; al ser un token de Tailwind v4, todas las utilidades
+ * `text-slate-500` de la app se corrigen de golpe sin tocar componentes.
+ * ========================================================================== */
+
+html[data-theme="dark"] {
+  --color-slate-500: #8697aa; /* 6,9:1 sobre el fondo · 6,4:1 sobre tarjeta */
+}
+
+/* ==========================================================================
+ * TEMA CLARO. El modo oscuro es el diseño canónico y conserva sus valores
+ * por defecto; este bloque remapea los tokens de color de Tailwind v4 (las
+ * utilidades compilan a var(--color-*)) y las clases de componente con
+ * colores literales. Regla general: superficies y escala slate se invierten,
+ * los acentos de texto (200–400) se oscurecen un par de pasos para contraste,
+ * y los rojos/dorados de los botones sólidos no se tocan.
+ * ========================================================================== */
+
+html[data-theme="light"] {
+  /* Superficies HUD */
+  --color-hud-0: #eef1f6;
+  --color-hud-1: #ffffff;
+  --color-hud-2: #f6f8fc;
+  --color-hud-3: #ffffff;
+
+  /* Escala slate invertida (texto y bordes se giran solos). */
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #5b6a7d; /* un paso más oscuro: 5,3:1 sobre #eef1f6 */
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  /* Negro utilitario -> blanco (cabecera bg-black/80, chips bg-black/40…).
+     El blanco NO se invierte: el texto que debe girar usa slate-50/100. */
+  --color-black: #ffffff;
+
+  /* Acentos usados como texto sobre fondo oscuro: bajan a tonos 600-800
+     para leerse sobre claro. Los tonos 500+ (fondos de botón) no cambian. */
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-amber-100: #7c2d12;
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+  --color-orange-300: #c2410c;
+  --color-yellow-200: #a16207;
+  --color-emerald-300: #047857;
+  --color-fuchsia-300: #a21caf;
+  --color-emerald-400: #059669;
+  --color-cyan-200: #155e75;
+  --color-cyan-300: #0e7490;
+  --color-sky-300: #0369a1;
+  --color-pink-200: #9d174d;
+  --color-pink-300: #be185d;
+  --color-violet-300: #6d28d9;
+  --color-rose-300: #be123c;
+
+  /* Scrollbar clara */
+  scrollbar-color: #94a3b8 #e2e8f0;
+}
+
+/* Fondo de página claro: mismo lienzo HUD (lente roja + contraluz cian +
+   rejilla) sobre gris azulado muy claro. */
+html[data-theme="light"] body {
+  background-color: #eef1f6;
+  background-image:
+    radial-gradient(
+      ellipse 90% 55% at 50% -25%,
+      rgba(239, 68, 68, 0.07),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 92% 115%,
+      rgba(14, 116, 144, 0.06),
+      transparent 70%
+    ),
+    linear-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+}
+
+/* Scanlines casi imperceptibles sobre claro. */
+html[data-theme="light"] body::after {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(15, 23, 42, 0.035) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #e2e8f0;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+html[data-theme="light"] ::selection {
+  background: rgba(239, 68, 68, 0.25);
+  color: #0f172a;
+}
+
+/* --- Clases de componente con literales oscuros --- */
+
+html[data-theme="light"] .aura-card {
+  border-color: rgba(203, 213, 225, 0.9);
+  box-shadow: 0 2px 14px -8px rgba(15, 23, 42, 0.25);
+}
+
+html[data-theme="light"] .aura-card:hover {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 45%, #cbd5e1);
+  box-shadow: 0 14px 32px -14px rgba(15, 23, 42, 0.3);
+}
+
+html[data-theme="light"] .hud-panel:hover {
+  border-color: color-mix(in srgb, var(--aura, #94a3b8) 35%, #cbd5e1);
+}
+
+/* Texto neón: tonos más profundos y halo suave para leer sobre claro. */
+html[data-theme="light"] .neon-red {
+  color: #dc2626;
+  text-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
+html[data-theme="light"] .neon-aura {
+  color: color-mix(in srgb, var(--aura, #334155) 60%, black);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--aura, #94a3b8) 45%, transparent);
+}
+
+html[data-theme="light"] .neon-value {
+  text-shadow: 0 0 12px color-mix(in srgb, currentColor 35%, transparent);
+}
+
+/* Marcos premium/elite: cristal cálido claro tras el borde fundido. */
+html[data-theme="light"] .premium-frame {
+  background:
+    linear-gradient(180deg, #fffbeb, #ffffff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(217, 119, 6, 0.9),
+        rgba(180, 83, 9, 0.5) 30%,
+        rgba(217, 119, 6, 0.85) 50%,
+        rgba(180, 83, 9, 0.5) 72%,
+        rgba(202, 138, 4, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(217, 119, 6, 0.35),
+    inset 0 0 42px -24px rgba(251, 191, 36, 0.35);
+}
+
+html[data-theme="light"] .team-frame {
+  background:
+    linear-gradient(180deg, #ecfdf5, #ffffff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(5, 150, 105, 0.9),
+        rgba(6, 95, 70, 0.5) 30%,
+        rgba(5, 150, 105, 0.85) 50%,
+        rgba(6, 95, 70, 0.5) 72%,
+        rgba(16, 185, 129, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(5, 150, 105, 0.35),
+    inset 0 0 42px -24px rgba(16, 185, 129, 0.35);
+}
+
+html[data-theme="light"] .elite-frame {
+  background:
+    linear-gradient(180deg, #fef2f2, #ffffff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(220, 38, 38, 0.9),
+        rgba(153, 27, 27, 0.5) 30%,
+        rgba(220, 38, 38, 0.85) 50%,
+        rgba(153, 27, 27, 0.5) 72%,
+        rgba(239, 68, 68, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(220, 38, 38, 0.3),
+    inset 0 0 42px -24px rgba(239, 68, 68, 0.25);
+}
+
+html[data-theme="light"] .legend-frame {
+  background:
+    linear-gradient(180deg, #eff6ff, #ffffff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(37, 99, 235, 0.9),
+        rgba(30, 64, 175, 0.5) 30%,
+        rgba(14, 165, 233, 0.85) 50%,
+        rgba(30, 64, 175, 0.5) 72%,
+        rgba(59, 130, 246, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(37, 99, 235, 0.3),
+    inset 0 0 42px -24px rgba(56, 189, 248, 0.25);
+}
+
+html[data-theme="light"] .premium-text {
+  background: linear-gradient(100deg, #92400e, #b45309 40%, #d97706 60%, #a16207);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+html[data-theme="light"] .team-text {
+  background: linear-gradient(100deg, #064e3b, #047857 40%, #059669 60%, #15803d);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+html[data-theme="light"] .elite-text {
+  background: linear-gradient(100deg, #991b1b, #dc2626 40%, #b91c1c 60%, #ef4444);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Escenario versus en claro: mismas mitades diagonales sobre cristal blanco. */
+html[data-theme="light"] .versus-stage {
+  background:
+    linear-gradient(
+      118deg,
+      color-mix(in srgb, var(--aura-a, #38bdf8) 20%, transparent) 0%,
+      color-mix(in srgb, var(--aura-a, #38bdf8) 5%, transparent) 40%,
+      transparent 50%,
+      color-mix(in srgb, var(--aura-b, #f97316) 5%, transparent) 60%,
+      color-mix(in srgb, var(--aura-b, #f97316) 20%, transparent) 100%
+    ),
+    linear-gradient(180deg, #ffffff, #f1f5f9);
+}
+
+html[data-theme="light"] .legend-text {
+  background: linear-gradient(100deg, #1e3a8a, #2563eb 40%, #0369a1 60%, #1d4ed8);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Chips de tipo: mezcla hacia negro en lugar de blanco. */
+html[data-theme="light"] .type-chip {
+  color: color-mix(in srgb, var(--type) 55%, black);
+  border-color: color-mix(in srgb, var(--type) 45%, transparent);
+  background: color-mix(in srgb, var(--type) 14%, transparent);
+  text-shadow: none;
+}
+
+/* Cristal de la ficha de detalle. */
+html[data-theme="light"] .glass-aura {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 35%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--aura, #64748b) 8%, transparent),
+      transparent 40%
+    ),
+    rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 34px -14px color-mix(in srgb, var(--aura, transparent) 30%, transparent),
+    0 18px 40px -24px rgba(15, 23, 42, 0.25);
+}
+
+html[data-theme="light"] .glass-btn {
+  background: color-mix(in srgb, var(--aura, #94a3b8) 8%, rgba(255, 255, 255, 0.7));
+  color: #334155;
+}
+
+html[data-theme="light"] .glass-btn:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--aura, #334155) 60%, black);
+}
+
+html[data-theme="light"] .glass-btn[aria-pressed="true"],
+html[data-theme="light"] .glass-btn.glass-btn-on {
+  color: color-mix(in srgb, var(--aura, #334155) 55%, black);
+  background: color-mix(in srgb, var(--aura, #94a3b8) 22%, rgba(255, 255, 255, 0.7));
+  text-shadow: none;
+}
+
+html[data-theme="light"] .detail-tab {
+  color: #64748b;
+}
+
+html[data-theme="light"] .detail-tab:hover {
+  color: #1e293b;
+}
+
+html[data-theme="light"] .detail-tab[aria-selected="true"] {
+  color: color-mix(in srgb, var(--aura, #334155) 55%, black);
+  background: color-mix(in srgb, var(--aura, #94a3b8) 14%, rgba(255, 255, 255, 0.75));
+  text-shadow: none;
+}
+
+html[data-theme="light"] .data-pill {
+  border-color: rgba(203, 213, 225, 0.8);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 22px -14px rgba(15, 23, 42, 0.25);
+}
+
+html[data-theme="light"] .data-pill:hover {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 40%, #cbd5e1);
+  box-shadow:
+    0 8px 26px -14px rgba(15, 23, 42, 0.25),
+    0 0 18px -8px color-mix(in srgb, var(--aura, transparent) 35%, transparent);
+}
+
+/* Barras de stats en claro: cola pálida → punta saturada oscura, sin halo
+   neón (sobre pista clara el bloom ensucia el degradado). */
+html[data-theme="light"] .stat-tier-0 { --bar-from: #fca5a5; --bar-to: #dc2626; }
+html[data-theme="light"] .stat-tier-1 { --bar-from: #fdba74; --bar-to: #ea580c; }
+html[data-theme="light"] .stat-tier-2 { --bar-from: #fde68a; --bar-to: #ca8a04; }
+html[data-theme="light"] .stat-tier-3 { --bar-from: #6ee7b7; --bar-to: #059669; }
+html[data-theme="light"] .stat-tier-4 { --bar-from: #67e8f9; --bar-to: #0891b2; }
+
+html[data-theme="light"] .stat-bar {
+  box-shadow: none;
+}
+
+/* Aura ambiental más contenida: sobre lienzo claro un 16% empasta. */
+html[data-theme="light"] .detail-ambient {
+  background: radial-gradient(
+    ellipse 75% 60% at 50% -5%,
+    color-mix(in srgb, var(--aura, transparent) 10%, transparent),
+    transparent 72%
+  );
+}
+
+/* Escaparate en claro: la piscina de luz baja un punto y los aros del
+   pedestal se mezclan hacia tinta para no desaparecer sobre blanco. */
+html[data-theme="light"] .hero-glow {
+  opacity: 0.75;
+}
+
+html[data-theme="light"] .holo-pedestal::before {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 55%, #64748b);
+}
+
+html[data-theme="light"] .holo-pedestal::after {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 45%, #94a3b8);
+}
+
+/* La marca pierde el bloom pesado: sobre claro basta un halo suave. */
+html[data-theme="light"] .hero-title {
+  filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.25));
+}
+
+/* ==========================================================================
+ * VESTÍBULO DE COMBATE — la pantalla previa (equipo rival, mochila y el
+ * botón de lanzamiento). Cristal ahumado, neón y esquineras de HUD, al
+ * estilo de la pantalla de selección de la Torre Batalla.
+ *
+ * Cada pieza toma su color de `--edge`, que los componentes fijan en línea
+ * (rojo para el rival, ámbar para la mochila, el aura del tipo para una
+ * ranura ya ocupada), así una sola hoja viste los tres bloques.
+ * ========================================================================== */
+
+/* Filo de luz que recorre el borde superior de cada panel del vestíbulo. */
+.lobby-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 12% auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--edge, #f87171) 75%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Esquineras de visor: dos ángulos opuestos que se encienden al pasar. */
+.lobby-bracket::before,
+.lobby-bracket::after {
+  content: "";
+  position: absolute;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--edge, #f87171) 55%, transparent);
+  opacity: 0.6;
+  transition:
+    opacity 250ms ease,
+    inset 250ms ease;
+  pointer-events: none;
+}
+
+.lobby-bracket::before {
+  top: 0.45rem;
+  left: 0.45rem;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 0.35rem;
+}
+
+.lobby-bracket::after {
+  right: 0.45rem;
+  bottom: 0.45rem;
+  border-top: 0;
+  border-left: 0;
+  border-bottom-right-radius: 0.35rem;
+}
+
+.lobby-bracket:hover::before,
+.lobby-bracket:hover::after,
+.lobby-bracket:focus-visible::before,
+.lobby-bracket:focus-visible::after {
+  opacity: 1;
+}
+
+/*
+ * «¿Quién es ese Pokémon?»: el sprite se aplana a negro puro y solo el
+ * contorno respira, porque los drop-shadow siguen el canal alfa. Es un
+ * único filtro encadenado — nada de duplicados con prefijo, que harían a
+ * Lightning CSS descartar la versión estándar.
+ */
+.mystery-sil {
+  opacity: 0.9;
+  filter: brightness(0)
+    drop-shadow(0 0 3px color-mix(in srgb, var(--edge, #f87171) 85%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--edge, #f87171) 45%, transparent));
+}
+
+/* Rejilla CRT sobre la consola del Coach Bot. */
+.lobby-console::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--edge, #22d3ee) 6%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Equipo completo: el botón de lanzamiento late en verde neón. */
+@keyframes lobby-ready-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--edge, #4ade80) 55%, transparent),
+      0 0 24px -6px color-mix(in srgb, var(--edge, #4ade80) 70%, transparent),
+      inset 0 0 26px -18px color-mix(in srgb, var(--edge, #4ade80) 90%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--edge, #4ade80) 95%, transparent),
+      0 0 46px 2px color-mix(in srgb, var(--edge, #4ade80) 45%, transparent),
+      inset 0 0 30px -12px color-mix(in srgb, var(--edge, #4ade80) 100%, transparent);
+  }
+}
+
+.lobby-ready {
+  animation: lobby-ready-pulse 1.7s ease-in-out infinite;
+}
+
+/* Sobre claro el cristal necesita un velo propio: el fondo ya no es negro,
+   así que las superficies se apoyan en tinta suave en vez de en luz. */
+html[data-theme="light"] .lobby-console::after {
+  opacity: 0.35;
+}
+
+html[data-theme="light"] .mystery-sil {
+  opacity: 0.75;
+}
+
+/*
+ * Píldoras de preset y botón de lanzamiento: en oscuro el texto ES el color
+ * de acento (neón sobre negro), pero ese mismo ámbar o verde sobre blanco no
+ * llega a contraste AA. En claro se mezclan hacia tinta y el relleno sube,
+ * así la píldora conserva su identidad y el texto se lee.
+ */
+html[data-theme="light"] .lobby-pill,
+html[data-theme="light"] .lobby-launch {
+  color: color-mix(in srgb, var(--edge) 45%, #0f172a);
+  background-color: color-mix(in srgb, var(--edge) 20%, transparent);
+  border-color: color-mix(in srgb, var(--edge) 60%, #94a3b8);
+}
+
+/* ==========================================================================
+ * CUADRO DEL TORNEO — el vestíbulo entre rondas: el árbol de llaves, la
+ * ficha del rival con sus seis cartuchos y la cabecera de la ronda.
+ * ========================================================================== */
+
+/* Las seis Poké Balls doradas del 6v6: brillo escalonado, como los indicadores
+   de equipo de la Torre Batalla al encenderse uno tras otro. */
+@keyframes cup-ball-shine {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.5));
+    transform: translateY(0);
+  }
+  50% {
+    filter: drop-shadow(0 0 9px rgba(251, 191, 36, 0.95));
+    transform: translateY(-2px);
+  }
+}
+
+.cup-ball {
+  display: block;
+  width: 1.6rem;
+  height: 1.6rem;
+  animation: cup-ball-shine 2.4s ease-in-out infinite;
+}
+
+/* La ronda en juego respira en ámbar dentro del árbol. */
+@keyframes bracket-now-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 16px -6px rgba(251, 191, 36, 0.75);
+  }
+  50% {
+    box-shadow: 0 0 30px -4px rgba(251, 191, 36, 0.55);
+  }
+}
+
+.bracket-now {
+  animation: bracket-now-pulse 2s ease-in-out infinite;
+}
+
+/* Camino ya ganado: la línea que sale de la llave corre hacia la final. */
+@keyframes bracket-flow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 1rem 0;
+  }
+}
+
+.bracket-flow {
+  background-image: linear-gradient(
+    90deg,
+    rgba(52, 211, 153, 0.9) 0 45%,
+    rgba(52, 211, 153, 0.25) 45% 100%
+  );
+  background-size: 1rem 100%;
+  animation: bracket-flow 0.9s linear infinite;
+}
+
+/* En claro, el neón del cuadro se vuelve tinta: el cian y el ámbar sobre
+   blanco no llegan a contraste AA, y son justo las dos etiquetas que hay
+   que leer (dónde estás y a cuántos Pokémon se juega). */
+html[data-theme="light"] .bracket-you {
+  color: #155e75;
+  background-color: color-mix(in srgb, #22d3ee 18%, transparent);
+  border-color: color-mix(in srgb, #0e7490 55%, transparent);
+}
+
+html[data-theme="light"] .cup-note {
+  color: #92400e;
+}
+
+/* ==========================================================================
+ * CINEMÁTICAS DE LA 7.ª GENERACIÓN — la coreografía de Sol y Luna alrededor
+ * de la Poké Ball: el lanzamiento, la luz de la que sale el Pokémon, el rayo
+ * rojo que lo devuelve, el objeto que el entrenador lanza al campo y la
+ * ventana de habilidad que entra deslizándose por el lado de quien la activa.
+ *
+ * Cada pieza va con sus tiempos calcados de esa cadencia: vuelo de la bola
+ * 420 ms, apertura 260 ms, retirada 520 ms, ventana de habilidad 1,6 s. El
+ * componente que las dispara usa esas mismas constantes (GEN7 en
+ * BattleStage2D), así el texto de la caja de mensajes nunca adelanta a la
+ * animación que lo acompaña.
+ * ========================================================================== */
+
+/* Vuelo de la bola: la horizontal es lineal y la vertical describe el arco,
+   el truco de siempre para una parábola con dos elementos anidados. */
+@keyframes pk-ball-x {
+  from {
+    transform: translateX(var(--from-x, -12cqw));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pk-ball-y {
+  0% {
+    transform: translateY(var(--from-y, 6cqw));
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(var(--peak-y, -5cqw));
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pk-ball-spin {
+  to {
+    transform: rotate(760deg);
+  }
+}
+
+.pk-ball-x {
+  animation: pk-ball-x 420ms linear both;
+}
+
+.pk-ball-y {
+  animation: pk-ball-y 420ms cubic-bezier(0.35, 0, 0.6, 1) both;
+}
+
+.pk-ball-spin {
+  animation: pk-ball-spin 420ms linear both;
+}
+
+/* Apertura: la bola se abre en blanco y suelta el destello del que sale el
+   Pokémon (que entra por su lado con `pk-send-in`). */
+@keyframes pk-ball-open {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(4);
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes pk-ball-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+.pk-ball-open {
+  animation: pk-ball-open 260ms ease-out both;
+}
+
+.pk-ball-flash {
+  animation: pk-ball-flash 460ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* Retirada: el Pokémon se vuelve luz roja y se recoge en la bola. */
+@keyframes pk-recall {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  22% {
+    filter: brightness(0.35) sepia(1) saturate(6) hue-rotate(-18deg)
+      drop-shadow(0 0 14px rgba(248, 113, 113, 0.9));
+    transform: scale(1.02);
+  }
+  100% {
+    filter: brightness(0.35) sepia(1) saturate(6) hue-rotate(-18deg)
+      drop-shadow(0 0 14px rgba(248, 113, 113, 0.9));
+    transform: scale(0.04) translateY(12%);
+    opacity: 0;
+  }
+}
+
+.pk-recall {
+  animation: pk-recall 520ms cubic-bezier(0.55, 0, 0.85, 0.4) both;
+}
+
+@keyframes pk-recall-ring {
+  0% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.1);
+  }
+}
+
+.pk-recall-ring {
+  animation: pk-recall-ring 520ms ease-in both;
+}
+
+/* Objeto usado: el frasco cae sobre el Pokémon y sube el destello de cura
+   (verde) o de subida de característica (ámbar), como el brillo que envuelve
+   al Pokémon en los juegos. */
+@keyframes pk-item-spark {
+  0% {
+    opacity: 0;
+    transform: translate(var(--sx, 0), 40%) scale(0.4);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sx, 0), -170%) scale(1.1);
+  }
+}
+
+.pk-item-spark {
+  animation: pk-item-spark 900ms ease-out both;
+}
+
+@keyframes pk-item-aura {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  30% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.pk-item-aura {
+  animation: pk-item-aura 900ms ease-out both;
+}
+
+/* Ventana de habilidad: entra por el lado de quien la activa, se queda
+   quieta el tiempo de leerla y se retira por donde vino. */
+@keyframes pk-ability-p {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+  14%,
+  82% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+}
+
+@keyframes pk-ability-e {
+  0% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+  14%,
+  82% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(115%);
+  }
+}
+
+.pk-ability-p {
+  animation: pk-ability-p 1600ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.pk-ability-e {
+  animation: pk-ability-e 1600ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* ==========================================================================
+ * MOVIMIENTO REDUCIDO — red de seguridad global.
+ *
+ * Va la última a propósito: los bloques anteriores apagan las animaciones
+ * concretas del combate y de la ficha, y esta captura todo lo demás — las
+ * utilidades `animate-*` de Tailwind (spin, ping, pulse), los `hover:scale`
+ * de las píldoras del HUD, los deslizamientos del cajón y del chat, los
+ * zooms de las tarjetas y la inclinación 3D del visor holográfico.
+ *
+ * No se anula la animación (`animation: none` mataría los estados finales de
+ * `fill-mode: both`, y el sprite que se esconde bajo tierra reaparecería):
+ * se colapsa la duración, así cada efecto salta a su fotograma final y la
+ * interfaz sigue contando lo mismo, sin recorrido.
+ * ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  /* El enlace de salto necesita conservar su desplazamiento (es lo que lo
+     saca de fuera de pantalla); sólo pierde el recorrido animado. */
+  .skip-link {
+    transition: none;
+  }
+
+  /* Sin inclinación al puntero: la carta holográfica se queda recta y
+     conserva únicamente el brillo, que no implica movimiento. */
+  .holo-card {
+    transform: none !important;
+  }
+
+  /* El barrido de escaneo y las ascuas son puro adorno en bucle. */
+  .scan-beam,
+  .premium-sweep::after,
+  .team-sweep::after,
+  .elite-sweep::after,
+  .legend-sweep::after {
+    display: none;
+  }
 }

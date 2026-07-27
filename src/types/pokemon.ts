@@ -51,6 +51,10 @@ export interface PokemonFilters {
   eggGroup: string | null;
   category: PokemonCategory | null;
   stage: StageFilter | null;
+  /** Species slugs to leave out, e.g. ["pikachu"] for "…menos Pikachu". */
+  exclude?: string[];
+  /** Extends `exclude` to the whole evolution family of each named species. */
+  excludeFamily?: boolean;
 }
 
 /** List ordering. `id-asc` doubles as generation order (ids are gen-grouped). */

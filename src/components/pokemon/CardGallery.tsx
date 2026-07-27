@@ -1,4 +1,6 @@
 import { CardGrid } from "@/components/pokemon/CardGrid";
+import { DEFAULT_LANG, type Lang } from "@/lib/i18n/config";
+import { getDict } from "@/lib/i18n";
 import { fetchTcgCards } from "@/lib/tcgdex";
 
 const MAX_CARDS = 18;
@@ -6,22 +8,27 @@ const MAX_CARDS = 18;
 interface CardGalleryProps {
   /** English display name of the Pokémon, as printed on the cards. */
   name: string;
+  lang?: Lang;
 }
 
-export async function CardGallery({ name }: CardGalleryProps) {
+export async function CardGallery({
+  name,
+  lang = DEFAULT_LANG,
+}: CardGalleryProps) {
+  const d = getDict(lang).detail;
   const cards = await fetchTcgCards(name);
 
   if (cards === null) {
     return (
       <p className="text-sm text-slate-400 dark:text-slate-300">
-        No se ha podido cargar la galería de cartas. Inténtalo más tarde.
+        {d.tcgLoadError}
       </p>
     );
   }
   if (cards.length === 0) {
     return (
       <p className="text-sm text-slate-400 dark:text-slate-300">
-        No se han encontrado cartas del JCC para {name}.
+        {d.tcgEmpty(name)}
       </p>
     );
   }
@@ -33,7 +40,7 @@ export async function CardGallery({ name }: CardGalleryProps) {
       <CardGrid cards={visible} />
       {cards.length > MAX_CARDS && (
         <p className="mt-3 text-xs text-slate-300 dark:text-slate-400">
-          Mostrando {MAX_CARDS} de {cards.length} cartas.
+          {d.tcgShowing(MAX_CARDS, cards.length)}
         </p>
       )}
     </div>

@@ -4,16 +4,21 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Send, Sparkles, X } from "lucide-react";
+import { useTeam } from "@/components/team/TeamProvider";
 import { useFilters } from "@/hooks/use-filters";
+import { useI18n } from "@/lib/i18n/client";
+import type { Lang } from "@/lib/i18n/config";
+import type { Dict } from "@/lib/i18n";
 import {
-  CATEGORY_LABELS_ES,
-  COLOR_LABELS_ES,
-  EGG_GROUP_LABELS_ES,
-  HABITAT_LABELS_ES,
-  SHAPE_LABELS_ES,
-  TYPE_LABELS_ES,
+  CATEGORY_LABELS,
+  COLOR_LABELS,
+  EGG_GROUP_LABELS,
+  formatName,
+  HABITAT_LABELS,
+  SHAPE_LABELS,
+  TYPE_LABELS,
 } from "@/lib/pokemon-meta";
-import { SORT_LABELS_ES } from "@/lib/sort";
+import { SORT_LABELS } from "@/lib/sort";
 import { cn } from "@/lib/utils";
 import type {
   TrainerAction,
@@ -27,19 +32,6 @@ interface ChatMessage {
   /** UI side effects that came with this assistant reply (shown as chips). */
   actions?: TrainerAction[];
 }
-
-const WELCOME: ChatMessage = {
-  role: "assistant",
-  content:
-    "¡Hola, joven entrenador! Soy el Profesor Oak, investigador Pokémon de Pueblo Paleta, y esta Pokédex es mi gran invento. Pregúntame lo que quieras del mundo Pokémon, o pídeme cosas como «enséñame los legendarios de Kanto» o «abre la ficha de Charizard». ¡La ciencia Pokémon nos espera!",
-};
-
-const SUGGESTIONS = [
-  "Enséñame los legendarios de Kanto",
-  "Filtra por tipo eléctrico",
-  "Abre la ficha de Charizard",
-  "¿Cuál es tu Pokémon favorito?",
-];
 
 /** Survives the round trip to a detail page and back. */
 const STORAGE_KEY = "trainer-chat-v2";
@@ -56,31 +48,47 @@ const CLEAR_ALL: TrainerFilterPatch = {
   cat: null,
   stage: null,
   fav: null,
+  x: null,
+  xfam: null,
 };
 
 /** Human summary of one action, for the chips under Oak's replies. */
-function describeAction(action: TrainerAction): string {
-  if (action.type === "clear_filters") return "Filtros limpiados";
-  if (action.type === "open_pokemon") return `Abriendo ficha: ${action.name}`;
+function describeAction(
+  action: TrainerAction,
+  lang: Lang,
+  t: Dict["trainer"],
+): string {
+  if (action.type === "clear_filters") return t.actionCleared;
+  if (action.type === "open_pokemon") return t.actionOpening(action.name);
+  if (action.type === "set_team") return action.summary;
+  if (action.type === "open_team") return t.actionOpenTeam;
+  if (action.type === "start_battle") return t.actionStartBattle;
   const parts: string[] = [];
   const { patch } = action;
-  if (patch.q) parts.push(`búsqueda «${patch.q}»`);
-  if (patch.type) parts.push(`tipo ${TYPE_LABELS_ES[patch.type] ?? patch.type}`);
-  if (patch.gen) parts.push(`Gen ${patch.gen}`);
+  if (patch.q) parts.push(t.actionSearch(patch.q));
+  if (patch.type)
+    parts.push(t.actionType(TYPE_LABELS[lang][patch.type] ?? patch.type));
+  if (patch.gen) parts.push(t.actionGen(patch.gen));
   if (patch.color)
-    parts.push(`color ${COLOR_LABELS_ES[patch.color] ?? patch.color}`);
+    parts.push(t.actionColor(COLOR_LABELS[lang][patch.color] ?? patch.color));
   if (patch.habitat)
-    parts.push(`hábitat ${HABITAT_LABELS_ES[patch.habitat] ?? patch.habitat}`);
+    parts.push(
+      t.actionHabitat(HABITAT_LABELS[lang][patch.habitat] ?? patch.habitat),
+    );
   if (patch.shape)
-    parts.push(`forma ${SHAPE_LABELS_ES[patch.shape] ?? patch.shape}`);
+    parts.push(t.actionShape(SHAPE_LABELS[lang][patch.shape] ?? patch.shape));
   if (patch.egg)
-    parts.push(`huevo ${EGG_GROUP_LABELS_ES[patch.egg] ?? patch.egg}`);
-  if (patch.cat) parts.push(CATEGORY_LABELS_ES[patch.cat] ?? patch.cat);
-  if (patch.stage) parts.push(`etapa ${patch.stage}`);
-  if (patch.sort) parts.push(SORT_LABELS_ES[patch.sort] ?? patch.sort);
+    parts.push(t.actionEgg(EGG_GROUP_LABELS[lang][patch.egg] ?? patch.egg));
+  if (patch.cat) parts.push(CATEGORY_LABELS[lang][patch.cat] ?? patch.cat);
+  if (patch.stage) parts.push(t.actionStage(patch.stage));
+  if (patch.sort) parts.push(SORT_LABELS[lang][patch.sort] ?? patch.sort);
+  if (patch.x) {
+    const names = patch.x.split(",").map(formatName).join(", ");
+    parts.push(patch.xfam ? t.actionExcludeFamily(names) : t.actionExclude(names));
+  }
   const cleared = Object.values(patch).some((v) => v === null);
-  if (parts.length === 0) return cleared ? "Filtros retirados" : "Filtros";
-  return `Filtros: ${parts.join(" · ")}`;
+  if (parts.length === 0) return cleared ? t.actionRemoved : t.actionFiltersOnly;
+  return t.actionFilters(parts.join(" · "));
 }
 
 /**
@@ -111,7 +119,15 @@ const OPEN_KEY = "trainer-chat-open";
  */
 export function TrainerChat() {
   const router = useRouter();
+  const { lang, dict } = useI18n();
+  const t = dict.trainer;
   const [filters, setFilters] = useFilters();
+  // Oak works on the real roster: he reads it to answer and rewrites it when
+  // the user asks him to (fichar, quitar, subir de nivel, elegir ataques…).
+  const { team, replace, setDrawerOpen } = useTeam();
+  // Only used on first mount (or after corrupt storage): the saved
+  // conversation keeps whatever language it was written in.
+  const welcome: ChatMessage = { role: "assistant", content: t.welcome };
   // Lazy init (client-only component): reopen if the user left it open.
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -124,7 +140,7 @@ export function TrainerChat() {
   // Lazy init from sessionStorage: safe because this component never server-
   // renders (useFilters -> useSearchParams keeps it client-only in prerender).
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (typeof window === "undefined") return [WELCOME];
+    if (typeof window === "undefined") return [welcome];
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -134,7 +150,7 @@ export function TrainerChat() {
     } catch {
       // Corrupt storage: start fresh.
     }
-    return [WELCOME];
+    return [welcome];
   });
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -173,6 +189,14 @@ export function TrainerChat() {
         setFilters({ ...CLEAR_ALL, page: null });
       } else if (action.type === "open_pokemon") {
         navigateTo = `/pokemon/${encodeURIComponent(action.name)}`;
+      } else if (action.type === "set_team") {
+        // The route sends the roster it ended the turn with, so the client
+        // lands exactly on what the professor said he did.
+        replace(action.members);
+      } else if (action.type === "open_team") {
+        setDrawerOpen(true);
+      } else if (action.type === "start_battle") {
+        navigateTo = "/battle";
       }
     }
     if (navigateTo) {
@@ -197,16 +221,15 @@ export function TrainerChat() {
         body: JSON.stringify({
           messages: next.map(({ role, content }) => ({ role, content })),
           filters,
+          team,
+          lang,
         }),
       });
       const data = (await res.json().catch(() => null)) as
         | (TrainerResponse & { error?: string })
         | null;
       if (!res.ok || !data || data.error) {
-        setError(
-          data?.error ??
-            "El transmisor de la Pokédex no responde. ¡Inténtalo de nuevo!",
-        );
+        setError(data?.error ?? t.errorNoResponse);
         return;
       }
       setMessages([
@@ -215,7 +238,7 @@ export function TrainerChat() {
       ]);
       if (data.actions.length > 0) applyActions(data.actions);
     } catch {
-      setError("Se ha cortado la conexión con el laboratorio de Pueblo Paleta…");
+      setError(t.errorConnection);
     } finally {
       setPending(false);
     }
@@ -227,50 +250,59 @@ export function TrainerChat() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Hablar con el Profesor Oak"
+        aria-label={t.launcherAria}
+        aria-expanded={open}
         className={cn(
-          "group fixed right-5 bottom-16 z-30 flex flex-col items-center gap-2.5",
+          // On phones this sits over the dex grid, so it shrinks to just the
+          // avatar and tucks into the corner above the home indicator.
+          "group fixed right-3 bottom-[var(--float-bottom)] z-30 flex flex-col items-center gap-2.5 sm:right-5 sm:bottom-16",
           open && "hidden",
         )}
       >
-        <span className="rounded-lg border border-slate-700/80 bg-[#0a101d]/95 px-3.5 py-2 text-center font-mono text-xs leading-snug tracking-wide text-slate-200 shadow-[0_0_14px_-2px_rgba(34,211,238,0.35)] backdrop-blur transition group-hover:border-cyan-400/60 group-hover:text-cyan-300">
-          Habla con el Profesor Oak
+        {/* The caption is a 170px-wide slab of text pinned over the results:
+            worth its space on desktop, pure obstruction on a 375px screen. */}
+        <span className="rounded-lg border border-slate-700/80 bg-hud-1/95 px-3.5 py-2 text-center font-mono text-xs leading-snug tracking-wide text-slate-200 shadow-[0_0_14px_-2px_rgba(34,211,238,0.35)] backdrop-blur transition group-hover:border-cyan-400/60 group-hover:text-cyan-300 max-sm:hidden">
+          {t.launcherTitle}
           <span className="block text-[10px] text-emerald-400/90 uppercase">
-            Pregunta · Filtra · Explora
+            {t.launcherTagline}
           </span>
         </span>
-        <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-red-500/60 bg-[#0a101d] shadow-[0_0_28px_4px_rgba(239,68,68,0.5)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_38px_6px_rgba(239,68,68,0.65)]">
+        <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-red-500/60 bg-hud-1 shadow-[0_0_28px_4px_rgba(239,68,68,0.5)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_38px_6px_rgba(239,68,68,0.65)] sm:h-24 sm:w-24">
           <OakAvatar className="h-full w-full" />
         </span>
       </button>
 
       <aside
-        aria-label="Chat con el Profesor Oak"
+        aria-label={t.panelAria}
+        // Same reason as the team sheet: the panel only slides out of view,
+        // so while closed its input, send button and suggestion chips would
+        // still be tabbable behind the page.
+        inert={!open}
         className={cn(
           // Slide-in overlay pinned to the right edge of the viewport; the
           // Pokédex keeps its full width underneath at every screen size.
-          "fixed inset-y-0 right-0 z-40 flex w-[min(100vw,48rem)] flex-col border-l border-slate-700/60 bg-[#050810]/95 shadow-[-12px_0_32px_rgba(0,0,0,0.55)] backdrop-blur transition-transform duration-300",
+          "fixed inset-y-0 right-0 z-40 flex w-[min(100vw,48rem)] flex-col border-l border-slate-700/60 bg-hud-3/95 shadow-[-12px_0_32px_rgba(0,0,0,0.55)] backdrop-blur transition-transform duration-300",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-700/60 px-4 py-3">
-          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0a101d] ring-2 ring-red-500/60 shadow-[0_0_12px_1px_rgba(239,68,68,0.4)]">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-hud-1 ring-2 ring-red-500/60 shadow-[0_0_12px_1px_rgba(239,68,68,0.4)]">
             <OakAvatar className="h-full w-full" />
-            <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-[#050810] bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+            <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-hud-3 bg-[#34d399] shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-bold tracking-wide text-slate-100">
-              PROFESOR OAK
+              {t.headerName}
             </p>
             <p className="truncate font-mono text-xs tracking-wider text-emerald-400/90 uppercase">
-              Investigador Pokémon · Pueblo Paleta
+              {t.headerRole}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            aria-label="Cerrar chat"
+            aria-label={t.closeAria}
             className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <X size={18} />
@@ -278,8 +310,14 @@ export function TrainerChat() {
         </div>
 
         {/* Messages */}
+        {/* `role="log"` + polite: Oak's replies arrive asynchronously, so a
+            screen reader has to be told about them without the focus ever
+            leaving the input the user is typing in. */}
         <div
           ref={scrollRef}
+          role="log"
+          aria-live="polite"
+          aria-label={dict.a11y.chatLogAria}
           className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
         >
           {messages.map((message, i) => (
@@ -298,7 +336,7 @@ export function TrainerChat() {
                   "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
                   message.role === "user"
                     ? "rounded-br-sm border border-red-500/40 bg-red-500/10 text-slate-100"
-                    : "rounded-bl-sm border border-slate-700/70 bg-[#0a101d]/90 text-slate-200",
+                    : "rounded-bl-sm border border-slate-700/70 bg-hud-1/90 text-slate-200",
                 )}
               >
                 {message.content}
@@ -310,7 +348,7 @@ export function TrainerChat() {
                         className="inline-flex items-center gap-1 rounded border border-cyan-400/40 bg-cyan-400/10 px-1.5 py-0.5 font-mono text-xs text-cyan-300"
                       >
                         <Sparkles size={10} />
-                        {describeAction(action)}
+                        {describeAction(action, lang, t)}
                       </span>
                     ))}
                   </span>
@@ -323,7 +361,7 @@ export function TrainerChat() {
             <div className="flex items-center gap-2.5">
               <OakAvatar className="h-7 w-7 shrink-0 animate-pulse" />
               <span className="font-mono text-xs tracking-widest text-slate-400">
-                EL PROFESOR ESTÁ ESCRIBIENDO…
+                {t.typing}
               </span>
             </div>
           )}
@@ -336,12 +374,12 @@ export function TrainerChat() {
 
           {messages.length <= 1 && !pending && (
             <div className="flex flex-wrap gap-2 pt-1">
-              {SUGGESTIONS.map((suggestion) => (
+              {t.suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
                   onClick={() => send(suggestion)}
-                  className="rounded-full border border-slate-700/80 bg-[#0a101d]/90 px-3 py-1.5 font-mono text-xs text-slate-300 transition hover:border-cyan-400/60 hover:text-cyan-300"
+                  className="rounded-full border border-slate-700/80 bg-hud-1/90 px-3 py-1.5 font-mono text-xs text-slate-300 transition hover:border-cyan-400/60 hover:text-cyan-300"
                 >
                   {suggestion}
                 </button>
@@ -367,15 +405,15 @@ export function TrainerChat() {
                 void send(input);
               }
             }}
-            placeholder="Pregúntale al Profesor Oak…"
-            aria-label="Mensaje para el Profesor Oak"
+            placeholder={t.inputPlaceholder}
+            aria-label={t.inputAria}
             disabled={pending}
-            className="h-10 min-w-0 flex-1 rounded-md border border-slate-700/80 bg-[#0a101d]/90 px-3 font-mono text-sm text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)] disabled:opacity-60"
+            className="h-10 min-w-0 flex-1 rounded-md border border-slate-700/80 bg-hud-1/90 px-3 font-mono text-sm text-slate-200 outline-none transition focus:border-red-500/70 focus:shadow-[0_0_14px_-2px_rgba(239,68,68,0.55)] disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={pending || input.trim() === ""}
-            aria-label="Enviar mensaje"
+            aria-label={t.sendAria}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-red-500/50 bg-red-500/10 text-red-400 transition enabled:hover:bg-red-500/20 enabled:hover:shadow-[0_0_14px_-2px_rgba(239,68,68,0.6)] disabled:opacity-40"
           >
             <Send size={16} />
@@ -389,7 +427,7 @@ export function TrainerChat() {
       {open && (
         <button
           type="button"
-          aria-label="Cerrar chat"
+          aria-label={t.closeAria}
           onClick={() => setOpen(false)}
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden"
         />
