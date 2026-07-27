@@ -10,21 +10,36 @@ import { formatName } from "@/lib/pokemon-meta";
 import { DEFAULT_LEVEL, type TeamMember } from "@/types/team";
 import type { BattleSetupResponse } from "@/types/battle";
 
+/**
+ * Quién es el rival, para los dos prompts.
+ *
+ * Ya no se inventa: el Modo Combate tiene un solo Entrenador, Colress, el
+ * científico del Equipo Plasma (ver `AI_TRAINER` en `lib/trainers/roster`).
+ * Lo que se le pide al modelo es el equipo y su frase, EN SU VOZ — antes
+ * inventaba también el personaje, y salía un domador de olas con la cara de un
+ * científico de laboratorio.
+ */
+const CHARACTER = `El rival es siempre el mismo y NO se inventa: es Colress, el científico del Equipo Plasma de Pokémon Blanco 2 y Negro 2. Frío, cortés y curioso hasta la crueldad; no pelea por ganar, pelea por medir. Habla de datos, de experimentos y de sacar a un Pokémon toda su fuerza. Nunca grita.
+
+Devuelve siempre "nombre": "Colress" y "estilo": "científico de bata blanca con gafas y pelo azul y amarillo".`;
+
 /** Base prompt stays Spanish; a per-language line pins the output language. */
 const systemPrompt = (lang: Lang) =>
-  `Eres el generador de rivales del "Modo Combate" de una Pokédex digital. Dado el equipo del jugador, inventa un Entrenador rival carismático con un equipo equilibrado que le plante cara (ni un rodillo imposible ni un saco de boxeo).
+  `Eres el generador de combates del "Modo Combate" de una Pokédex digital. Dado el equipo del jugador, montas el equipo con el que el rival le planta cara (ni un rodillo imposible ni un saco de boxeo).
+
+${CHARACTER}
 
 Responde SOLO con un objeto JSON válido, sin markdown:
 {
-  "nombre": "nombre y apodo del entrenador (ej.: 'Vega, Domadora de Dragones')",
-  "lema": "grito de guerra de 1 frase, con chispa, estilo anime",
-  "estilo": "descripción visual breve del entrenador en 5-10 palabras (para dibujarlo)",
+  "nombre": "Colress",
+  "lema": "1 frase suya antes del combate, en su voz",
+  "estilo": "científico de bata blanca con gafas y pelo azul y amarillo",
   "equipo": ["slug-1", "slug-2", "slug-3", "slug-4", "slug-5", "slug-6"]
 }
 
 Reglas:
 - Exactamente 6 especies reales y distintas, por su slug inglés de PokéAPI en minúsculas ("pikachu", "mr-mime", "ho-oh"…).
-- El equipo debe tener coherencia temática con el personaje y una fuerza comparable a la del jugador: si el jugador no lleva legendarios, no metas más de uno.
+- El equipo tiene que sonar a él —máquinas, acero, electricidad, Pokémon con habilidades que se puedan "medir"— y tener una fuerza comparable a la del jugador: si el jugador no lleva legendarios, no metas más de uno.
 - Busca cierta ventaja táctica (algún Pokémon que castigue las debilidades del jugador) pero deja huecos explotables.
 - Sin emojis en los valores JSON.
 - ${battleDict[lang].api.answerIn}`;
@@ -48,13 +63,15 @@ interface RivalDraft {
 type Persona = Omit<RivalDraft, "slugs">;
 
 const personaPrompt = (lang: Lang) =>
-  `Eres el generador de rivales del "Modo Combate" de una Pokédex digital. El usuario ya ha elegido el equipo del rival; tú solo inventas al Entrenador que lo lidera, coherente con esas especies.
+  `Eres el generador de combates del "Modo Combate" de una Pokédex digital. El usuario ya ha elegido el equipo del rival; tú sólo escribes lo que dice el Entrenador que lo lidera al empezar, comentando ESE equipo.
+
+${CHARACTER}
 
 Responde SOLO con un objeto JSON válido, sin markdown:
 {
-  "nombre": "nombre y apodo del entrenador (ej.: 'Vega, Domadora de Dragones')",
-  "lema": "grito de guerra de 1 frase, con chispa, estilo anime",
-  "estilo": "descripción visual breve del entrenador en 5-10 palabras (para dibujarlo)"
+  "nombre": "Colress",
+  "lema": "1 frase suya antes del combate, en su voz, sobre el equipo que trae",
+  "estilo": "científico de bata blanca con gafas y pelo azul y amarillo"
 }
 
 Sin emojis en los valores JSON.

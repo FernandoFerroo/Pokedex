@@ -204,7 +204,7 @@ function RivalPicker({
               {t.noResultsFor(query.trim())}
             </p>
           )}
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-3 gap-2 max-sm:gap-1">
             {results.map((entry) => (
               <li key={entry.id}>
                 <EntryButton
@@ -225,7 +225,7 @@ function RivalPicker({
 /** Índice de la ranura, como en la caja del PC: «01», «02»… */
 function SlotIndex({ index }: { index: number }) {
   return (
-    <span className="pointer-events-none absolute top-2.5 left-3 font-pixel text-[9px] text-slate-500/80">
+    <span className="pointer-events-none absolute top-2.5 left-3 font-pixel text-[9px] text-slate-500/80 max-sm:top-1 max-sm:left-1 max-sm:text-[6px]">
       {String(index + 1).padStart(2, "0")}
     </span>
   );
@@ -248,7 +248,7 @@ function EmptySlot({
       title={t.slotChooseTitle}
       style={{ "--edge": RIVAL_EDGE, "--aura": "#64748b" } as CSSProperties}
       className={cn(
-        "lobby-bracket group relative flex aspect-[5/6] flex-col items-center justify-end overflow-hidden rounded-2xl",
+        "lobby-bracket group relative flex aspect-[5/6] flex-col items-center justify-end overflow-hidden rounded-2xl max-sm:aspect-[2/5] max-sm:rounded-lg",
         "border border-red-400/25 bg-hud-1/40 backdrop-blur-md transition duration-300",
         "hover:-translate-y-0.5 hover:border-red-400/70 hover:bg-red-500/[0.07] hover:shadow-[0_0_30px_-6px_rgba(248,113,113,0.7)]",
         "focus-visible:border-red-400/80 focus-visible:outline-none",
@@ -271,8 +271,8 @@ function EmptySlot({
       </span>
 
       {/* Etiqueta en reposo; al pasar el puntero cede el sitio a la llamada. */}
-      <span className="relative z-10 w-full px-2 pb-3 text-center">
-        <span className="block font-mono text-xs tracking-[0.18em] text-slate-500 uppercase transition-opacity duration-200 group-hover:opacity-0">
+      <span className="relative z-10 w-full px-2 pb-3 text-center max-sm:px-0.5 max-sm:pb-1">
+        <span className="block font-mono text-xs tracking-[0.18em] text-slate-500 uppercase transition-opacity duration-200 group-hover:opacity-0 max-sm:text-[7px] max-sm:tracking-normal">
           {t.slotEmpty}
         </span>
         <span className="absolute inset-x-0 bottom-3 block font-mono text-xs font-semibold tracking-[0.14em] text-red-300 uppercase opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -306,7 +306,7 @@ function FilledSlot({
     <div
       style={{ "--aura": aura, "--edge": aura } as CSSProperties}
       className={cn(
-        "lobby-bracket group relative flex aspect-[5/6] flex-col items-center gap-1 overflow-hidden rounded-2xl p-2.5",
+        "lobby-bracket group relative flex aspect-[5/6] flex-col items-center gap-1 overflow-hidden rounded-2xl p-2.5 max-sm:aspect-[2/5] max-sm:gap-0.5 max-sm:rounded-lg max-sm:p-1",
         "border border-[color-mix(in_srgb,var(--aura)_45%,transparent)] bg-hud-1/50 backdrop-blur-md",
         "shadow-[0_0_26px_-10px_var(--aura)] transition duration-300 hover:-translate-y-0.5",
         "hover:shadow-[0_0_34px_-6px_var(--aura)]",
@@ -315,27 +315,27 @@ function FilledSlot({
       <SlotIndex index={index} />
 
       {/* Cambiar / quitar: siempre visibles en táctil, al pasar en escritorio. */}
-      <span className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
+      <span className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 max-sm:top-0.5 max-sm:right-0.5 max-sm:gap-0.5 transition group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100">
         <button
           type="button"
           onClick={() => onOpenPicker(index)}
           aria-label={t.changeAria(label)}
           title={t.changeAria(label)}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-600/70 bg-hud-0/80 text-slate-300 transition hover:border-cyan-400/70 hover:text-cyan-300"
+          className="flex h-7 w-7 max-sm:h-4 max-sm:w-4 items-center justify-center rounded-full border border-slate-600/70 bg-hud-0/80 text-slate-300 transition hover:border-cyan-400/70 hover:text-cyan-300"
         >
-          <Repeat size={13} />
+          <Repeat size={13} className="max-sm:h-2.5 max-sm:w-2.5" />
         </button>
         <button
           type="button"
           onClick={() => onRemove(member.id)}
           aria-label={t.removeAria(label)}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-red-500/60 bg-hud-0/80 text-red-400 transition hover:bg-red-500/20"
+          className="flex h-7 w-7 max-sm:h-4 max-sm:w-4 items-center justify-center rounded-full border border-red-500/60 bg-hud-0/80 text-red-400 transition hover:bg-red-500/20"
         >
-          <X size={13} />
+          <X size={13} className="max-sm:h-2.5 max-sm:w-2.5" />
         </button>
       </span>
 
-      <p className="font-pixel text-[9px] text-slate-500">
+      <p className="font-pixel text-[9px] text-slate-500 max-sm:text-[6px]">
         {formatDexNumber(member.id)}
       </p>
 
@@ -350,15 +350,15 @@ function FilledSlot({
         />
       </span>
 
-      <p className="w-full truncate text-center font-display text-sm font-bold tracking-wide text-slate-100">
+      <p className="w-full truncate text-center font-display text-sm font-bold tracking-wide text-slate-100 max-sm:text-[8px] max-sm:tracking-normal">
         {label}
       </p>
-      <div className="flex flex-wrap justify-center gap-1">
+      <div className="flex w-full flex-wrap justify-center gap-1 max-sm:gap-0.5">
         {member.types.map((type) => (
-          <TypeBadge key={type} type={type} />
+          <TypeBadge key={type} type={type} compactOnMobile />
         ))}
       </div>
-      <label className="flex items-center gap-1.5 rounded-md border border-slate-700/70 bg-black/40 px-2 py-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase">
+      <label className="flex items-center gap-1.5 rounded-md border border-slate-700/70 bg-black/40 px-2 py-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase max-sm:gap-0.5 max-sm:px-0.5 max-sm:py-0 max-sm:text-[7px] max-sm:tracking-normal">
         {dict.battle.lvShort}
         <input
           type="number"
@@ -370,7 +370,7 @@ function FilledSlot({
             if (!Number.isNaN(value)) onSetLevel(member.id, value);
           }}
           aria-label={t.levelAria(label)}
-          className="h-5 w-10 rounded bg-transparent text-center font-mono text-xs font-semibold text-[var(--aura)] outline-none"
+          className="h-5 w-10 rounded bg-transparent text-center font-mono text-xs font-semibold text-[var(--aura)] outline-none max-sm:w-7 max-sm:[appearance:textfield] max-sm:[&::-webkit-inner-spin-button]:appearance-none"
         />
       </label>
     </div>
@@ -568,7 +568,9 @@ export function RivalBuilder({ onFight, onRandom }: RivalBuilderProps) {
         </header>
 
         {/* Las seis ranuras. */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-6">
+        {/* Las seis en una fila también en el móvil: es la caja del rival tal
+            y como se ve en escritorio. */}
+        <div className="grid grid-cols-6 gap-2.5 max-sm:gap-1 sm:gap-3.5">
           {Array.from({ length: TEAM_SIZE }, (_, i) =>
             members[i] ? (
               <FilledSlot
@@ -729,7 +731,7 @@ export function RivalBuilder({ onFight, onRandom }: RivalBuilderProps) {
           )}
 
           {results.length > 0 && (
-            <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <ul className="mt-3 grid grid-cols-4 gap-2 max-sm:gap-1">
               {results.map((entry) => (
                 <li key={entry.id}>
                   <EntryButton

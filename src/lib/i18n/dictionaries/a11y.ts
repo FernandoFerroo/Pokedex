@@ -24,6 +24,8 @@ const es = {
   rivalPortraitOf: (name: string) => `Retrato del entrenador rival ${name}`,
   rivalTrainerOnField: (name: string) =>
     `${name}, el entrenador rival, de pie junto a su Pokémon`,
+  playerTrainerOnField: (name: string) =>
+    `${name}, tú, de espaldas junto a tu Pokémon`,
 
   // Battle: regions and live areas
   battleTitle: "Simulador de combate Pokémon",
@@ -87,6 +89,8 @@ const en: typeof es = {
   rivalPortraitOf: (name: string) => `Portrait of the rival trainer ${name}`,
   rivalTrainerOnField: (name: string) =>
     `${name}, the rival trainer, standing beside their Pokémon`,
+  playerTrainerOnField: (name: string) =>
+    `${name}, you, seen from behind beside your Pokémon`,
 
   battleTitle: "Pokémon battle simulator",
   battleLogAria: "Battle log",
@@ -137,6 +141,8 @@ const fr: typeof es = {
   rivalPortraitOf: (name: string) => `Portrait du dresseur rival ${name}`,
   rivalTrainerOnField: (name: string) =>
     `${name}, le dresseur rival, debout à côté de son Pokémon`,
+  playerTrainerOnField: (name: string) =>
+    `${name}, toi, de dos à côté de ton Pokémon`,
 
   battleTitle: "Simulateur de combat Pokémon",
   battleLogAria: "Journal du combat",
@@ -190,6 +196,8 @@ const de: typeof es = {
   rivalPortraitOf: (name: string) => `Porträt des rivalisierenden Trainers ${name}`,
   rivalTrainerOnField: (name: string) =>
     `${name}, der gegnerische Trainer, steht neben seinem Pokémon`,
+  playerTrainerOnField: (name: string) =>
+    `${name}, du, von hinten neben deinem Pokémon`,
 
   battleTitle: "Pokémon-Kampfsimulator",
   battleLogAria: "Kampfprotokoll",
@@ -243,6 +251,8 @@ const it: typeof es = {
   rivalPortraitOf: (name: string) => `Ritratto dell'allenatore rivale ${name}`,
   rivalTrainerOnField: (name: string) =>
     `${name}, l'allenatore rivale, in piedi accanto al suo Pokémon`,
+  playerTrainerOnField: (name: string) =>
+    `${name}, tu, di spalle accanto al tuo Pokémon`,
 
   battleTitle: "Simulatore di lotta Pokémon",
   battleLogAria: "Registro della lotta",
@@ -295,6 +305,8 @@ const ja: typeof es = {
   rivalPortraitOf: (name: string) => `ライバルトレーナー${name}の肖像`,
   rivalTrainerOnField: (name: string) =>
     `ポケモンの隣に立つライバルトレーナー${name}`,
+  playerTrainerOnField: (name: string) =>
+    `ポケモンの隣に後ろ姿で立つあなた、${name}`,
 
   battleTitle: "ポケモンバトルシミュレーター",
   battleLogAria: "バトルログ",
@@ -344,6 +356,8 @@ const ko: typeof es = {
   rivalPortraitOf: (name: string) => `라이벌 트레이너 ${name}의 초상`,
   rivalTrainerOnField: (name: string) =>
     `포켓몬 옆에 서 있는 라이벌 트레이너 ${name}`,
+  playerTrainerOnField: (name: string) =>
+    `포켓몬 옆에 뒷모습으로 서 있는 당신, ${name}`,
 
   battleTitle: "포켓몬 배틀 시뮬레이터",
   battleLogAria: "배틀 기록",
@@ -392,6 +406,8 @@ const zhHans: typeof es = {
   rivalPortraitOf: (name: string) => `对手训练家${name}的肖像`,
   rivalTrainerOnField: (name: string) =>
     `站在宝可梦旁边的对手训练家${name}`,
+  playerTrainerOnField: (name: string) =>
+    `背对镜头站在宝可梦旁边的你，${name}`,
 
   battleTitle: "宝可梦对战模拟器",
   battleLogAria: "对战记录",
@@ -440,6 +456,8 @@ const zhHant: typeof es = {
   rivalPortraitOf: (name: string) => `對手訓練家${name}的肖像`,
   rivalTrainerOnField: (name: string) =>
     `站在寶可夢旁邊的對手訓練家${name}`,
+  playerTrainerOnField: (name: string) =>
+    `背對鏡頭站在寶可夢旁邊的你，${name}`,
 
   battleTitle: "寶可夢對戰模擬器",
   battleLogAria: "對戰記錄",

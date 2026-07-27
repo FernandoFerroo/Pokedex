@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Check, Crown, Lock, Swords } from "lucide-react";
 import { useT } from "@/lib/i18n/client";
 import { artworkUrl } from "@/lib/pokemon-meta";
-import { RIVAL_ROSTER_SIZE, roundKey } from "@/lib/tournament/config";
+import { roundKey } from "@/lib/tournament/config";
 import { cn } from "@/lib/utils";
 import type { TournamentTrainer } from "@/types/tournament";
 
@@ -52,8 +52,22 @@ function GoldBall({ index }: { index: number }) {
   );
 }
 
-/** Los seis cartuchos dorados: el contrato 6v6 de cada ronda. */
-export function BallRow({ className }: { className?: string }) {
+/**
+ * Los cartuchos dorados: el contrato de cada ronda, seis en Clásico y tres en
+ * Relámpago.
+ *
+ * El tamaño se lo da quien la pinta a partir del plantel YA SORTEADO, no del
+ * ritmo elegido: así la fila no puede acabar contando una cosa mientras la
+ * ficha de debajo enseña otra, y esto no necesita saber que los ritmos
+ * existen.
+ */
+export function BallRow({
+  size,
+  className,
+}: {
+  size: number;
+  className?: string;
+}) {
   const t = useT().tournament;
   return (
     <p
@@ -62,10 +76,10 @@ export function BallRow({ className }: { className?: string }) {
         className,
       )}
     >
-      {Array.from({ length: RIVAL_ROSTER_SIZE }, (_, i) => (
+      {Array.from({ length: size }, (_, i) => (
         <GoldBall key={i} index={i} />
       ))}
-      <span className="ml-1">{t.sixVsSix}</span>
+      <span className="ml-1">{t.versusLabel(size)}</span>
     </p>
   );
 }
@@ -251,10 +265,16 @@ export function TrainerCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <span className="flex h-24 w-24 shrink-0 items-center justify-center self-center overflow-hidden rounded-2xl border-2 border-amber-300/60 bg-hud-1 text-4xl shadow-[0_0_28px_-6px_rgba(251,191,36,0.9)] sm:h-28 sm:w-28">
           {avatar ? (
-            // Generated portrait of this round's trainer; the emoji badge is
-            // what shows while the image is still being drawn.
+            // Sprite oficial del Entrenador de esta ronda, entero y sin
+            // suavizar: es pixel art de 80×80 y el cuadro es cuadrado, así
+            // que cabe tal cual. La chapa de emoji es el respaldo.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatar} alt="" className="h-full w-full object-cover" />
+            <img
+              src={avatar}
+              alt=""
+              className="h-full w-full object-contain"
+              style={{ imageRendering: "pixelated" }}
+            />
           ) : (
             <span aria-hidden>{trainer.emoji}</span>
           )}
@@ -270,7 +290,10 @@ export function TrainerCard({
           <p className="mt-0.5 text-sm text-amber-100/70 italic">
             {t.tierHint[trainer.tier]}
           </p>
-          <BallRow className="mt-2.5 justify-center sm:justify-start" />
+          <BallRow
+            size={trainer.species.length}
+            className="mt-2.5 justify-center sm:justify-start"
+          />
         </div>
       </div>
 

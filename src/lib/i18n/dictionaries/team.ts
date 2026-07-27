@@ -1,3 +1,4 @@
+import type { MovePreset } from "@/lib/battle/move-presets";
 import type { Lang } from "../config";
 
 /** Team builder: gold CTA banner, header chip, drawer, species picker,
@@ -165,6 +166,31 @@ const es = {
   reset: "Restablecer",
   saveBuild: "Guardar build",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "Entrenador IA",
+  coachMoveHint: (level: number) =>
+    `Pide el set que quieras y te llena las 4 ranuras. Solo elige entre lo que esta especie ya puede usar a Nv. ${level}: por nivel o por MT/MO.`,
+  coachMovePresets: "Sugerencias",
+  coachMovePreset: {
+    competitive: "Set competitivo",
+    physical: "Máximo ataque físico",
+    special: "Máximo ataque especial",
+    coverage: "Cobertura de tipos",
+    status: "Estados y control",
+    bulky: "Aguante y desgaste",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "Ej.: ofensivo, pero con algo para los tipo agua…",
+  coachMoveAria: "Describe los movimientos que quieres",
+  coachMoveRun: "Pedir a la IA",
+  coachMoveRunning: "Eligiendo movimientos…",
+  coachMoveToppedUp:
+    "La IA no llenó las 4 ranuras: los huecos se han completado con sus mejores ataques.",
+  coachMoveErrEmpty: "Escribe qué movimientos buscas o pulsa una sugerencia.",
+  coachMoveErrNoMoves:
+    "Esta especie no tiene movimientos elegibles a este nivel.",
+  coachMoveErrFailed:
+    "La IA no ha podido elegir los movimientos. Inténtalo otra vez.",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "Especie inválida.",
   apiOptionsError: "No se pudieron cargar las opciones de esa especie.",
@@ -330,6 +356,29 @@ const en: typeof es = {
     "Only the newest game's moves this species learns by level-up or TM/HM are listed; nothing else is selectable. Variable-power attacks are computed in battle, and status moves apply their stat changes, conditions and healing (in simplified form).",
   reset: "Reset",
   saveBuild: "Save build",
+
+  // Build editor: AI move coach
+  coachMoveTitle: "AI coach",
+  coachMoveHint: (level: number) =>
+    `Ask for the set you want and it fills all 4 slots. It only picks from what this species can already use at Lv. ${level}: level-up moves or TMs/HMs.`,
+  coachMovePresets: "Suggestions",
+  coachMovePreset: {
+    competitive: "Competitive set",
+    physical: "Max physical attack",
+    special: "Max special attack",
+    coverage: "Type coverage",
+    status: "Status and control",
+    bulky: "Bulky and stall",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "e.g. offensive, but with an answer to Water types…",
+  coachMoveAria: "Describe the moves you want",
+  coachMoveRun: "Ask the AI",
+  coachMoveRunning: "Picking moves…",
+  coachMoveToppedUp:
+    "The AI didn't fill all 4 slots: the gaps were topped up with its strongest attacks.",
+  coachMoveErrEmpty: "Type what you're after, or tap a suggestion.",
+  coachMoveErrNoMoves: "This species has no eligible moves at this level.",
+  coachMoveErrFailed: "The AI couldn't pick the moves. Try again.",
 
   // /api/battle/build-options errors
   apiInvalidSpecies: "Invalid species.",
@@ -501,6 +550,30 @@ const fr: typeof es = {
   reset: "Réinitialiser",
   saveBuild: "Enregistrer le build",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "Coach IA",
+  coachMoveHint: (level: number) =>
+    `Demandez le set que vous voulez : les 4 emplacements se remplissent avec ce que cette espèce peut déjà utiliser au N. ${level}, par niveau ou par CT/CS.`,
+  coachMovePresets: "Suggestions",
+  coachMovePreset: {
+    competitive: "Set compétitif",
+    physical: "Attaque physique max",
+    special: "Attaque spéciale max",
+    coverage: "Couverture de types",
+    status: "Statut et contrôle",
+    bulky: "Endurance et usure",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "Ex. : offensif, mais avec une réponse aux types Eau…",
+  coachMoveAria: "Décrivez les capacités que vous voulez",
+  coachMoveRun: "Demander à l'IA",
+  coachMoveRunning: "Sélection en cours…",
+  coachMoveToppedUp:
+    "L'IA n'a pas rempli les 4 emplacements : les trous ont été complétés avec ses attaques les plus fortes.",
+  coachMoveErrEmpty: "Écrivez ce que vous cherchez ou touchez une suggestion.",
+  coachMoveErrNoMoves: "Cette espèce n'a aucune capacité éligible à ce niveau.",
+  coachMoveErrFailed:
+    "L'IA n'a pas pu choisir les capacités. Réessayez.",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "Espèce invalide.",
   apiOptionsError: "Impossible de charger les options de cette espèce.",
@@ -670,6 +743,31 @@ const de: typeof es = {
     "Gelistet sind nur die Attacken des neuesten Spiels, die diese Spezies per Level oder TM/VM erlernt; mehr ist nicht wählbar. Attacken mit variabler Stärke werden im Kampf berechnet, und Status-Attacken wenden ihre Statuswert-Änderungen, Statusprobleme und Heilung an (vereinfacht).",
   reset: "Zurücksetzen",
   saveBuild: "Build speichern",
+
+  // Build editor: AI move coach
+  coachMoveTitle: "KI-Trainer",
+  coachMoveHint: (level: number) =>
+    `Sag, welches Set du willst — alle 4 Plätze werden gefüllt. Gewählt wird nur, was diese Art auf Lv. ${level} schon einsetzen kann: durch Level oder per TM/VM.`,
+  coachMovePresets: "Vorschläge",
+  coachMovePreset: {
+    competitive: "Kompetitives Set",
+    physical: "Maximaler physischer Angriff",
+    special: "Maximaler Spezial-Angriff",
+    coverage: "Typabdeckung",
+    status: "Status und Kontrolle",
+    bulky: "Robust und zermürbend",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "z. B. offensiv, aber mit einer Antwort auf Wasser…",
+  coachMoveAria: "Beschreibe die gewünschten Attacken",
+  coachMoveRun: "KI fragen",
+  coachMoveRunning: "Attacken werden gewählt…",
+  coachMoveToppedUp:
+    "Die KI hat nicht alle 4 Plätze gefüllt: die Lücken wurden mit den stärksten Attacken aufgefüllt.",
+  coachMoveErrEmpty: "Schreib, was du suchst, oder tippe einen Vorschlag an.",
+  coachMoveErrNoMoves:
+    "Diese Art hat auf diesem Level keine wählbaren Attacken.",
+  coachMoveErrFailed:
+    "Die KI konnte die Attacken nicht wählen. Versuch es erneut.",
 
   // /api/battle/build-options errors
   apiInvalidSpecies: "Ungültige Art.",
@@ -842,6 +940,30 @@ const it: typeof es = {
   reset: "Ripristina",
   saveBuild: "Salva build",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "Allenatore IA",
+  coachMoveHint: (level: number) =>
+    `Chiedi il set che vuoi: riempie tutti e 4 gli spazi scegliendo solo tra ciò che questa specie può già usare al Lv. ${level}, per livello o con MT/MN.`,
+  coachMovePresets: "Suggerimenti",
+  coachMovePreset: {
+    competitive: "Set competitivo",
+    physical: "Massimo attacco fisico",
+    special: "Massimo attacco speciale",
+    coverage: "Copertura di tipi",
+    status: "Stati e controllo",
+    bulky: "Resistenza e logoramento",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "Es.: offensivo, ma con una risposta ai tipi Acqua…",
+  coachMoveAria: "Descrivi le mosse che vuoi",
+  coachMoveRun: "Chiedi all'IA",
+  coachMoveRunning: "Sto scegliendo le mosse…",
+  coachMoveToppedUp:
+    "L'IA non ha riempito tutti e 4 gli spazi: i vuoti sono stati completati con i suoi attacchi migliori.",
+  coachMoveErrEmpty: "Scrivi cosa cerchi o tocca un suggerimento.",
+  coachMoveErrNoMoves:
+    "Questa specie non ha mosse selezionabili a questo livello.",
+  coachMoveErrFailed: "L'IA non è riuscita a scegliere le mosse. Riprova.",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "Specie non valida.",
   apiOptionsError: "Impossibile caricare le opzioni di quella specie.",
@@ -1013,6 +1135,30 @@ const ja: typeof es = {
   reset: "リセット",
   saveBuild: "ビルドを保存",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "AIトレーナー",
+  coachMoveHint: (level: number) =>
+    `ほしい構成を伝えると、4つのわざをすべて埋めます。選ぶのはこのポケモンがLv.${level}ですでに使えるわざだけ（レベルアップまたはわざマシン）。`,
+  coachMovePresets: "おすすめ",
+  coachMovePreset: {
+    competitive: "対戦向け構成",
+    physical: "物理アタッカー",
+    special: "特殊アタッカー",
+    coverage: "タイプ相性重視",
+    status: "変化技で搦め手",
+    bulky: "耐久・削り",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "例：攻撃的だけど みずタイプ対策も…",
+  coachMoveAria: "ほしいわざを説明してください",
+  coachMoveRun: "AIに任せる",
+  coachMoveRunning: "わざを選んでいます…",
+  coachMoveToppedUp:
+    "AIが4つ埋められなかったため、残りは最も強いわざで補いました。",
+  coachMoveErrEmpty: "ほしいわざを入力するか、おすすめを選んでください。",
+  coachMoveErrNoMoves: "このポケモンはこのレベルで選べるわざがありません。",
+  coachMoveErrFailed:
+    "AIがわざを選べませんでした。もう一度お試しください。",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "無効な種族です。",
   apiOptionsError: "その種族のオプションを読み込めませんでした。",
@@ -1183,6 +1329,29 @@ const ko: typeof es = {
   reset: "초기화",
   saveBuild: "빌드 저장",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "AI 트레이너",
+  coachMoveHint: (level: number) =>
+    `원하는 구성을 말하면 기술 4칸을 모두 채웁니다. Lv.${level}에서 이미 쓸 수 있는 기술(레벨업 또는 기술머신)만 고릅니다.`,
+  coachMovePresets: "추천",
+  coachMovePreset: {
+    competitive: "대전용 구성",
+    physical: "물리 공격 최대",
+    special: "특수 공격 최대",
+    coverage: "타입 상성 보완",
+    status: "상태이상과 견제",
+    bulky: "내구와 소모전",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "예: 공격적이지만 물타입 대책도…",
+  coachMoveAria: "원하는 기술을 설명하세요",
+  coachMoveRun: "AI에게 맡기기",
+  coachMoveRunning: "기술을 고르는 중…",
+  coachMoveToppedUp:
+    "AI가 4칸을 다 채우지 못해 빈칸은 가장 강한 기술로 채웠습니다.",
+  coachMoveErrEmpty: "원하는 기술을 입력하거나 추천을 눌러 주세요.",
+  coachMoveErrNoMoves: "이 포켓몬은 이 레벨에서 선택할 수 있는 기술이 없습니다.",
+  coachMoveErrFailed: "AI가 기술을 고르지 못했습니다. 다시 시도해 주세요.",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "잘못된 종족입니다.",
   apiOptionsError: "해당 종족의 옵션을 불러오지 못했습니다.",
@@ -1348,6 +1517,28 @@ const zhHans: typeof es = {
   reset: "重置",
   saveBuild: "保存配置",
 
+  // Build editor: AI move coach
+  coachMoveTitle: "AI 训练家",
+  coachMoveHint: (level: number) =>
+    `说出你想要的配招，4 个技能格会一次填满。只会从该宝可梦在 Lv.${level} 已能使用的技能中挑选：升级技能或招式学习器。`,
+  coachMovePresets: "推荐",
+  coachMovePreset: {
+    competitive: "对战配招",
+    physical: "物理输出最大化",
+    special: "特殊输出最大化",
+    coverage: "属性覆盖",
+    status: "异常状态与牵制",
+    bulky: "耐久消耗",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "例如：主打输出，但要能应付水系…",
+  coachMoveAria: "描述你想要的技能",
+  coachMoveRun: "让 AI 挑选",
+  coachMoveRunning: "正在挑选技能…",
+  coachMoveToppedUp: "AI 没有填满 4 个技能格，空缺已用它最强的招式补齐。",
+  coachMoveErrEmpty: "请输入你想要的技能，或点选一个推荐。",
+  coachMoveErrNoMoves: "该宝可梦在此等级没有可选的技能。",
+  coachMoveErrFailed: "AI 无法挑选技能，请再试一次。",
+
   // /api/battle/build-options errors
   apiInvalidSpecies: "无效的种族。",
   apiOptionsError: "无法加载该种族的选项。",
@@ -1512,6 +1703,28 @@ const zhHant: typeof es = {
     "僅列出最新作品中透過升級或招式學習器習得的招式（其他一律無法選擇）。威力可變的攻擊會在對戰中即時計算，變化招式會（以簡化形式）套用其能力變化、異常狀態和回復效果。",
   reset: "重設",
   saveBuild: "儲存配置",
+
+  // Build editor: AI move coach
+  coachMoveTitle: "AI 訓練家",
+  coachMoveHint: (level: number) =>
+    `說出你想要的配招，4 個技能格會一次填滿。只會從該寶可夢在 Lv.${level} 已能使用的技能中挑選：升級技能或招式學習器。`,
+  coachMovePresets: "推薦",
+  coachMovePreset: {
+    competitive: "對戰配招",
+    physical: "物理輸出最大化",
+    special: "特殊輸出最大化",
+    coverage: "屬性覆蓋",
+    status: "異常狀態與牽制",
+    bulky: "耐久消耗",
+  } as Record<MovePreset, string>,
+  coachMovePlaceholder: "例如：主打輸出，但要能應付水系…",
+  coachMoveAria: "描述你想要的技能",
+  coachMoveRun: "讓 AI 挑選",
+  coachMoveRunning: "正在挑選技能…",
+  coachMoveToppedUp: "AI 沒有填滿 4 個技能格，空缺已用它最強的招式補齊。",
+  coachMoveErrEmpty: "請輸入你想要的技能，或點選一個推薦。",
+  coachMoveErrNoMoves: "該寶可夢在此等級沒有可選的技能。",
+  coachMoveErrFailed: "AI 無法挑選技能，請再試一次。",
 
   // /api/battle/build-options errors
   apiInvalidSpecies: "無效的種族。",

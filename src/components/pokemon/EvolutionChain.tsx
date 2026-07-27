@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Fragment } from "react";
@@ -54,21 +54,20 @@ export function EvolutionChain({
       {stages.length <= 1 ? (
         <p className="font-mono text-sm text-slate-300">{d.noEvolution}</p>
       ) : (
-        <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+        // La cadena avanza en horizontal también en el móvil, como en
+        // escritorio: es lo que hace legible la evolución de un vistazo.
+        <div className="flex flex-row items-center gap-3 max-sm:gap-1">
           {stages.map((stage, i) => (
             <Fragment key={i}>
               {i > 0 && (
-                <>
-                  <ArrowDown className="text-red-500/60 sm:hidden" />
-                  <ArrowRight className="hidden shrink-0 text-red-500/60 sm:block" />
-                </>
+                <ArrowRight className="shrink-0 text-red-500/60 max-sm:h-4 max-sm:w-4" />
               )}
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2 max-sm:gap-1">
                 {stage.map((species) => {
                   const isCurrent = species.name === currentName;
                   const card = (
                     <>
-                      <div className="relative h-20 w-20">
+                      <div className="relative h-20 w-20 max-sm:h-11 max-sm:w-11">
                         <Image
                           src={artworkUrl(species.id)}
                           alt={formatName(species.name)}
@@ -77,13 +76,13 @@ export function EvolutionChain({
                           className="object-contain"
                         />
                       </div>
-                      <span className="max-w-24 truncate text-xs font-medium">
+                      <span className="max-w-24 truncate text-xs font-medium max-sm:max-w-full max-sm:text-[9px]">
                         {formatName(species.name)}
                       </span>
                     </>
                   );
                   const cardClasses = cn(
-                    "flex w-28 flex-col items-center gap-1 rounded-lg border p-3 text-center transition",
+                    "flex w-28 flex-col items-center gap-1 rounded-lg border p-3 text-center transition max-sm:w-[3.75rem] max-sm:gap-0.5 max-sm:p-1",
                     isCurrent
                       ? "border-red-500/60 bg-red-500/[0.07] shadow-[0_0_18px_-4px_rgba(239,68,68,0.5)]"
                       : "border-slate-800 bg-hud-1 hover:border-cyan-400/60 hover:shadow-[0_0_16px_-4px_rgba(34,211,238,0.5)] motion-safe:hover:-translate-y-0.5",

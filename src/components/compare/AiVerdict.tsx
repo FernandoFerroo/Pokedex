@@ -85,7 +85,7 @@ export function AiVerdict({
               <Sparkles size={13} aria-hidden />
               {t.aiKeys}
             </p>
-            <ol className="grid gap-2.5 sm:grid-cols-2">
+            <ol className="grid grid-cols-2 gap-2.5 max-sm:gap-1.5">
               {verdict.claves.map((clave, index) => (
                 <li
                   key={clave}

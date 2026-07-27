@@ -246,11 +246,14 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
       </div>
 
       {/* Consola de cristal neón integrada al pie del escaparate. */}
-      <div className="relative z-10 flex items-center justify-center gap-2">
+      {/* En el móvil el escaparate vive en una columna estrecha (misma
+          composición que en escritorio), así que la consola encoge en vez de
+          plegarse: mismos cuatro controles, sólo que en miniatura. */}
+      <div className="relative z-10 flex items-center justify-center gap-2 max-sm:gap-1">
         <div
           role="group"
           aria-label={d.viewModeAria}
-          className="flex gap-1 rounded-full border border-slate-700/40 bg-black/30 p-1 backdrop-blur-md"
+          className="flex gap-1 rounded-full border border-slate-700/40 bg-black/30 p-1 backdrop-blur-md max-sm:gap-0.5 max-sm:p-0.5"
         >
           {availableModes.map((m) => (
             <button
@@ -258,7 +261,7 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
               type="button"
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
-              className="glass-btn rounded-full px-3 py-1.5 font-mono text-xs font-semibold tracking-wider uppercase"
+              className="glass-btn rounded-full px-3 py-1.5 font-mono text-xs font-semibold tracking-wider uppercase max-sm:px-1.5 max-sm:py-1 max-sm:text-[9px] max-sm:tracking-normal"
             >
               {modeLabels[m]}
             </button>
@@ -275,9 +278,9 @@ export function SpriteViewer({ name, dexId, sprites }: SpriteViewerProps) {
           aria-label={hasShiny ? d.shinyToggleTitle : d.noShinyTitle}
           title={hasShiny ? d.shinyToggleTitle : d.noShinyTitle}
           style={showShiny ? ({ "--aura": "#fbbf24" } as React.CSSProperties) : undefined}
-          className="glass-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-mono text-xs font-semibold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-40"
+          className="glass-btn inline-flex items-center gap-1.5 rounded-full px-3 py-2 font-mono text-xs font-semibold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-40 max-sm:gap-0.5 max-sm:px-1.5 max-sm:py-1 max-sm:text-[9px] max-sm:tracking-normal"
         >
-          <Sparkles size={13} />
+          <Sparkles size={13} className="max-sm:h-2.5 max-sm:w-2.5" />
           {d.shiny}
         </button>
       </div>

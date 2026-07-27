@@ -101,6 +101,10 @@ export interface Battler {
   types: string[];
   /** Body weight in kg — feeds Grass Knot / Heavy Slam-style formulas. */
   weight: number;
+  /** Body height in metres. No mechanic reads it: es lo que la arena usa para
+      dibujar a cada especie a su tamaño, y el mismo dato en los dos lados es
+      lo que hace que un Charizard mida lo mismo lo lance quien lo lance. */
+  height: number;
   stats: CombatStats;
   maxHp: number;
   /** Current HP — the only field that mutates during combat. */

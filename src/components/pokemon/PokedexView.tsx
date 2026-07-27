@@ -235,11 +235,13 @@ export function PokedexView({ index }: PokedexViewProps) {
         <>
           <ul
             key={listKey}
-            // Phones get three real entries per row instead of six thumbnails:
-            // at 375px that is a ~112px card, enough for the artwork plus the
-            // number, name and type chips the desktop card shows. Desktop
-            // (lg/xl) is untouched.
-            className="grid grid-cols-3 gap-2 motion-safe:animate-[fade-in_250ms_ease-out] min-[520px]:grid-cols-4 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+            // Seis por fila en TODAS las pantallas, que es la rejilla del
+            // escritorio: en un móvil de 375px salen fichas de ~54px, y tres
+            // filas completas caben bajo los filtros nada más entrar — que es
+            // justo lo que se ve en un PC. La ficha se encoge para eso (ver
+            // PokemonCard): a ese ancho suelta el chip de generación, los
+            // botones de acceso rápido y el segundo tipo.
+            className="grid grid-cols-6 gap-1 motion-safe:animate-[fade-in_250ms_ease-out] sm:gap-3"
           >
             {results.map((entry, i) => (
               <li

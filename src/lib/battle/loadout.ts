@@ -429,6 +429,8 @@ export async function buildBattler(
     types,
     // PokéAPI weight is hectograms; the engine's weight formulas use kg.
     weight: pokemon.weight / 10,
+    // Y la altura viene en decímetros; la arena la quiere en metros.
+    height: pokemon.height / 10,
     stats,
     maxHp: stats.hp,
     hp: stats.hp,

@@ -107,13 +107,13 @@ export function LevelStats({ stats }: LevelStatsProps) {
       {/* No aria-live here on purpose: dragging the slider would re-announce
           all six rows on every step. The range input reports the level, and
           the table is read on demand. */}
-      <div className="mt-3 grid grid-cols-[minmax(4rem,6.5rem)_minmax(2.5rem,1fr)_3rem_3rem] gap-x-3 gap-y-1.5 font-mono text-xs">
+      <div className="mt-3 grid grid-cols-[minmax(4rem,6.5rem)_minmax(2.5rem,1fr)_3rem_3rem] gap-x-3 gap-y-1.5 font-mono text-xs max-sm:grid-cols-[3.6rem_minmax(1.5rem,1fr)_2rem_2rem] max-sm:gap-x-1.5 max-sm:text-[9px]">
         <span aria-hidden />
         <span aria-hidden />
-        <span className="text-right tracking-widest text-slate-500 uppercase">
+        <span className="text-right tracking-widest text-slate-500 uppercase max-sm:tracking-normal">
           {d.statMin}
         </span>
-        <span className="text-right tracking-widest text-slate-500 uppercase">
+        <span className="text-right tracking-widest text-slate-500 uppercase max-sm:tracking-normal">
           {d.statMax}
         </span>
         {rows.map((row) => (
@@ -121,7 +121,7 @@ export function LevelStats({ stats }: LevelStatsProps) {
             key={row.name}
             className="col-span-4 grid grid-cols-subgrid items-center"
           >
-            <span className="tracking-wider text-slate-400 uppercase">
+            <span className="tracking-wider text-slate-400 uppercase max-sm:tracking-normal">
               {row.label}
             </span>
             <span
@@ -149,7 +149,7 @@ export function LevelStats({ stats }: LevelStatsProps) {
           </div>
         ))}
         <div className="col-span-4 grid grid-cols-subgrid border-t border-slate-800 pt-1.5">
-          <span className="tracking-wider text-slate-400 uppercase">
+          <span className="tracking-wider text-slate-400 uppercase max-sm:tracking-normal">
             {d.total}
           </span>
           <span aria-hidden />

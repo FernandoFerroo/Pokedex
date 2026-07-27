@@ -253,21 +253,23 @@ export function TrainerChat() {
         aria-label={t.launcherAria}
         aria-expanded={open}
         className={cn(
-          // On phones this sits over the dex grid, so it shrinks to just the
-          // avatar and tucks into the corner above the home indicator.
-          "group fixed right-3 bottom-[var(--float-bottom)] z-30 flex flex-col items-center gap-2.5 sm:right-5 sm:bottom-16",
+          // Sólo el retrato ocupa sitio: es un lanzador flotante sobre la
+          // rejilla del listado, y todo lo que no sea el propio botón es
+          // contenido que está tapando.
+          "group fixed right-3 bottom-[var(--float-bottom)] z-30 opacity-85 transition-opacity hover:opacity-100 focus-visible:opacity-100 sm:right-5 sm:bottom-16",
           open && "hidden",
         )}
       >
-        {/* The caption is a 170px-wide slab of text pinned over the results:
-            worth its space on desktop, pure obstruction on a 375px screen. */}
-        <span className="rounded-lg border border-slate-700/80 bg-hud-1/95 px-3.5 py-2 text-center font-mono text-xs leading-snug tracking-wide text-slate-200 shadow-[0_0_14px_-2px_rgba(34,211,238,0.35)] backdrop-blur transition group-hover:border-cyan-400/60 group-hover:text-cyan-300 max-sm:hidden">
+        {/* El rótulo explica el lanzador la primera vez y estorba el resto:
+            vive fuera del flujo, sobre el retrato, y sólo asoma al acercarse.
+            Así no hay una losa de texto plantada sobre las fichas. */}
+        <span className="pointer-events-none absolute right-0 bottom-full mb-2 w-[10.5rem] translate-y-1 rounded-lg border border-cyan-400/50 bg-hud-1/95 px-3.5 py-2 text-center font-mono text-xs leading-snug tracking-wide text-cyan-200 opacity-0 shadow-[0_0_14px_-2px_rgba(34,211,238,0.45)] backdrop-blur transition duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 max-sm:hidden">
           {t.launcherTitle}
           <span className="block text-[10px] text-emerald-400/90 uppercase">
             {t.launcherTagline}
           </span>
         </span>
-        <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-red-500/60 bg-hud-1 shadow-[0_0_28px_4px_rgba(239,68,68,0.5)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_38px_6px_rgba(239,68,68,0.65)] sm:h-24 sm:w-24">
+        <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-red-500/60 bg-hud-1 shadow-[0_0_28px_4px_rgba(239,68,68,0.5)] transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_38px_6px_rgba(239,68,68,0.65)] sm:h-20 sm:w-20">
           <OakAvatar className="h-full w-full" />
         </span>
       </button>

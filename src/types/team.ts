@@ -59,6 +59,17 @@ export interface BuildOptionsResponse {
   moves: MoveOption[];
 }
 
+/** Response of the build editor's AI move coach (`/api/battle/move-coach`). */
+export interface MoveCoachResponse {
+  /** Up to 4 slugs, every one of them legal for this species at this level. */
+  moves: string[];
+  /** One or two sentences on why this set, in the user's language. */
+  motivo: string;
+  /** True when the model returned fewer than 4 usable picks and the server
+      topped the set up with the species' strongest remaining attacks. */
+  toppedUp: boolean;
+}
+
 /** Default combat level for members that never had theirs edited. */
 export const DEFAULT_LEVEL = 50;
 

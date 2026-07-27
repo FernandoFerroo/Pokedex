@@ -9,6 +9,7 @@ import { Header } from "@/components/layout/Header";
 import { IntroSplash } from "@/components/layout/IntroSplash";
 import { TeamDrawer } from "@/components/team/TeamDrawer";
 import { TeamProvider } from "@/components/team/TeamProvider";
+import { TcgProvider } from "@/components/tcg/TcgProvider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { getDict } from "@/lib/i18n";
 import { getLang, getTheme } from "@/lib/i18n/server";
@@ -112,17 +113,22 @@ export default async function RootLayout({
           <I18nProvider lang={lang}>
             <TeamProvider>
               <FavoritesProvider>
-                {/* Efectos de sonido (Web Audio): el combate los dispara y la
-                    barra de la arena ajusta su volumen. */}
-                <SfxProvider>
-                  <Header lang={lang} theme={theme} />
-                  {children}
-                  <Footer lang={lang} />
-                  {/* Cajón del equipo: fijo al borde inferior en todas las páginas. */}
-                  <TeamDrawer />
-                  {/* Soundtrack en bucle (embed de YouTube), sobre el cajón. */}
-                  <SoundtrackPlayer />
-                </SfxProvider>
+                {/* Colección del JCC: el torneo paga el botín, el álbum lo
+                    gasta y la portada enseña el progreso, así que vive aquí
+                    arriba y no en cada pantalla. */}
+                <TcgProvider>
+                  {/* Efectos de sonido (Web Audio): el combate los dispara y la
+                      barra de la arena ajusta su volumen. */}
+                  <SfxProvider>
+                    <Header lang={lang} theme={theme} />
+                    {children}
+                    <Footer lang={lang} />
+                    {/* Cajón del equipo: fijo al borde inferior en todas las páginas. */}
+                    <TeamDrawer />
+                    {/* Soundtrack en bucle (embed de YouTube), sobre el cajón. */}
+                    <SoundtrackPlayer />
+                  </SfxProvider>
+                </TcgProvider>
               </FavoritesProvider>
             </TeamProvider>
           </I18nProvider>

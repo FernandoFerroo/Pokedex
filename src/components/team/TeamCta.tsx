@@ -20,7 +20,7 @@ export function TeamCta() {
   const { team, clear, setDrawerOpen } = useTeam();
   const open = () => setDrawerOpen(true);
   return (
-    <div className="group team-frame team-sweep relative grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3.5 overflow-hidden rounded-xl px-3 py-2.5 transition max-sm:h-full max-sm:min-h-[44px] max-sm:grid-cols-1 max-sm:px-2 max-sm:py-1.5 lg:grid-cols-[1fr_auto_1fr] sm:gap-5 sm:px-6 sm:py-5">
+    <div className="group team-frame team-sweep relative grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3.5 overflow-hidden rounded-xl px-3 py-2.5 transition max-sm:min-h-[46px] max-sm:gap-x-2 max-sm:px-2 max-sm:py-1.5 lg:grid-cols-[1fr_auto_1fr] sm:gap-5 sm:px-6 sm:py-5">
       {/* Left: identity — opens the drawer */}
       <button
         type="button"
@@ -43,7 +43,7 @@ export function TeamCta() {
               {t.teamProBadge}
             </span>
           </span>
-          <span className="hidden font-mono text-sm tracking-widest text-emerald-200/50 uppercase md:block">
+          <span className="cta-tagline hidden font-mono text-sm tracking-widest text-emerald-200/50 uppercase md:block">
             {t.teamTagline}
           </span>
         </span>
@@ -90,7 +90,7 @@ export function TeamCta() {
       {/* Right: "Vaciar" + the "Abrir" chip. Raised above the floating chat
           launcher (z-30), which overlaps this corner on short viewports, but
           below the sticky header (z-[35]) so they slide under it on scroll. */}
-      <span className="relative z-[32] flex items-center gap-3 justify-self-end max-sm:hidden">
+      <span className="relative z-[32] flex items-center gap-3 justify-self-end max-sm:gap-1.5">
         <button
           type="button"
           onClick={clear}

@@ -43,6 +43,11 @@ html {
   color-scheme: dark;
   /* Larger reading base: every rem-derived size (and spacing) scales ~6%. */
   font-size: 106.25%;
+  /* Mobile Safari inflates text on rotation and on some narrow layouts, which
+     re-scales a HUD that is already tuned per breakpoint. The size we compute
+     is the size we want — no `-webkit-` twin here on purpose, Lightning CSS
+     adds it and a hand-written duplicate makes it drop the standard property. */
+  text-size-adjust: 100%;
 }
 
 html[data-theme="light"] {
@@ -84,6 +89,12 @@ html[data-theme="light"] {
  */
 body {
   background-color: #020204;
+  /* Nada puede desbordar a lo ancho: en el móvil una sola sombra o un rótulo
+     con letra espaciada que se salga medio píxel deja la página con scroll
+     horizontal y el zoom descuadrado. `clip` y no `hidden` porque `hidden`
+     convertiría el cuerpo en un contenedor de scroll y con él se llevaría la
+     cabecera pegajosa. */
+  overflow-x: clip;
   background-image:
     radial-gradient(
       ellipse 90% 55% at 50% -25%,
@@ -691,6 +702,69 @@ body::after {
   animation: title-sheen 6s linear infinite;
 }
 
+/*
+ * Mythic chrome for the JCC album banner: the fifth and last exclusive tier,
+ * same molten frame, sweep and gradient text as its four siblings, recast in
+ * platinum white — oro, jade, brasa y azul ya estaban cogidos, y el blanco es
+ * además el color del troquelado de una carta rara.
+ *
+ * Es el único nivel que necesita cambiar de tono al pasar a claro: el blanco
+ * sobre papel no existe. Por eso el acento viaja en `--ice` (y el color del
+ * texto sobre un relleno macizo de ese acento, en `--ice-on`), y el bloque de
+ * tema claro más abajo los da la vuelta de un tirón: el banner los usa desde
+ * el marcado igual que el vestíbulo del torneo usa `--edge`.
+ */
+.mythic-frame {
+  --ice: #ffffff;
+  --ice-on: #0f172a;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #0b0d12, #050810) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(255, 255, 255, 0.95),
+        rgba(100, 116, 139, 0.45) 30%,
+        rgba(255, 255, 255, 0.9) 50%,
+        rgba(100, 116, 139, 0.45) 72%,
+        rgba(226, 232, 240, 0.95)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(255, 255, 255, 0.4),
+    inset 0 0 42px -24px rgba(255, 255, 255, 0.3);
+}
+
+.mythic-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(255, 255, 255, 0.55),
+    inset 0 0 42px -20px rgba(255, 255, 255, 0.4);
+}
+
+.mythic-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 35%;
+  transform: translateX(-100%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.11),
+    transparent
+  );
+  animation: premium-sweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.mythic-text {
+  background: linear-gradient(100deg, #ffffff, #e2e8f0 40%, #94a3b8 60%, #ffffff);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .premium-sweep::after,
   .premium-text,
@@ -699,7 +773,9 @@ body::after {
   .elite-sweep::after,
   .elite-text,
   .legend-sweep::after,
-  .legend-text {
+  .legend-text,
+  .mythic-sweep::after,
+  .mythic-text {
     animation: none;
   }
 }
@@ -1062,13 +1138,28 @@ li:nth-child(3n) .aura-halo::before {
  * rainbow sheen and a glare sweep across it. Driven entirely by CSS vars
  * (--px/--py in 0..1, --holo 0|1) set from pointer events.
  */
-.holo-card {
+.holo-card,
+.holo-tilt {
   --px: 0.5;
   --py: 0.5;
   --holo: 0;
-  transform: rotateY(calc((var(--px) - 0.5) * 24deg))
-    rotateX(calc((0.5 - var(--py)) * 24deg));
+  /*
+   * Grados de giro en el extremo. Doce es lo que la carta ampliada llevaba
+   * desde siempre; el álbum lo baja a cero en sus fundas, porque una carta de
+   * ciento diez píxeles con doce grados no se inclina, se dobla.
+   */
+  --tilt-max: 12deg;
+  transform: rotateY(calc((var(--px) - 0.5) * 2 * var(--tilt-max)))
+    rotateX(calc((0.5 - var(--py)) * 2 * var(--tilt-max)));
   transition: transform 150ms ease-out;
+}
+
+.holo-card {
+  /*
+   * Sólo dentro del visor a pantalla completa. En una rejilla se tragaría el
+   * desplazamiento vertical del móvil, que es el gesto que el usuario espera
+   * al arrastrar sobre una carta pequeña.
+   */
   touch-action: none;
 }
 
@@ -1098,6 +1189,2670 @@ li:nth-child(3n) .aura-halo::before {
   mix-blend-mode: overlay;
   opacity: calc(var(--holo) * 0.9);
   transition: opacity 300ms ease;
+}
+
+/* ==========================================================================
+ * Modo colección — el acabado exclusivo.
+ *
+ * La ilustración NO es nuestra: es el escaneo real de la carta del JCC, con
+ * su marco, su ilustrador y su numeración impresos. Lo que ponemos encima es
+ * el acabado que una carta de coleccionista tiene en la mano y una imagen
+ * plana no puede tener: el canto metálico, la lámina foil que se mueve, el
+ * destello especular y el halo. Por eso todo esto son CAPAS SOBRE la carta y
+ * ninguna la tapa — el sitio del arte lo ocupa el arte.
+ *
+ * `data-rarity` fija los tokens y el resto deriva: un solo componente para
+ * los seis niveles, y el tema claro sólo tiene que corregir la mezcla.
+ * ========================================================================== */
+
+.tcg-card {
+  /* --- tokens que reescribe cada nivel --- */
+  --edge-fill: linear-gradient(140deg, rgba(148, 163, 184, 0.55), transparent 45%, rgba(148, 163, 184, 0.55));
+  --edge-width: 0px;
+  --foil: 0; /* 1 -> se pintan lámina y destello */
+  --glow: 0 0 0 rgba(0, 0, 0, 0);
+  --px: 0.5;
+  --py: 0.5;
+  --holo: 0;
+
+  position: relative;
+  aspect-ratio: 63 / 88;
+  border-radius: 4.5%;
+  overflow: hidden;
+  background: #05070c;
+  box-shadow: var(--glow), 0 10px 26px -14px rgba(0, 0, 0, 0.9);
+  transition: box-shadow 300ms ease;
+}
+
+/* El escaneo, a sangre. `cover` y no `contain`: los bordes del escaneo ya son
+   el marco de la carta, así que cualquier margen nuestro sería un marco doble. */
+.tcg-card img {
+  object-fit: cover;
+}
+
+/*
+ * El canto metálico. Va como borde interior en vez de como `border` para que
+ * no reduzca el hueco de la ilustración: la carta real ya tiene su propio
+ * filo blanco impreso, y lo que hacemos es orlarlo por dentro, como la funda
+ * de un coleccionista.
+ */
+.tcg-edge {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 var(--edge-width) transparent;
+  background: var(--edge-fill) border-box;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: var(--edge-width);
+  opacity: 0;
+}
+
+/* Lámina foil y destello especular: sólo existen a partir de Holo Rara. */
+.tcg-sheen,
+.tcg-glare {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity 300ms ease;
+}
+
+.tcg-sheen {
+  background: linear-gradient(
+    115deg,
+    transparent 22%,
+    rgba(255, 0, 132, 0.45) 35%,
+    rgba(255, 212, 0, 0.45) 45%,
+    rgba(0, 255, 178, 0.45) 55%,
+    rgba(0, 132, 255, 0.45) 65%,
+    transparent 78%
+  );
+  background-size: 300% 300%;
+  background-position: calc(var(--px) * 100%) calc(var(--py) * 100%);
+  mix-blend-mode: color-dodge;
+  /*
+   * Un 14 % en reposo: la carta tiene que leerse como foil de un vistazo, en
+   * el móvil y en una captura, sin que nadie pase el ratón por encima. Con
+   * puntero sube hasta 0,55, que es lo que tenía el visor de siempre.
+   */
+  opacity: calc(var(--foil) * (0.14 + var(--holo) * 0.41));
+}
+
+.tcg-glare {
+  z-index: 4;
+  background: radial-gradient(
+    circle at calc(var(--px) * 100%) calc(var(--py) * 100%),
+    rgba(255, 255, 255, 0.5) 0%,
+    transparent 55%
+  );
+  mix-blend-mode: overlay;
+  opacity: calc(var(--foil) * var(--holo) * 0.9);
+}
+
+/* --- Común: sin canto y sin foil. Es el listón contra el que se leen las demás. */
+
+/* --- Poco común: un filo de acero, apenas un susurro. */
+.tcg-card[data-rarity="uncommon"] {
+  --edge-width: 2px;
+  --edge-fill: linear-gradient(140deg, rgba(203, 213, 225, 0.75), rgba(148, 163, 184, 0.25) 50%, rgba(203, 213, 225, 0.75));
+}
+.tcg-card[data-rarity="uncommon"] .tcg-edge {
+  opacity: 0.7;
+}
+
+/* --- Holo Rara: entra el foil, y el halo toma el color del tipo. */
+.tcg-card[data-rarity="holo"] {
+  --foil: 1;
+  --edge-width: 2px;
+  --edge-fill: linear-gradient(140deg, rgba(226, 232, 240, 0.9), rgba(148, 163, 184, 0.3) 50%, rgba(226, 232, 240, 0.9));
+  --glow: 0 0 26px -12px color-mix(in srgb, var(--aura, #94a3b8) 75%, transparent);
+}
+.tcg-card[data-rarity="holo"] .tcg-edge {
+  opacity: 0.85;
+}
+
+/* --- Pokémon ex: canto dorado ancho y un barniz de luz sobre toda la carta.
+   Lo que separa una ex de una holo es dónde vive el brillo: en la holo está
+   en la ilustración, en la ex está en el plástico. */
+.tcg-card[data-rarity="ex"] {
+  --foil: 1;
+  --edge-width: 3px;
+  --edge-fill: linear-gradient(
+    120deg,
+    rgba(253, 224, 71, 0.95),
+    rgba(120, 82, 20, 0.5) 30%,
+    rgba(251, 191, 36, 0.95) 52%,
+    rgba(120, 82, 20, 0.5) 74%,
+    rgba(254, 240, 138, 0.95)
+  );
+  --glow: 0 0 34px -10px rgba(251, 191, 36, 0.65);
+}
+.tcg-card[data-rarity="ex"] .tcg-edge {
+  opacity: 1;
+}
+.tcg-card[data-rarity="ex"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    transparent 34%,
+    rgba(255, 255, 255, 0.16) 47%,
+    rgba(255, 255, 255, 0.05) 53%,
+    transparent 66%
+  );
+  mix-blend-mode: soft-light;
+}
+
+/* --- Ilustración Rara: el canto se afina hasta casi desaparecer y el halo se
+   ensancha. La carta real ya es a sangre; lo que le falta es aura. */
+.tcg-card[data-rarity="fullArt"] {
+  --foil: 1;
+  --edge-width: 2px;
+  --edge-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.9), rgba(226, 232, 240, 0.25) 50%, rgba(255, 255, 255, 0.9));
+  --glow: 0 0 38px -8px color-mix(in srgb, var(--aura, #e2e8f0) 85%, transparent);
+}
+.tcg-card[data-rarity="fullArt"] .tcg-edge {
+  opacity: 0.95;
+}
+
+/* --- Hyper Rara: el canto ES el arcoíris, y se mueve. */
+.tcg-card[data-rarity="hyper"] {
+  --foil: 1;
+  --edge-width: 4px;
+  --edge-fill: linear-gradient(135deg, #ff007f, #7f00ff, #00f0ff, #00ff7f, #ff007f);
+  --glow: 0 0 42px -8px rgba(127, 0, 255, 0.65);
+}
+.tcg-card[data-rarity="hyper"] .tcg-edge {
+  opacity: 1;
+  background-size: 300% 300%;
+}
+/*
+ * El arcoíris sólo se mueve donde hay pocas cartas delante — el sobre y el
+ * visor. En el álbum las fundas van en estático: sesenta degradados al 300 %
+ * animándose a la vez es una máquina de perder fotogramas.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .tcg-card[data-motion="live"][data-rarity="hyper"] .tcg-edge {
+    animation: tcg-rainbow 6s linear infinite;
+  }
+}
+
+@keyframes tcg-rainbow {
+  to {
+    background-position: 300% 50%;
+  }
+}
+
+/* ---- Funda del álbum ------------------------------------------------------
+ * Plástico translúcido con el filo brillante arriba y sombra dentro, como el
+ * que se dobla al meter la carta. Nada de `backdrop-filter`: son mil fundas y
+ * el desenfoque las mataría.
+ */
+.tcg-sleeve {
+  border-color: rgba(148, 163, 184, 0.22);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.01) 42%),
+    rgba(2, 6, 23, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -10px 18px -14px rgba(0, 0, 0, 0.9);
+  transition:
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+.tcg-sleeve:hover {
+  border-color: color-mix(in srgb, var(--aura, #64748b) 45%, rgba(148, 163, 184, 0.3));
+}
+
+/* Con carta dentro, el canto de la funda se enciende del color del NIVEL.
+   Es lo que deja barrer una hoja y ver de un vistazo dónde está lo bueno. */
+.tcg-sleeve--filled {
+  border-color: color-mix(in srgb, var(--edge, #94a3b8) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -10px 18px -14px rgba(0, 0, 0, 0.9),
+    0 0 18px -8px color-mix(in srgb, var(--edge, transparent) 70%, transparent);
+}
+
+.tcg-sleeve--filled:hover {
+  border-color: color-mix(in srgb, var(--edge, #94a3b8) 90%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 26px -6px color-mix(in srgb, var(--edge, transparent) 75%, transparent);
+}
+
+/* Vacía respira. Muy despacio y muy poco: son nueve o dieciséis latiendo a la
+   vez, y lo que tienen que decir es «aquí falta algo», no «mírame». */
+@keyframes sleeve-wait {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 24px -18px rgba(148, 163, 184, 0.6);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 30px -10px rgba(148, 163, 184, 0.55);
+  }
+}
+
+.tcg-sleeve--locked {
+  animation: sleeve-wait 4.5s ease-in-out infinite;
+}
+
+/* El dorso dentro de la funda vacía: el mismo `.tcg-back` del sobre, muy
+   bajado para que sea la textura sobre la que se lee la silueta y no la
+   lámina protagonista. */
+.sleeve-back {
+  position: absolute;
+  inset: 0;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* ---- La portada del modo colección ----------------------------------------
+ * La barra de navegación, el título y la barra de progreso con hitos.
+ *
+ * Toda la identidad de cada pestaña sale de `--edge`, fijado inline igual que
+ * en los sobres y en las copas: un color por sección, un solo juego de reglas.
+ */
+
+.album-eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: color-mix(in srgb, #22d3ee 70%, #94a3b8);
+}
+
+/* El rótulo del álbum: metal frío con un brillo que lo recorre, del mismo
+   corte que el de las copas del torneo. */
+.album-title {
+  background: linear-gradient(100deg, #e0f2fe, #22d3ee 38%, #a855f7 62%, #e0f2fe);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-sheen 7s linear infinite;
+  filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.35));
+}
+
+/* ---- Barra de progreso con hitos ---- */
+
+.album-rail {
+  position: relative;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.75);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+
+/* El degradado va en el RELLENO y no en el carril: así el color habla del
+   progreso —verde al empezar, cian a media colección, oro al final— en vez de
+   ser un adorno fijo que se descubre por debajo. */
+.album-rail__fill {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #34d399 0%, #22d3ee 55%, #fbbf24 100%);
+  box-shadow: 0 0 18px -4px rgba(34, 211, 238, 0.85);
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rail-sheen {
+  from {
+    transform: translateX(-140%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.album-rail__fill::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 22%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: rail-sheen 3.4s ease-in-out infinite;
+}
+
+/* Cada hito, un rombo clavado en su porcentaje. Apagado mientras no se llega;
+   de oro macizo y con su marca en cuanto se cobra. */
+.album-mark {
+  position: absolute;
+  top: 50%;
+  left: var(--at, 0%);
+  display: grid;
+  place-items: center;
+  height: 1.15rem;
+  width: 1.15rem;
+  translate: -50% -50%;
+  rotate: 45deg;
+  border-radius: 0.28rem;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: #0b1220;
+  color: #1c1917;
+  transition:
+    border-color 300ms ease,
+    background-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+/* El rombo gira 45°, así que su contenido tiene que desgirarse. */
+.album-mark > svg {
+  rotate: -45deg;
+}
+
+.album-mark[data-done] {
+  border-color: #fde68a;
+  background: #fbbf24;
+  box-shadow: 0 0 16px -2px rgba(251, 191, 36, 0.9);
+}
+
+/* ---- Pestañas ---- */
+
+.album-tab {
+  position: relative;
+  display: flex;
+  width: 100%;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  overflow: hidden;
+  border-radius: 0.95rem 0.95rem 0.5rem 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.08), rgba(2, 6, 23, 0.6));
+  /* Recortada de arriba y de abajo: sigue siendo una tarjeta y no una pastilla,
+     pero cada píxel de esta barra es un píxel que baja el archivador. */
+  padding: 0.5rem 0.45rem 0.45rem;
+  color: #94a3b8;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+/* Filamento de luz en el canto superior, como el de los paneles del HUD. */
+.album-tab::before {
+  content: "";
+  position: absolute;
+  inset-inline: 14%;
+  top: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--edge, #64748b), transparent);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.album-tab:hover {
+  color: #e2e8f0;
+  border-color: color-mix(in srgb, var(--edge, #64748b) 55%, transparent);
+  box-shadow: 0 0 22px -10px color-mix(in srgb, var(--edge, transparent) 80%, transparent);
+}
+
+.album-tab:hover::before {
+  opacity: 0.7;
+}
+
+.album-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--edge, #67e8f9) 80%, transparent);
+  outline-offset: 2px;
+}
+
+.album-tab[aria-pressed="true"] {
+  color: #f1f5f9;
+  border-color: color-mix(in srgb, var(--edge, #64748b) 85%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--edge, #64748b) 26%, transparent),
+    rgba(2, 6, 23, 0.55)
+  );
+  box-shadow:
+    inset 0 0 26px -12px color-mix(in srgb, var(--edge, transparent) 90%, transparent),
+    0 0 26px -6px color-mix(in srgb, var(--edge, transparent) 75%, transparent);
+}
+
+.album-tab[aria-pressed="true"]::before {
+  opacity: 1;
+}
+
+.album-tab__icon {
+  color: var(--edge, #94a3b8);
+  transition: filter 200ms ease;
+}
+
+.album-tab[aria-pressed="true"] .album-tab__icon {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--edge, transparent) 85%, transparent));
+}
+
+.album-tab__label {
+  font-family: var(--font-display), sans-serif;
+  /* Se ajusta al ancho: tres pestañas en un tercio de pantalla cada una, y el
+     rótulo largo no puede decidir el alto de la barra. */
+  font-size: clamp(0.6rem, 2.1vw, 0.92rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.album-tab__hint {
+  font-family: var(--font-mono), monospace;
+  font-size: clamp(0.55rem, 1.7vw, 0.72rem);
+  color: #64748b;
+}
+
+.album-tab[aria-pressed="true"] .album-tab__hint {
+  color: color-mix(in srgb, var(--edge, #94a3b8) 60%, #cbd5e1);
+}
+
+@keyframes tab-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--edge, transparent) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+.album-tab__badge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--edge, #64748b) 70%, transparent);
+  background: color-mix(in srgb, var(--edge, #64748b) 25%, rgba(2, 6, 23, 0.85));
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--edge, #e2e8f0) 55%, white);
+  animation: tab-badge-pulse 2s ease-in-out infinite;
+}
+
+/* ---- La cabecera y las pestañas en el móvil ----
+ *
+ * Misma portada y mismas tres pestañas que en el escritorio —ni una se apila,
+ * ni una se esconde—, sólo que a la medida del teléfono. Todo lo que se recorta
+ * aquí es hueco: el carril adelgaza, los rombos encogen, las pestañas pierden
+ * relleno. Lo que dicen no cambia.
+ */
+@media (max-width: 640px) {
+  .album-eyebrow {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+  }
+
+  .album-rail {
+    height: 0.6rem;
+  }
+
+  .album-mark {
+    height: 0.85rem;
+    width: 0.85rem;
+    border-radius: 0.22rem;
+  }
+
+  .album-tab {
+    gap: 0.05rem;
+    border-radius: 0.7rem 0.7rem 0.4rem 0.4rem;
+    padding: 0.35rem 0.25rem 0.4rem;
+  }
+
+  /* El icono lo pinta lucide con `width`/`height` en el atributo, así que se
+     recorta desde aquí y no cambiando el `size` — que es el mismo número para
+     el escritorio. */
+  .album-tab__icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .album-tab__badge {
+    top: 0.2rem;
+    right: 0.25rem;
+    padding: 0.05rem 0.28rem;
+    font-size: 0.58rem;
+  }
+}
+
+/* ---- Barra de filtros ---- */
+
+.album-filters {
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.05);
+  backdrop-filter: blur(14px);
+  padding: 0.6rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.album-control {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.5);
+  backdrop-filter: blur(10px);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    color 200ms ease;
+}
+
+.album-control:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #e2e8f0;
+}
+
+.album-control:focus-visible {
+  border-color: #22d3ee;
+  box-shadow: 0 0 16px -4px rgba(34, 211, 238, 0.8);
+  outline: none;
+}
+
+/* ---- El archivador --------------------------------------------------------
+ * Una lámina de plástico de nueve —o dieciséis— bolsillos, con sus anillas a
+ * la izquierda y el brillo sintético cruzándola en diagonal.
+ */
+
+@keyframes sheet-turn {
+  from {
+    opacity: 0;
+    transform: perspective(1400px) rotateY(-10deg) translateX(-2%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.binder-sheet {
+  position: relative;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01) 45%),
+    rgba(2, 6, 23, 0.5);
+  /* Más margen a la izquierda: ahí van las anillas. */
+  padding: 0.7rem 0.7rem 0.7rem 1.5rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 22px 50px -34px #000;
+  transform-origin: left center;
+  animation: sheet-turn 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Las tres anillas. Un solo degradado repetido: tres nodos más en cada hoja
+   por un adorno que nadie va a pulsar no valen la pena. */
+.binder-sheet::before {
+  content: "";
+  position: absolute;
+  left: 0.5rem;
+  top: 12%;
+  bottom: 12%;
+  width: 0.5rem;
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    rgba(2, 6, 23, 0.9) 42%,
+    rgba(148, 163, 184, 0.45) 45%,
+    transparent 58%
+  );
+  background-size: 100% 33.333%;
+  background-repeat: repeat-y;
+  pointer-events: none;
+}
+
+.binder-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.07) 46%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.binder-sheet__grid {
+  display: grid;
+  /* De ancho estrecho manda `--cols-narrow`: la hoja lleva las mismas fundas,
+     dobladas en más filas. Ver el porqué en `AlbumBinder`. */
+  grid-template-columns: repeat(var(--cols-narrow, 2), minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+/* Tableta pequeña y móvil apaisado: una columna más, que ahí ya caben. */
+@media (min-width: 480px) {
+  .binder-sheet__grid {
+    grid-template-columns: repeat(var(--cols-mid, 3), minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 640px) {
+  .binder-sheet__grid {
+    grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+}
+
+/* Bolsillo sin funda: la lámina tiene sus nueve huecos aunque falten cartas. */
+.binder-pocket {
+  aspect-ratio: 63 / 88;
+  border-radius: 0.5rem;
+  border: 1px dashed rgba(148, 163, 184, 0.14);
+  background: rgba(148, 163, 184, 0.03);
+}
+
+/* ---- Hojear ---- */
+
+.binder__arrow {
+  display: grid;
+  place-items: center;
+  height: 3rem;
+  width: 2rem;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.55);
+  color: #94a3b8;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+@media (min-width: 640px) {
+  .binder__arrow {
+    height: 4.5rem;
+    width: 2.75rem;
+  }
+}
+
+/* Después del bloque de arriba a propósito: misma especificidad, así que gana
+   por orden y las flechas de primera y última hoja no crecen con el ancho. */
+.binder__arrow--sm {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.6rem;
+}
+
+.binder__arrow:hover:not(:disabled) {
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 18px -6px rgba(34, 211, 238, 0.85);
+}
+
+.binder__arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.binder__page {
+  min-width: 9rem;
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+}
+
+.binder__sizes {
+  display: inline-flex;
+  gap: 0.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.5);
+  padding: 0.15rem;
+}
+
+.binder__size {
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  color: #64748b;
+  transition:
+    color 200ms ease,
+    background-color 200ms ease;
+}
+
+.binder__size:hover {
+  color: #cbd5e1;
+}
+
+.binder__size[aria-pressed="true"] {
+  background: rgba(34, 211, 238, 0.18);
+  color: #67e8f9;
+}
+
+/* ---- El sobre -------------------------------------------------------------
+ * Todo lo que se mueve aquí es `transform` u `opacity`: ni una propiedad que
+ * provoque reflow, porque el sobre y sus cinco cartas se animan a la vez.
+ */
+
+/* Reposo: el sobre levita. Ida y vuelta al MISMO fotograma en 0 % y 100 %,
+   para que el bloque global de movimiento reducido —que fuerza una sola
+   iteración— lo deje donde empezó y no torcido. */
+@keyframes pack-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-2.4%) rotate(1.5deg);
+  }
+}
+
+@keyframes pack-aura {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.09);
+  }
+}
+
+/* Toma de impulso: el envoltorio se comprime justo antes de romperse. */
+@keyframes pack-brace {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  60% {
+    transform: scale(0.955) rotate(-2.5deg);
+  }
+  100% {
+    transform: scale(1.035) rotate(1.5deg);
+  }
+}
+
+@keyframes pack-tear-top {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-13%, -48%) rotate(-17deg);
+    opacity: 0;
+  }
+}
+
+@keyframes pack-tear-bottom {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translate(10%, 42%) rotate(10deg);
+    opacity: 0;
+  }
+}
+
+/* Fogonazo del corte. */
+@keyframes tear-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.7);
+  }
+}
+
+/* Metralla del envoltorio. `--dx`, `--dy` y `--spin` se calculan en JS —
+   igual que en `.pk-debris`—: el reparto en abanico es aritmética sobre el
+   índice, y el recorrido se queda entero en CSS. */
+@keyframes tear-shard {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)))
+      scale(0.2) rotate(var(--spin, 220deg));
+  }
+}
+
+/* Las cartas se abren desde donde estaba el sobre. */
+@keyframes fan-in {
+  from {
+    opacity: 0;
+    transform: translateY(28%) scale(0.84);
+  }
+}
+
+/* Aviso de rareza, ANTES del giro. */
+@keyframes rare-ring {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.22);
+  }
+  22% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.3);
+  }
+}
+
+@keyframes rare-rays {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.35);
+  }
+  26% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(115deg) scale(2);
+  }
+}
+
+.pack-aura {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--edge, #fbbf24) 55%, transparent),
+    transparent 68%
+  );
+  filter: blur(14px);
+  animation: pack-aura 2.6s ease-in-out infinite;
+}
+
+.tear-flash {
+  animation: tear-flash 380ms ease-out both;
+}
+
+.tear-shard {
+  animation: tear-shard 560ms cubic-bezier(0.15, 0.6, 0.4, 1) both;
+  /* Vive menos de un segundo, así que la capa extra sale gratis. En una carta
+     permanente fijaría un plano de composición para siempre. */
+  will-change: transform, opacity;
+}
+
+.rare-ring {
+  animation: rare-ring 460ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.rare-rays {
+  animation: rare-rays 460ms ease-out both;
+}
+
+/*
+ * El giro. Es una transición y no una animación para que el estado dependa
+ * del atributo y no de haber visto pasar el fotograma.
+ *
+ * Dos trampas de Safari: este nodo NO puede llevar `overflow: hidden` —
+ * aplana el contexto 3D — y ni él ni ningún ancestro puede llevar `filter`,
+ * que hace exactamente lo mismo y sin avisar.
+ */
+.tcg-flip {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(0deg);
+  transition: transform 520ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.tcg-flip[data-revealed="true"] {
+  transform: rotateY(180deg);
+}
+
+.tcg-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.tcg-face--front {
+  transform: rotateY(180deg);
+}
+
+/* ---- La portada del sobre -------------------------------------------------
+ * Un sobre del JCC no es una pastilla de color con un icono: es una lámina
+ * metalizada con un Pokémon estelar impreso sobre un abanico de rayos, una
+ * banda dentada arriba y el sello de la expansión abajo. Todo esto son capas
+ * apiladas sobre esa ilustración, en el mismo orden en que las lleva un
+ * envoltorio de verdad: papel, tinta, lámina, barniz.
+ *
+ * `--edge` es el acento del sobre, `--deep` el fondo del envoltorio y
+ * `--glint` el metal claro de los reflejos. Los tres los pone `PACK_ART`.
+ */
+.pack-art {
+  --px: 0.5;
+  --py: 0.5;
+  --holo: 0;
+
+  position: relative;
+  /* El envoltorio también se pinta en un `span` —dentro de la ficha de copa,
+     que es un botón entero—, y un `span` en línea ignoraría el ancho y la
+     proporción. */
+  display: block;
+  aspect-ratio: 63 / 88;
+  width: 100%;
+  border-radius: 7%;
+  overflow: hidden;
+  /* Aísla los `mix-blend-mode` de las láminas: sin esto se mezclarían con la
+     página entera y el sobre se comería el fondo del álbum. */
+  isolation: isolate;
+  /* El rótulo se mide contra el ancho del sobre y no contra la ventana: la
+     misma portada sirve de miniatura de 5 rem y de sobre de 16 rem, y el
+     nombre tiene que caber en las dos. */
+  container-type: inline-size;
+  background: var(--deep, #0b1220);
+  box-shadow:
+    0 14px 30px -18px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px color-mix(in srgb, var(--glint, #e2e8f0) 22%, transparent);
+}
+
+/* Papel: el degradado metalizado, con las vetas finas del holograma impreso. */
+.pack-art__foil {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      104deg,
+      rgba(255, 255, 255, 0.07) 0 2px,
+      transparent 2px 7px
+    ),
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--edge) 55%, #000) 0%,
+      var(--deep) 38%,
+      #05070c 62%,
+      color-mix(in srgb, var(--edge) 42%, #000) 100%
+    );
+}
+
+/* Tinta: el abanico de rayos que sale de detrás del protagonista. */
+.pack-art__rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 190%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 7deg,
+    color-mix(in srgb, var(--glint) 55%, transparent) 8deg 12deg,
+    transparent 13deg 27deg,
+    color-mix(in srgb, var(--glint) 40%, transparent) 28deg 31deg,
+    transparent 32deg 45deg
+  );
+  background-size: 100% 100%;
+  opacity: 0.32;
+  mask: radial-gradient(circle at 50% 50%, #000 12%, transparent 62%);
+}
+
+.pack-art__halo {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 88%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--edge) 62%, transparent),
+    transparent 68%
+  );
+  filter: blur(10px);
+}
+
+/* El protagonista. `contain` y no `cover`: es un recorte sobre la lámina, no
+   un fondo — recortarle la cabeza sería exactamente lo contrario. */
+.pack-art__mascot {
+  object-fit: contain;
+  padding: 14% 12% 26%;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.65))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--edge) 45%, transparent));
+}
+
+/* Banda de rasgado: la franja de arriba con su línea de puntos, que es por
+   donde el sobre grande se corta de verdad. */
+.pack-art__strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 22%;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--glint) 22%, transparent),
+    transparent 78%
+  );
+  border-bottom: 1px dashed color-mix(in srgb, var(--glint) 45%, transparent);
+}
+
+.pack-art__teeth {
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--glint) 60%, transparent) 0 3px,
+    transparent 3px 7px
+  );
+}
+
+/* Lámina: el arcoíris que sigue al puntero. Es la misma receta que la de las
+   cartas, para que el sobre y lo que trae dentro brillen igual. */
+.pack-art__sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 24%,
+    rgba(255, 0, 132, 0.4) 36%,
+    rgba(255, 212, 0, 0.4) 46%,
+    rgba(0, 255, 178, 0.4) 56%,
+    rgba(0, 132, 255, 0.4) 66%,
+    transparent 78%
+  );
+  background-size: 300% 300%;
+  background-position: calc(var(--px) * 100%) calc(var(--py) * 100%);
+  mix-blend-mode: color-dodge;
+  opacity: calc(0.18 + var(--holo) * 0.34);
+  transition: opacity 300ms ease;
+}
+
+/* Barniz: el destello que recorre el plástico. Sólo en el sobre protagonista
+   — cinco miniaturas barriendo a la vez es ruido, no brillo. */
+.pack-art__gloss {
+  position: absolute;
+  inset: -30%;
+  background: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 58%
+  );
+  opacity: 0;
+}
+
+.pack-art[data-variant="hero"] .pack-art__gloss {
+  animation: pack-gloss 3.6s ease-in-out 1.2s infinite;
+}
+
+.pack-art[data-variant="hero"] .pack-art__rays {
+  animation: pack-rays 24s linear infinite;
+}
+
+@keyframes pack-gloss {
+  0% {
+    opacity: 0;
+    transform: translateX(-55%);
+  }
+  12%,
+  32% {
+    opacity: 0.85;
+  }
+  50%,
+  100% {
+    opacity: 0;
+    transform: translateX(55%);
+  }
+}
+
+@keyframes pack-rays {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Filo metálico del envoltorio. */
+.pack-art__frame {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--edge) 70%, transparent),
+    inset 0 0 22px -8px color-mix(in srgb, var(--glint) 85%, transparent);
+}
+
+/* Rótulo. Va por delante de todas las láminas: una portada preciosa que no
+   deja leer qué sobre es no sirve de nada. */
+.pack-art__plate {
+  position: absolute;
+  inset: auto 6% 6% 6%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* El hueco del rótulo se mide contra el sobre, como ya hacía su letra: en
+     rem fijos, a tamaño de miniatura el relleno no encogía con la portada y
+     «Sobre Especial ex» —tres líneas de nombre y dos de garantías— levantaba el
+     rótulo por encima del borde de arriba. A tamaño grande el `clamp` topa en
+     los valores de siempre, así que el sobre protagonista no cambia. */
+  gap: clamp(0.02rem, 1.05cqw, 0.1rem);
+  padding: clamp(0.16rem, 3.7cqw, 0.35rem) clamp(0.16rem, 4.2cqw, 0.4rem);
+  border-radius: clamp(0.25rem, 5.2cqw, 0.5rem);
+  text-align: center;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.55), rgba(2, 6, 23, 0.85));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glint) 30%, transparent);
+}
+
+.pack-art__name {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(0.5rem, 2.4cqw + 0.3rem, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: #f1f5f9;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.pack-art__meta {
+  font-family: var(--font-mono), monospace;
+  /* Contra el sobre, como el nombre de encima: «8 cartas · 4× Pokémon ex+» es
+     la línea más larga del escaparate y a tamaño de miniatura ocupaba media
+     portada. Tope arriba en los 0,5 rem de siempre. */
+  font-size: clamp(0.4rem, 5.3cqw, 0.5rem);
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--glint) 80%, #94a3b8);
+}
+
+/* Sello de la expansión: el número de cartas en un rombo, arriba a la
+   izquierda, donde los sobres de verdad llevan el símbolo de la colección. */
+.pack-art__sigil {
+  position: absolute;
+  top: 4%;
+  left: 6%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  rotate: 45deg;
+  border-radius: 0.25rem;
+  background: linear-gradient(140deg, var(--edge), color-mix(in srgb, var(--edge) 35%, #000));
+  box-shadow: 0 0 12px -2px color-mix(in srgb, var(--edge) 80%, transparent);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #04070d;
+}
+
+.pack-art__sigil::before {
+  content: "";
+  position: absolute;
+  inset: 0.15rem;
+  border-radius: 0.15rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+/* El número se endereza: el rombo gira, la cifra no. */
+.pack-art__sigil > * {
+  rotate: -45deg;
+}
+
+/* ---- El premio de la copa, en el vestíbulo --------------------------------
+ * El sobre que paga cada copa, en miniatura y dentro de la ficha del torneo.
+ * Es la misma portada del álbum encogida: la lámina y el protagonista dicen
+ * qué sobre es antes de que nadie lea su nombre.
+ */
+.cup-prize {
+  position: relative;
+  display: block;
+  width: 3.25rem;
+  flex: none;
+}
+
+/* A este tamaño el rótulo y el sello no se leen: son tinta encima del
+   Pokémon, que es justo lo que distingue un sobre de otro de un vistazo. */
+.cup-prize .pack-art__plate,
+.cup-prize .pack-art__sigil {
+  display: none;
+}
+
+/* Cuántos caen, en la esquina, como el ×2 de la estantería. */
+.cup-prize__count {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  z-index: 2;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #050810;
+  background: var(--edge);
+  box-shadow: 0 0 14px -2px var(--edge);
+}
+
+@media (max-width: 640px) {
+  .cup-prize {
+    width: 2rem;
+  }
+
+  .cup-prize__count {
+    top: -0.25rem;
+    right: -0.25rem;
+    padding: 0 0.2rem;
+    font-size: 0.5rem;
+  }
+}
+
+/* ---- La estantería --------------------------------------------------------
+ * Cada hueco es un sobre de verdad, y los repetidos se apilan detrás.
+ */
+.pack-slot {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0.75rem 0.75rem 2.25rem;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  transition: transform 220ms ease;
+}
+
+.pack-slot:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #67e8f9;
+}
+
+.pack-slot__art {
+  position: relative;
+  z-index: 1;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1.1);
+}
+
+.pack-slot__pile {
+  position: absolute;
+  inset: 0.75rem 0.75rem 2.25rem;
+  border-radius: 7%;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--edge) 30%, #0b1220), #05070c);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--edge) 35%, transparent);
+  transform: translate(calc(var(--depth, 1) * 3px), calc(var(--depth, 1) * -3px))
+    rotate(calc(var(--depth, 1) * 1.6deg));
+}
+
+.pack-slot__pile[data-depth="1"] {
+  --depth: 1;
+}
+
+.pack-slot__pile[data-depth="2"] {
+  --depth: 2;
+}
+
+.pack-slot__count {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 3;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.pack-slot__cta {
+  position: absolute;
+  inset: auto 0 0.5rem 0;
+  z-index: 2;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  /* Mezclado con el token de la rampa, no con un claro fijo: sobre papel el
+     acento solo se queda sin contraste. */
+  color: color-mix(in srgb, var(--edge) 70%, var(--color-slate-300));
+  opacity: 0.85;
+  transition: opacity 200ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pack-slot:hover .pack-slot__art,
+  .pack-slot:focus-visible .pack-slot__art {
+    transform: translateY(-6px) rotate(-1.5deg);
+  }
+}
+
+.pack-slot:hover .pack-slot__cta {
+  opacity: 1;
+}
+
+/* ---- La entrega del botín -------------------------------------------------
+ * Lo que ocurre en la ceremonia de campeón cuando la copa ya está levantada:
+ * los sobres ganados suben desde abajo de uno en uno, cada uno con su fogonazo
+ * y su abanico de luz, y los Puntos de Entrenador se cuentan al final.
+ *
+ * Toda la coreografía cuelga de `--in`, el retardo que pone el componente para
+ * cada sobre. Las capas de un mismo sobre lo comparten leyéndolo de su padre,
+ * que es lo que mantiene el fogonazo pegado a su envoltorio por muchos sobres
+ * que caigan.
+ */
+/* El escenario del botín: sitio para el cañón de luz y para que las chispas
+   salgan de los sobres sin que la caja de la sección las recorte. */
+.pack-award-stage {
+  position: relative;
+  padding: 1.25rem 0 0.25rem;
+}
+
+/* Cañón de luz que baja sobre la fila. Es lo que convierte el renglón de
+   premios en una entrega: los sobres no están puestos ahí, están iluminados. */
+.pack-award__beam {
+  position: absolute;
+  top: -2.5rem;
+  left: 50%;
+  width: min(34rem, 118%);
+  height: calc(100% + 4rem);
+  /* Centrado con `translate` y no con un margen negativo: el ancho es un
+     `min()` de rem y porcentaje, así que no hay una mitad que se pueda
+     escribir a mano — y la que había dejaba el cono descuadrado en pantallas
+     estrechas, asomando por el borde derecho del marco. */
+  translate: -50% 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 60% 42% at 50% 62%,
+      rgba(196, 181, 253, 0.3),
+      transparent 72%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      rgba(253, 230, 138, 0.16) 32%,
+      rgba(253, 230, 138, 0.05) 78%,
+      transparent
+    );
+  clip-path: polygon(34% 0, 66% 0, 100% 100%, 0 100%);
+  filter: blur(6px);
+  animation: pack-award-beam 5.5s ease-in-out infinite;
+}
+
+.pack-award-row {
+  position: relative;
+}
+
+.pack-award {
+  position: relative;
+  width: 10rem;
+  animation: pack-award-in 760ms cubic-bezier(0.2, 0.9, 0.3, 1.2) var(--in, 0ms)
+    both;
+}
+
+@media (max-width: 640px) {
+  .pack-award {
+    width: 6.5rem;
+  }
+
+  .pack-award__beam {
+    filter: blur(4px);
+  }
+}
+
+/* Balanceo lento una vez posado: un sobre completamente quieto al lado de una
+   copa que respira se lee como un icono de lista. */
+.pack-award__float {
+  display: block;
+  animation: pack-award-float 4.4s ease-in-out
+    calc(var(--in, 0ms) + 760ms) infinite;
+}
+
+/* Charco de luz bajo el envoltorio, del color del sobre. */
+.pack-award__pedestal {
+  position: absolute;
+  bottom: 1.1rem;
+  left: 50%;
+  width: 130%;
+  height: 2.2rem;
+  margin-left: -65%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--edge) 70%, transparent),
+    transparent 70%
+  );
+  filter: blur(6px);
+  animation: pack-award-glow 900ms ease-out var(--in, 0ms) both;
+}
+
+/* Chispa del aterrizaje: sale disparada desde el centro del sobre siguiendo su
+   `--angle` y se apaga por el camino. */
+.pack-award__spark {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--edge) 65%, #ffffff);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--edge) 80%, transparent);
+  animation: pack-award-spark 760ms cubic-bezier(0.15, 0.75, 0.3, 1)
+    calc(var(--in, 0ms) + var(--spark, 0ms)) both;
+}
+
+/* Fogonazo del aterrizaje: un disco blanco que se abre y se apaga. */
+.pack-award__flash {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 12rem;
+  height: 12rem;
+  margin: -6rem 0 0 -6rem;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.95),
+    color-mix(in srgb, var(--edge) 60%, transparent) 45%,
+    transparent 70%
+  );
+  filter: blur(2px);
+  pointer-events: none;
+  animation: pack-award-flash 820ms ease-out var(--in, 0ms) both;
+}
+
+/* Abanico de luz del color del sobre, girando despacio detrás del envoltorio. */
+.pack-award__rays {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 17rem;
+  height: 17rem;
+  margin: -8.5rem 0 0 -8.5rem;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--edge) 55%, transparent) 0deg 5deg,
+    transparent 5deg 22deg
+  );
+  mask-image: radial-gradient(closest-side, #000 12%, transparent 72%);
+  pointer-events: none;
+  animation:
+    pack-award-rays 26s linear infinite,
+    pack-award-glow 900ms ease-out var(--in, 0ms) both;
+}
+
+@media (max-width: 640px) {
+  .pack-award__rays {
+    width: 11rem;
+    height: 11rem;
+    margin: -5.5rem 0 0 -5.5rem;
+  }
+
+  .pack-award__flash {
+    width: 8rem;
+    height: 8rem;
+    margin: -4rem 0 0 -4rem;
+  }
+}
+
+.pack-award__art {
+  position: relative;
+  z-index: 1;
+}
+
+/* Chapa del número de sobres iguales, como el ×3 de la estantería — pero aquí
+   es la cifra del premio, así que se lee de lejos. */
+.pack-award__count {
+  position: absolute;
+  top: -0.6rem;
+  right: -0.6rem;
+  z-index: 3;
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #050810;
+  background: var(--edge);
+  box-shadow:
+    0 0 24px -2px var(--edge),
+    0 0 0 2px rgba(5, 8, 16, 0.65);
+  animation: pack-award-pop 460ms cubic-bezier(0.2, 0.9, 0.3, 1.4)
+    calc(var(--in, 0ms) + 300ms) both;
+}
+
+.pack-award__name {
+  margin-top: 0.55rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--edge) 85%, #e2e8f0);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--edge) 55%, transparent);
+  animation: pack-award-rise 420ms ease-out calc(var(--in, 0ms) + 260ms) both;
+}
+
+@media (max-width: 640px) {
+  .pack-award__count {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+  }
+
+  .pack-award__name {
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+/* El recuento de PE, el último en aparecer: primero lo que se toca, luego lo
+   que se gasta. Es la cifra que se lleva la carrera entera, así que se cuenta
+   en grande — del tamaño del marcador de una recreativa, no de un pie de foto. */
+.pack-award__pe {
+  font-family: var(--font-display), system-ui;
+  font-size: clamp(2.25rem, 9vw, 3.5rem);
+  font-weight: 900;
+  line-height: 1;
+  color: #fde68a;
+  text-shadow: 0 0 22px rgba(251, 191, 36, 0.55);
+  animation: pack-award-rise 420ms ease-out var(--in, 0ms) both;
+}
+
+@keyframes pack-award-in {
+  0% {
+    transform: translateY(54px) scale(0.62) rotate(-10deg);
+    opacity: 0;
+  }
+  58% {
+    transform: translateY(-8px) scale(1.07) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes pack-award-flash {
+  0% {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  38% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes pack-award-glow {
+  0% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes pack-award-rays {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pack-award-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pack-award-rise {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Balanceo del sobre ya posado. Muy corto — es respiración, no flotación. */
+@keyframes pack-award-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+}
+
+/* El cañón de luz late despacio, como un foco de estadio buscando el centro. */
+@keyframes pack-award-beam {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* Chispa: sale del centro siguiendo su ángulo y se apaga por el camino. El giro
+   va DENTRO del `transform`, no en la propiedad `rotate`: las propiedades
+   sueltas se componen T·R·S, así que un `translate` aparte saldría recto hacia
+   arriba en vez de irse por su ángulo. */
+@keyframes pack-award-spark {
+  0% {
+    transform: rotate(var(--angle, 0deg)) translateY(0) scale(0.4);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle, 0deg)) translateY(-5.5rem) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* Sin movimiento el botín sigue entregándose: los sobres están ahí desde el
+   primer fotograma, con su luz quieta detrás y los PE ya contados. */
+@media (prefers-reduced-motion: reduce) {
+  .pack-award,
+  .pack-award__count,
+  .pack-award__name,
+  .pack-award__pe,
+  .pack-award__rays,
+  .pack-award__float,
+  .pack-award__pedestal,
+  .pack-award__beam {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .pack-award__flash,
+  .pack-award__spark {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pack-award__rays {
+    opacity: 0.35;
+  }
+
+  .pack-award__beam {
+    opacity: 0.7;
+  }
+}
+
+/* ---- La ceremonia ---------------------------------------------------------
+ * La apertura se come la pantalla. No es una tarjeta más del álbum: durante
+ * treinta segundos es lo único que hay, igual que en el juego.
+ */
+.pack-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * El telón se pinta con el token de superficie y NO con un negro literal: en
+ * tema claro la rampa slate se invierte, así que un telón negro fijo dejaría
+ * el texto —que sí se invierte— escrito en tinta sobre tinta. Con el token,
+ * telón y letra giran juntos, que es lo que ya hacía el visor de cartas.
+ */
+.pack-stage__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      color-mix(in srgb, var(--edge) 16%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--color-slate-950) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* Rayos de fondo. Muy tenues en reposo y encendidos en cuanto el sobre se
+   rompe: el fondo también celebra. */
+.pack-stage__beams {
+  /*
+   * Fijos y no absolutos. Los rayos miden 160vmax y salen de la pantalla por
+   * los cuatro lados a propósito, pero absolutos le sumaban ese desborde al
+   * alto desplazable de la escena: quedaba media pantalla de scroll por
+   * debajo de la ceremonia que no llevaba a ninguna parte — y en el móvil,
+   * con la carta ya girada, invitaba a arrastrar hacia abajo justo cuando
+   * arrastrar es lo que aparta la carta. Fijos se pintan igual (la escena
+   * también es fija y ocupa la pantalla) y no cuentan para el desborde.
+   */
+  position: fixed;
+  left: 50%;
+  top: 45%;
+  width: 160vmax;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 9deg,
+    color-mix(in srgb, var(--glint) 40%, transparent) 10deg 14deg,
+    transparent 15deg 34deg,
+    color-mix(in srgb, var(--glint) 28%, transparent) 35deg 38deg,
+    transparent 39deg 60deg
+  );
+  mask: radial-gradient(circle, #000 5%, transparent 55%);
+  opacity: 0.16;
+  transition: opacity 700ms ease;
+}
+
+.pack-stage__beams[data-phase="stack"],
+.pack-stage__beams[data-phase="summary"] {
+  opacity: 0.34;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pack-stage__beams {
+    animation: pack-rays 60s linear infinite;
+  }
+}
+
+.god-banner {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  animation: fan-in 500ms cubic-bezier(0.2, 0.8, 0.3, 1.1) both;
+}
+
+/* ---- El sobre grande y su corte ------------------------------------------
+ * El envoltorio se abre por donde el dedo lo abre. `--cut` va de 0 a 1 y lo
+ * escribe el puntero directamente en el nodo: la brecha crece, la mitad de
+ * arriba se despega y, pasado el umbral, se rompe.
+ */
+.pack-hero {
+  --cut: 0;
+  /* Donde está la banda de rasgado de la portada. Las dos mitades y la brecha
+     se recortan contra esta misma línea, así que sólo hay un número. */
+  --seam: 22%;
+
+  position: relative;
+  /* Mismo criterio que la pila: lo grande que quepa a lo ancho y a lo alto. */
+  width: min(74vw, 18rem, calc((100dvh - 12rem) * 63 / 88));
+  aspect-ratio: 63 / 88;
+  /* El gesto es horizontal y la escena no se desplaza: quitarle el scroll al
+     dedo aquí es justo lo que hace que el corte se sienta como un corte. */
+  touch-action: none;
+  cursor: grab;
+  /* Levita, y toma impulso justo antes de romperse. Ida y vuelta al MISMO
+     fotograma para que el bloque global de movimiento reducido —que fuerza
+     una sola iteración— lo deje donde empezó y no torcido. */
+  animation: pack-float 4.8s ease-in-out infinite;
+  transform-origin: 50% 60%;
+}
+
+.pack-hero[data-phase="tearing"] {
+  cursor: default;
+  animation: pack-brace 110ms ease-in both;
+}
+
+.pack-hero__half {
+  position: absolute;
+  display: block;
+  inset: 0;
+  transition: transform 260ms cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+.pack-hero__half--top {
+  clip-path: inset(0 0 calc(100% - var(--seam)) 0);
+  transform: translateY(calc(var(--cut) * -2.5%)) rotate(calc(var(--cut) * -1.6deg));
+}
+
+.pack-hero__half--bottom {
+  clip-path: inset(var(--seam) 0 0 0);
+}
+
+.pack-hero[data-phase="tearing"] .pack-hero__half--top {
+  animation: pack-tear-top 420ms cubic-bezier(0.3, 0.1, 0.4, 1) both;
+}
+
+.pack-hero[data-phase="tearing"] .pack-hero__half--bottom {
+  animation: pack-tear-bottom 420ms cubic-bezier(0.3, 0.1, 0.4, 1) both;
+}
+
+/* La brecha: luz saliendo de dentro del sobre por lo ya cortado. */
+.pack-hero__slit {
+  position: absolute;
+  left: 0;
+  top: calc(var(--seam) - 3px);
+  height: 6px;
+  width: calc(var(--cut) * 100%);
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--glint) 90%, transparent) 30%,
+    #ffffff
+  );
+  box-shadow: 0 0 18px 4px color-mix(in srgb, var(--glint) 70%, transparent);
+  opacity: calc(var(--cut) * 1.6);
+  transition: width 180ms ease-out;
+}
+
+/* La chispa que va abriendo. */
+.pack-hero__spark {
+  position: absolute;
+  top: var(--seam);
+  left: calc(var(--cut) * 100%);
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff, color-mix(in srgb, var(--glint) 70%, transparent) 55%, transparent 70%);
+  opacity: calc(var(--cut) * 2);
+  transition: left 180ms ease-out;
+}
+
+.pack-hero[data-phase="tearing"] .pack-hero__slit,
+.pack-hero[data-phase="tearing"] .pack-hero__spark {
+  opacity: 0;
+}
+
+/* La zona pulsable, invisible sobre la portada: el ratón y el teclado abren
+   con un clic, sin obligar a nadie a arrastrar. */
+.pack-hero__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 7%;
+  cursor: pointer;
+  background: transparent;
+}
+
+.pack-hero__hit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px #67e8f9;
+}
+
+.pack-hero .pack-aura {
+  width: 120%;
+  height: 120%;
+}
+
+.pack-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--color-slate-400);
+}
+
+/* La flecha del gesto, recorriendo el camino que hay que hacer. */
+.pack-hint__swipe {
+  width: 2.5rem;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--edge));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pack-hint__swipe {
+    animation: swipe-hint 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes swipe-hint {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateX(-25%);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(25%);
+  }
+}
+
+/* ---- Las cartas, de una en una -------------------------------------------
+ * La pila: la que toca delante, las que faltan asomando detrás. Al apartar
+ * una, las de atrás suben un peldaño solas — es una transición sobre
+ * `--depth`, no seis animaciones coordinadas.
+ */
+.card-stack {
+  position: relative;
+  /*
+   * La carta es el espectáculo, así que se lleva todo el sitio que haya. Los
+   * tres límites son las tres formas de quedarse sin sitio: el ancho de la
+   * pantalla, el alto de la pantalla y el sentido común.
+   *
+   * El del alto es el que importa y el que antes no estaba: una carta medida
+   * sólo contra el ancho se sale por abajo en cuanto la ventana es apaisada, y
+   * como la escena tiene scroll no se rompe nada — simplemente hay que hacer
+   * scroll para ver la carta que se acaba de girar, que es la peor forma
+   * posible de enseñar un premio. Las 19rem que se descuentan son el resto de
+   * la ceremonia: recuento, ficha, pistas y aire.
+   */
+  width: min(86vw, 21rem, calc((100dvh - 19rem) * 63 / 88));
+  aspect-ratio: 63 / 88;
+  perspective: 1100px;
+  /* Las cartas del fondo sobresalen por abajo y NO cuentan para la caja: sin
+     este hueco, la ficha con el nombre se pintaría encima de la pila justo
+     cuando se acaba de girar la carta. */
+  margin-bottom: 3.25rem;
+}
+
+/*
+ * El foco. Un charco de luz del color del Pokémon que hay debajo de la carta,
+ * apagado mientras está boca abajo y encendido al girarla: el fondo entero
+ * cambia de color con cada premio sin que haya que pintar un fondo por tipo.
+ */
+.card-stack__pool {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: -1;
+  width: 190%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--aura, #94a3b8) 42%, transparent),
+    transparent 62%
+  );
+  opacity: 0.35;
+  filter: blur(6px);
+  transition:
+    opacity 420ms ease,
+    transform 420ms ease;
+}
+
+.card-stack[data-flipped="true"] .card-stack__pool {
+  opacity: 0.85;
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+/* El pedestal: la sombra elíptica del suelo. Es lo que quita la sensación de
+   que la carta está pegada al cristal y la pone DE PIE sobre algo. */
+.card-stack__floor {
+  position: absolute;
+  left: 50%;
+  bottom: -2.25rem;
+  z-index: -1;
+  width: 78%;
+  height: 1.5rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--aura, #94a3b8) 55%, transparent),
+    transparent 70%
+  );
+  opacity: 0.5;
+  filter: blur(7px);
+}
+
+/*
+ * Cada carta del fondo baja un peldaño, se ladea y encoge un poco. El ladeo
+ * es lo que hace que la pila se lea COMO una pila: sólo con desplazamiento
+ * vertical, y encogiendo, las de atrás quedan dentro de la silueta de la
+ * primera y no se ve ninguna.
+ */
+.stack-card {
+  /* La carta girada da un paso hacia quien la mira. Va en una variable propia
+     y no en la transformación de golpe porque el arrastre escribe en la misma
+     propiedad: son dos cosas que se suman, no una que pisa a la otra. */
+  --pop: 1;
+  --rise: 0px;
+
+  position: absolute;
+  inset: 0;
+  transform: translate(
+      calc(var(--depth) * -7px + var(--drag-x, 0px)),
+      calc(var(--depth) * 14px + var(--rise) + var(--drag-y, 0px))
+    )
+    rotate(calc(var(--depth) * -2.2deg + var(--drag-rot, 0deg)))
+    scale(calc((1 - var(--depth) * 0.03) * var(--pop)));
+  transition:
+    transform 320ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    filter 320ms ease;
+}
+
+.stack-card[data-flipped="true"] {
+  --pop: 1.04;
+  --rise: -6px;
+}
+
+/*
+ * El canto de rareza, encendido sólo cuando la carta ya está girada: un halo
+ * del color de su nivel, por detrás. Es la misma señal que da la funda del
+ * álbum, pero aquí a tamaño de escena — y llega DESPUÉS del giro, así que no
+ * chiva lo que va a salir.
+ */
+.stack-card[data-flipped="true"]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 4%;
+  border-radius: 8%;
+  background: var(--rare, transparent);
+  opacity: 0.5;
+  filter: blur(22px);
+  animation: rare-halo 420ms ease-out both;
+}
+
+@keyframes rare-halo {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+/*
+ * La entrada va en un nodo aparte, y no es manía: si la animación de entrada
+ * y la colocación de la pila compartieran nodo se pelearían por `transform`,
+ * y una animación con relleno gana siempre a una transición — las cartas de
+ * atrás subirían de golpe en vez de subir. Es la misma separación que ya
+ * hacía el abanico.
+ */
+.stack-card__deal {
+  display: block;
+  height: 100%;
+  animation: card-deal 420ms cubic-bezier(0.2, 0.8, 0.3, 1.05) backwards;
+}
+
+/* Las de atrás se apagan para que la de delante sea la única que se mira. */
+.stack-card:not([data-top="true"]) {
+  filter: brightness(0.5) saturate(0.7);
+  pointer-events: none;
+}
+
+.stack-card[data-top="true"] {
+  touch-action: none;
+  z-index: 5;
+}
+
+/* La que se va: sale de escena girando, y no vuelve. */
+.stack-card[data-leaving="true"] {
+  z-index: 9;
+  pointer-events: none;
+  filter: none;
+  animation: card-away 460ms cubic-bezier(0.35, 0.05, 0.6, 1) both;
+}
+
+.stack-card__hit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border-radius: 4.5%;
+  /* La perspectiva tiene que vivir en el PADRE de lo que gira: puesta más
+     arriba, en la pila, el giro sale plano. */
+  perspective: 1000px;
+}
+
+.stack-card__hit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px #67e8f9;
+}
+
+.stack-card__hit:disabled {
+  cursor: default;
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(38%) scale(0.8);
+  }
+}
+
+@keyframes card-away {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-115%, -18%) rotate(-22deg) scale(0.82);
+  }
+}
+
+/* Ficha de la carta girada. Reserva su altura siempre: si apareciera de la
+   nada, la pila entera daría un salto en el momento del giro — justo cuando
+   se está mirando. */
+.card-plate {
+  min-height: 3.75rem;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 300ms ease 120ms,
+    transform 300ms ease 120ms;
+}
+
+.card-plate[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* La chapa de cristal donde va el nombre. Sin ella el texto flota sobre el
+   telón y la escena se acaba en el borde de la carta; con ella hay un objeto
+   debajo, que es lo que hace que la carta parezca puesta y no pegada. */
+.card-plate__inner {
+  display: inline-block;
+  padding: 0.4rem 1.1rem 0.5rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--edge) 30%, transparent);
+  background: color-mix(in srgb, var(--color-slate-950) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 24px -18px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+/* ---- Las repetidas, deshechas en PE ---------------------------------------
+ * Una carta que ya tienes no se guarda dos veces: se convierte. Y convertirse
+ * tiene que VERSE — un número que cambia en una esquina no es un premio, es un
+ * apunte contable. Así que la carta se enciende, suelta su polvo y el polvo
+ * vuela hasta la hucha, que lo cuenta al llegar.
+ *
+ * La cantidad de polvo sale del nivel de la carta (`moteCount`), igual que los
+ * PE: seis chispas por una común, dieciocho por una Hyper Rara. El premio se ve
+ * antes de leerse.
+ */
+
+/* El barrido que sube por la carta mientras se deshace. En `screen` para que
+   ilumine la ilustración en vez de taparla: lo que se deshace es la carta que
+   se está mirando, y taparla dejaría al jugador sin saber cuál vendió. */
+.dust-drain {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 4.5%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(253, 230, 138, 0.5) 42%,
+    rgba(255, 255, 255, 0.72) 52%,
+    rgba(251, 191, 36, 0.4) 62%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  animation: dust-drain 620ms cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+@keyframes dust-drain {
+  0% {
+    opacity: 0;
+    transform: translateY(46%) scaleY(0.55);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-72%) scaleY(1.15);
+  }
+}
+
+/*
+ * El lienzo del polvo: FIJO y anclado en el centro de la carta, porque el
+ * viaje va de la carta a la hucha y esos dos nodos no comparten rama. Las
+ * motas se colocan en coordenadas de pantalla y se pintan por encima de la
+ * pila — dentro de ella las recortaría el `contain` de las cartas.
+ */
+.dust-stream {
+  position: fixed;
+  z-index: 25;
+  pointer-events: none;
+}
+
+/*
+ * Cada mota, en tres nodos: el de fuera lleva la X, el de dentro la Y y el
+ * punto lleva el destello. Tres animaciones sobre la misma `transform` se
+ * pisarían; repartidas, la X que arranca despacio y la Y que arranca rápido
+ * dibujan un ARCO. Una sola transformación daría una línea recta, y una línea
+ * recta parece un cálculo, no un puñado de brillo.
+ */
+.dust-mote {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: dust-x 640ms cubic-bezier(0.62, 0.02, 0.72, 0.35) both;
+}
+
+.dust-mote__y {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: dust-y 640ms cubic-bezier(0.18, 0.85, 0.42, 1) both;
+}
+
+.dust-mote__dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    #fff 0%,
+    var(--mote, #fbbf24) 42%,
+    transparent 72%
+  );
+  box-shadow: 0 0 8px color-mix(in srgb, var(--mote, #fbbf24) 70%, transparent);
+  animation: dust-spark 640ms ease-in both;
+}
+
+@keyframes dust-x {
+  from {
+    transform: translateX(var(--sx, 0px));
+  }
+  to {
+    transform: translateX(var(--dx, 0px));
+  }
+}
+
+@keyframes dust-y {
+  from {
+    transform: translateY(var(--sy, 0px));
+  }
+  to {
+    transform: translateY(var(--dy, 0px));
+  }
+}
+
+/* El destello: prende al salir de la carta y se apaga al caer en la hucha —
+   la hucha ya tiene su propio latido para acusar el golpe. */
+@keyframes dust-spark {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+/*
+ * La hucha. Existe siempre, apagada, y esa es la clave: el polvo mide dónde
+ * caer justo antes de salir, y un nodo que aparece en ese mismo instante no
+ * tiene posición que medir. Apagada no se ve, pero ocupa su sitio — así que
+ * encenderla tampoco mueve nada de lo que hay alrededor.
+ */
+.pe-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-amber-400) 40%, transparent);
+  background: color-mix(in srgb, var(--color-amber-400) 12%, transparent);
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-amber-200);
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+
+.pe-tally[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+  box-shadow: 0 0 16px -6px color-mix(in srgb, var(--color-amber-400) 90%, transparent);
+}
+
+.pe-tally__coin {
+  color: var(--color-amber-300);
+}
+
+/* El latido de cada punto que entra. El nodo se remonta con cada cifra, que es
+   lo que vuelve a disparar la animación: una animación no se reinicia sola. */
+.pe-tally__figure {
+  display: inline-block;
+  animation: pe-tick 220ms ease-out;
+}
+
+@keyframes pe-tick {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.16);
+    color: #fff;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* El recuento: la cifra y una cuenta por carta. */
+.pack-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pack-progress__count {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.pack-progress__pips {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pack-progress__pip {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-slate-100) 18%, transparent);
+  transition:
+    width 260ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    background-color 260ms ease;
+}
+
+.pack-progress__pip[data-state="done"] {
+  background: color-mix(in srgb, var(--edge) 55%, transparent);
+}
+
+/* La que toca se estira: la cuenta se lee como una barra de progreso con la
+   posición marcada, sin tener que contar puntos. */
+.pack-progress__pip[data-state="now"] {
+  width: 1.1rem;
+  background: var(--edge);
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--edge) 80%, transparent);
+}
+
+/* ---- El recuento ----------------------------------------------------------
+ * Las cartas vuelven a estar juntas, repartidas en arco y cayendo una tras
+ * otra. Cada una se puede tocar para verla en holograma.
+ */
+.pack-summary {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  width: 100%;
+  max-width: 54rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pack-summary__spread {
+  display: flex;
+  /* Ancho propio y no el que le den las cartas: el reparto de abajo mide cada
+     carta contra esta anchura, y una lista que se encoge a su contenido dejaría
+     ese cálculo mordiéndose la cola. */
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.pack-summary__spread > li {
+  position: relative;
+  width: 6.25rem;
+  animation: card-deal 460ms cubic-bezier(0.2, 0.8, 0.3, 1.06) backwards;
+  transform-origin: 50% 120%;
+}
+
+@media (min-width: 640px) {
+  .pack-summary__spread {
+    gap: 0.75rem;
+  }
+
+  .pack-summary__spread > li {
+    /* Lo ancho que quepa sin pasar de 8,75rem: un Especial trae ocho cartas y
+       el arco sólo se lee entero si van todas en la misma fila. */
+    width: min(8.75rem, calc((100% - (var(--fan, 5) - 1) * 0.75rem) / var(--fan, 5)));
+    /* En arco, como si estuvieran extendidas sobre la mesa. */
+    rotate: var(--rot, 0deg);
+    margin-top: var(--lift, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pack-summary__spread > li {
+    transition: transform 220ms ease;
+  }
+
+  .pack-summary__spread > li:hover {
+    transform: translateY(-8px) scale(1.04);
+    z-index: 2;
+  }
+}
+
+/* ---- El visor holográfico -------------------------------------------------
+ * La carta flotando sobre un pedestal de luz. Es el único sitio donde la
+ * carta ocupa la pantalla, así que también es el único donde se inclina con
+ * el dedo y donde se le pone la trama de prisma.
+ */
+.holo-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  perspective: 1200px;
+}
+
+.holo-stage__glow {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--aura, #94a3b8) 45%, transparent),
+    transparent 65%
+  );
+  filter: blur(28px);
+}
+
+.holo-stage__card {
+  position: relative;
+  z-index: 1;
+}
+
+/* El pedestal: una elipse de luz debajo, que es lo que hace que la carta
+   parezca sostenida por el aire y no pegada al fondo. */
+.holo-stage__pad {
+  position: absolute;
+  bottom: -1.25rem;
+  left: 50%;
+  width: 70%;
+  height: 1.5rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--aura, #94a3b8) 55%, transparent),
+    transparent 70%
+  );
+  filter: blur(7px);
+}
+
+/* Trama de prisma: las franjas finas de un holograma de verdad, girando con
+   la inclinación. Va por encima de todo menos del canto. */
+.tcg-prism {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    calc(115deg + (var(--px) - 0.5) * 40deg),
+    rgba(255, 255, 255, 0.12) 0 1px,
+    transparent 1px 5px
+  );
+  mix-blend-mode: overlay;
+  opacity: calc(0.35 + var(--holo) * 0.4);
+  transition: opacity 300ms ease;
+}
+
+/* Dorso: la trama es nuestra, no hay escaneo del reverso en la API. */
+.tcg-back {
+  border-radius: 4.5%;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.04) 0 6px,
+      transparent 6px 12px
+    ),
+    radial-gradient(circle at 50% 46%, #1e3a8a, #0b1220 58%, #05070c);
+  box-shadow: inset 0 0 0 3px rgba(148, 163, 184, 0.25);
+}
+
+.tcg-back__rays {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 170%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 6deg,
+    rgba(148, 197, 255, 0.5) 7deg 11deg,
+    transparent 12deg 24deg
+  );
+  mask: radial-gradient(circle, #000 14%, transparent 58%);
+  opacity: 0.28;
+}
+
+/* El orbe: la banda blanca y el núcleo, como el emblema de una baraja. */
+.tcg-back__orb {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 42%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #e11d48 0 48%, #f8fafc 48% 52%, #f1f5f9 52%);
+  box-shadow:
+    0 0 0 3px rgba(226, 232, 240, 0.85),
+    0 0 22px -2px rgba(56, 189, 248, 0.55),
+    inset 0 -8px 14px -8px rgba(0, 0, 0, 0.8);
+}
+
+.tcg-back__band {
+  position: absolute;
+  inset: 46% 0 46% 0;
+  background: #0f172a;
+}
+
+.tcg-back__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffffff, #cbd5e1 60%, #64748b);
+  box-shadow: 0 0 0 3px #0f172a;
+}
+
+/* Orla: el filo interior que tiene toda carta por detrás. */
+.tcg-back__frame {
+  position: absolute;
+  inset: 6%;
+  border-radius: 3%;
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 197, 255, 0.28),
+    inset 0 0 0 4px rgba(2, 6, 23, 0.5);
+}
+
+/* Un barrido tenue, para que el dorso no sea una lámina muerta. */
+.tcg-back__sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    118deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 62%
+  );
+  mix-blend-mode: soft-light;
 }
 
 /*
@@ -1302,19 +4057,25 @@ li:nth-child(3n) .aura-halo::before {
   animation: pk-faint 0.9s cubic-bezier(0.55, 0, 0.85, 0.35) both;
 }
 
+/*
+ * La sacudida lleva un tirón de cámara: la arena se acerca de golpe en el
+ * fotograma del impacto y vuelve. Sin ese empujón, un porrazo y un arañazo se
+ * distinguían sólo por cuántos píxeles temblaba la pantalla, que es un matiz
+ * que no se ve; con él, el golpe fuerte se siente en el pecho.
+ */
 @keyframes pk-shake-hard {
   0%,
   100% {
     transform: none;
   }
   15% {
-    transform: translate(7px, -5px);
+    transform: translate(7px, -5px) scale(1.025);
   }
   35% {
-    transform: translate(-7px, 4px);
+    transform: translate(-7px, 4px) scale(1.018);
   }
   55% {
-    transform: translate(5px, 5px);
+    transform: translate(5px, 5px) scale(1.01);
   }
   75% {
     transform: translate(-4px, -4px);
@@ -1332,16 +4093,16 @@ li:nth-child(3n) .aura-halo::before {
     transform: none;
   }
   10% {
-    transform: translate(13px, -9px) rotate(0.5deg);
+    transform: translate(13px, -9px) rotate(0.5deg) scale(1.055);
   }
   28% {
-    transform: translate(-12px, 7px) rotate(-0.5deg);
+    transform: translate(-12px, 7px) rotate(-0.5deg) scale(1.04);
   }
   46% {
-    transform: translate(9px, 9px);
+    transform: translate(9px, 9px) scale(1.026);
   }
   64% {
-    transform: translate(-8px, -6px);
+    transform: translate(-8px, -6px) scale(1.014);
   }
   82% {
     transform: translate(5px, 3px);
@@ -1466,7 +4227,7 @@ li:nth-child(3n) .aura-halo::before {
     color-mix(in srgb, var(--c, #fff) 45%, transparent) 58%,
     transparent 72%
   );
-  animation: pk-bloom 0.42s ease-out both;
+  animation: pk-bloom calc(0.42s * var(--tempo, 1)) ease-out both;
 }
 
 /* Onda expansiva: un aro que se abre y se afina al crecer. */
@@ -1491,7 +4252,7 @@ li:nth-child(3n) .aura-halo::before {
   border: 0.5cqw solid var(--c, #fff);
   border-radius: 50%;
   scale: 1 0.55;
-  animation: pk-shockwave 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation: pk-shockwave calc(0.55s * var(--tempo, 1)) cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
 /*
@@ -1528,7 +4289,7 @@ li:nth-child(3n) .aura-halo::before {
   position: absolute;
   width: 1.8cqw;
   height: 1.8cqw;
-  animation: pk-debris 0.66s cubic-bezier(0.15, 0.6, 0.4, 1) both;
+  animation: pk-debris calc(0.66s * var(--tempo, 1)) cubic-bezier(0.15, 0.6, 0.4, 1) both;
 }
 
 /* Chispas: rectas, rápidas y se apagan antes que la metralla. */
@@ -1554,7 +4315,7 @@ li:nth-child(3n) .aura-halo::before {
   border-radius: 50%;
   background: var(--c, #fff);
   box-shadow: 0 0 1.4cqw 0.3cqw var(--c, #fff);
-  animation: pk-spark 0.4s ease-out both;
+  animation: pk-spark calc(0.4s * var(--tempo, 1)) ease-out both;
 }
 
 /* --- Haz sostenido --------------------------------------------------- */
@@ -1587,7 +4348,7 @@ li:nth-child(3n) .aura-halo::before {
 
 .pk-beam {
   stroke-dasharray: var(--len, 100) var(--len, 100);
-  animation: pk-beam 0.82s cubic-bezier(0.25, 0.8, 0.4, 1) both;
+  animation: pk-beam calc(0.82s * var(--tempo, 1)) cubic-bezier(0.25, 0.8, 0.4, 1) both;
 }
 
 /* --- Rayo ------------------------------------------------------------ */
@@ -1611,7 +4372,7 @@ li:nth-child(3n) .aura-halo::before {
 }
 
 .pk-bolt {
-  animation: pk-bolt 0.5s steps(1, end) both;
+  animation: pk-bolt calc(0.5s * var(--tempo, 1)) steps(1, end) both;
 }
 
 /* --- Proyectiles ----------------------------------------------------- */
@@ -1665,12 +4426,12 @@ li:nth-child(3n) .aura-halo::before {
     color-mix(in srgb, var(--c, #fff) 45%, #000) 100%
   );
   box-shadow: 0 0 2.2cqw 0.5cqw color-mix(in srgb, var(--c, #fff) 70%, transparent);
-  animation: pk-orb 0.46s ease-in both;
+  animation: pk-orb calc(0.46s * var(--tempo, 1)) ease-in both;
 }
 
 /* Los disparos de una ráfaga van más secos que un orbe cargado. */
 .pk-orb-fast {
-  animation-duration: 0.32s;
+  animation-duration: calc(0.32s * var(--tempo, 1));
 }
 
 /* --- Cuerpo a cuerpo -------------------------------------------------- */
@@ -1715,7 +4476,7 @@ li:nth-child(3n) .aura-halo::before {
     22% 12%,
     40% 30%
   );
-  animation: pk-impact-star 0.34s ease-out both;
+  animation: pk-impact-star calc(0.34s * var(--tempo, 1)) ease-out both;
 }
 
 /* Tajos: barren el punto de impacto en el ángulo que les toque. */
@@ -1746,7 +4507,7 @@ li:nth-child(3n) .aura-halo::before {
     transparent
   );
   box-shadow: 0 0 1.6cqw color-mix(in srgb, var(--c, #fff) 70%, transparent);
-  animation: pk-slash 0.36s ease-out both;
+  animation: pk-slash calc(0.36s * var(--tempo, 1)) ease-out both;
 }
 
 /* Polvareda: se levanta a los pies y se abre en horizontal. */
@@ -1774,7 +4535,7 @@ li:nth-child(3n) .aura-halo::before {
     color-mix(in srgb, var(--c, #a8a29e) 75%, transparent) 0%,
     transparent 70%
   );
-  animation: pk-dust 0.6s ease-out both;
+  animation: pk-dust calc(0.6s * var(--tempo, 1)) ease-out both;
 }
 
 /* La columna del terremoto sube más de lo que se abre. */
@@ -1808,7 +4569,7 @@ li:nth-child(3n) .aura-halo::before {
 .pk-fissure {
   transform-box: fill-box;
   transform-origin: center;
-  animation: pk-fissure 0.9s ease-out both;
+  animation: pk-fissure calc(0.9s * var(--tempo, 1)) ease-out both;
 }
 
 /* --- Auras de estado --------------------------------------------------- */
@@ -1835,7 +4596,7 @@ li:nth-child(3n) .aura-halo::before {
   border: 0.55cqw solid var(--c, #fff);
   border-radius: 50%;
   box-shadow: 0 0 2cqw color-mix(in srgb, var(--c, #fff) 60%, transparent);
-  animation: pk-aura-ring 0.9s ease-out both;
+  animation: pk-aura-ring calc(0.9s * var(--tempo, 1)) ease-out both;
 }
 
 /* Columna de luz bajo el que se potencia. */
@@ -1872,7 +4633,7 @@ li:nth-child(3n) .aura-halo::before {
     #000 72%,
     transparent
   );
-  animation: pk-pillar 0.95s ease-out both;
+  animation: pk-pillar calc(0.95s * var(--tempo, 1)) ease-out both;
 }
 
 /* Aro hexagonal que se cierra sobre el rival: efecto recibido, no propio. */
@@ -1899,7 +4660,7 @@ li:nth-child(3n) .aura-halo::before {
   border: 0.35cqw solid var(--c, #fff);
   border-radius: 26%;
   box-shadow: 0 0 2.4cqw color-mix(in srgb, var(--c, #fff) 55%, transparent);
-  animation: pk-hex-ring 0.75s ease-in both;
+  animation: pk-hex-ring calc(0.75s * var(--tempo, 1)) ease-in both;
 }
 
 /* Motas del aura: suben envolviendo al que recibe el efecto… */
@@ -1937,7 +4698,7 @@ li:nth-child(3n) .aura-halo::before {
   position: absolute;
   width: 1.8cqw;
   height: 1.8cqw;
-  animation: pk-mote 0.95s ease-out both;
+  animation: pk-mote calc(0.95s * var(--tempo, 1)) ease-out both;
 }
 
 .pk-mote-fall {
@@ -2004,6 +4765,151 @@ li:nth-child(3n) .aura-halo::before {
   );
 }
 
+/* --- Ola ---------------------------------------------------------------- */
+
+/*
+ * Surf y compañía: una pared de agua que cruza el campo entero de un lado al
+ * otro. Es el movimiento que mejor distingue a un ataque de campo de uno
+ * dirigido — no sale del atacante hacia el rival, barre el terreno.
+ */
+@keyframes pk-wave {
+  0% {
+    transform: translate(var(--x0, -60cqw), -50%) scaleY(0.45);
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x1, 60cqw), -50%) scaleY(1.15);
+    opacity: 0;
+  }
+}
+
+.pk-wave {
+  position: absolute;
+  width: 52cqw;
+  height: 22cqw;
+  /* Cresta redondeada arriba y base plana: leída de perfil, es una ola. */
+  border-radius: 48% 52% 12% 12% / 78% 78% 22% 22%;
+  background: linear-gradient(
+    180deg,
+    var(--c2, #e0f2fe) 0%,
+    var(--c, #38bdf8) 42%,
+    color-mix(in srgb, var(--c, #38bdf8) 40%, transparent) 100%
+  );
+  box-shadow: 0 0 6cqw -1cqw var(--c, #38bdf8);
+  animation: pk-wave calc(0.95s * var(--tempo, 1)) cubic-bezier(0.3, 0.55, 0.4, 1) both;
+}
+
+/* --- Vórtice ------------------------------------------------------------ */
+
+/*
+ * Ciclón, Fuego Fatuo, Tormenta de Hojas: aros que giran cerrándose sobre el
+ * objetivo. Van achatados (`scale: 1 .6`) porque el remolino se ve en
+ * perspectiva, girando sobre el suelo y no de frente a la cámara.
+ */
+@keyframes pk-swirl {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(560deg) scale(1.55);
+    opacity: 0;
+  }
+}
+
+.pk-swirl {
+  position: absolute;
+  width: var(--s, 20cqw);
+  height: var(--s, 20cqw);
+  border: 0.55cqw solid transparent;
+  border-top-color: var(--c, #fff);
+  border-right-color: var(--c2, #fff);
+  border-radius: 50%;
+  scale: 1 0.6;
+  animation: pk-swirl calc(1s * var(--tempo, 1)) linear both;
+}
+
+/* --- Picado ------------------------------------------------------------- */
+
+/* Vuelo, Ataque Aéreo: el atacante cae en vertical sobre el rival. La estela
+   entra desde fuera del plano y frena justo en el punto de contacto. */
+@keyframes pk-dive {
+  0% {
+    transform: translate(-50%, -50%) translateY(-70cqw) scaleY(2.2);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-50%, -50%) translateY(0) scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(0) scaleY(0.6);
+    opacity: 0;
+  }
+}
+
+.pk-dive {
+  position: absolute;
+  width: 2.6cqw;
+  height: 24cqw;
+  border-radius: 50%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--c, #fff) 45%,
+    var(--c2, #fff) 100%
+  );
+  filter: blur(0.4px);
+  animation: pk-dive calc(0.5s * var(--tempo, 1)) cubic-bezier(0.5, 0, 0.7, 1) both;
+}
+
+/* --- Fogonazo total ----------------------------------------------------- */
+
+/*
+ * Hiperrayo, Explosión: la pantalla se va a blanco desde el punto de impacto.
+ * Es el recurso que los juegos reservan para los movimientos que acaban un
+ * combate, así que va solo en esa lista de movimientos.
+ */
+@keyframes pk-whiteout {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.96;
+  }
+  38% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pk-whiteout {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--fx, 50%) var(--fy, 50%),
+    #ffffff 0%,
+    var(--c, #fff) 38%,
+    color-mix(in srgb, var(--c, #fff) 25%, transparent) 62%,
+    transparent 80%
+  );
+  animation: pk-whiteout calc(0.85s * var(--tempo, 1)) ease-out both;
+}
+
 /* Retroceso de disparo: el cuerpo acusa el tiro sin salir de su sitio. */
 @keyframes pk-brace {
   0%,
@@ -2020,6 +4926,1105 @@ li:nth-child(3n) .aura-halo::before {
 
 .pk-brace {
   animation: pk-brace 0.5s ease-out both;
+}
+
+/* ==========================================================================
+   COREOGRAFÍAS DE MOVIMIENTO
+   --------------------------------------------------------------------------
+   Una animación por familia de movimiento, para que un mordisco no se vea
+   igual que un puñetazo ni un aliento igual que un orbe. Quién usa cada una
+   está curado movimiento a movimiento en src/lib/battle/move-fx.ts; aquí
+   solo está el DIBUJO.
+
+   Dos reglas que se repiten y conviene no romper:
+
+     · lo que viaja entre los dos combatientes anima `left`/`top`, porque los
+       anclajes están en % de la arena y un translate en % se mediría contra
+       la propia pieza (lo mismo que ya hace .pk-orb);
+     · lo que crece o se desplaza sobre su sitio anima `transform` en cqw,
+       que es 1% del ancho de la arena, y así escala del móvil al ultrapanorámico.
+   ========================================================================== */
+
+/* --- Esferas concéntricas ----------------------------------------------- */
+
+/* Cada anillo sale del atacante, viaja y se abre al llegar: lo que hace que
+   un pulso se lea como pulso es que crece POR EL CAMINO. */
+@keyframes pk-pulse-ring {
+  0% {
+    left: var(--x0);
+    top: var(--y0);
+    transform: translate(-50%, -50%) scale(0.25);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  100% {
+    left: var(--x1);
+    top: var(--y1);
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+
+.pk-pulse-ring {
+  position: absolute;
+  width: var(--s, 8cqw);
+  height: var(--s, 8cqw);
+  border: 0.55cqw solid var(--c, #fff);
+  border-radius: 50%;
+  box-shadow:
+    0 0 1.6cqw 0.2cqw color-mix(in srgb, var(--c, #fff) 65%, transparent),
+    inset 0 0 1.2cqw color-mix(in srgb, var(--c, #fff) 45%, transparent);
+  animation: pk-pulse-ring calc(0.62s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Lluvia desde arriba ------------------------------------------------ */
+
+/* Entra desde fuera de plano y se clava. Cae inclinado porque un cuerpo que
+   baja a plomo se lee como un ascensor y no como un meteorito. */
+@keyframes pk-meteor {
+  0% {
+    transform: translate(-50%, -50%) translateY(-62cqw) rotate(var(--lean, 0deg))
+      scale(0.7);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  88% {
+    transform: translate(-50%, -50%) translateY(0) rotate(var(--lean, 0deg))
+      scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(0) rotate(var(--lean, 0deg))
+      scale(0.4);
+    opacity: 0;
+  }
+}
+
+.pk-meteor {
+  position: absolute;
+  width: 3.4cqw;
+  height: 3.4cqw;
+  animation: pk-meteor calc(0.4s * var(--tempo, 1)) cubic-bezier(0.55, 0, 0.85, 0.4) both;
+}
+
+/* --- Fogonazo de luz ---------------------------------------------------- */
+
+/* No viaja: enciende la arena entera desde quien lo usa y se apaga. */
+@keyframes pk-gleam {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  22% {
+    opacity: 0.85;
+  }
+  55% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+.pk-gleam {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--fx, 50%) var(--fy, 50%),
+    var(--c2, #fff) 0%,
+    color-mix(in srgb, var(--c, #fff) 70%, transparent) 26%,
+    color-mix(in srgb, var(--c, #fff) 22%, transparent) 55%,
+    transparent 78%
+  );
+  animation: pk-gleam calc(0.75s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Filos --------------------------------------------------------------- */
+
+/*
+ * Media luna: un aro al que solo se le pinta el borde de arriba, girado. El
+ * tajo BARRE (rota mientras cruza) en vez de aparecer y desaparecer, que es
+ * la diferencia entre un corte y un destello.
+ */
+@keyframes pk-crescent {
+  0% {
+    transform: translate(-50%, -50%) rotate(calc(var(--rot, 0deg) - 55deg))
+      scale(0.45);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(calc(var(--rot, 0deg) + 30deg))
+      scale(1.25);
+    opacity: 0;
+  }
+}
+
+.pk-crescent {
+  position: absolute;
+  width: var(--s, 18cqw);
+  height: var(--s, 18cqw);
+  border-radius: 50%;
+  border: 0.75cqw solid transparent;
+  border-top-color: var(--c, #fff);
+  border-right-color: color-mix(in srgb, var(--c, #fff) 45%, transparent);
+  filter: drop-shadow(0 0 0.7cqw var(--c, #fff));
+  animation: pk-crescent calc(0.4s * var(--tempo, 1)) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* --- Puñetazo ------------------------------------------------------------ */
+
+/* El nudillo entra por la línea del golpe, aplasta y se va. */
+@keyframes pk-knuckle {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(-14cqw)
+      scale(0.5);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  62% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(0)
+      scale(1.25, 0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(2cqw)
+      scale(0.7);
+    opacity: 0;
+  }
+}
+
+.pk-knuckle {
+  position: absolute;
+  width: 9cqw;
+  height: 9cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 38%,
+    #ffffff 0%,
+    var(--c2, #fff) 24%,
+    var(--c, #fff) 58%,
+    transparent 74%
+  );
+  animation: pk-knuckle calc(0.34s * var(--tempo, 1)) cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* --- Patada -------------------------------------------------------------- */
+
+/* Un cuarto de aro que barre de arriba abajo: el arco del pie. */
+@keyframes pk-kick-arc {
+  0% {
+    transform: translate(-50%, -50%) rotate(-95deg) scale(0.6);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(35deg) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.pk-kick-arc {
+  position: absolute;
+  width: 22cqw;
+  height: 22cqw;
+  border-radius: 50%;
+  border: 1cqw solid transparent;
+  border-bottom-color: var(--c, #fff);
+  border-left-color: color-mix(in srgb, var(--c2, #fff) 60%, transparent);
+  filter: drop-shadow(0 0 0.8cqw var(--c, #fff));
+  animation: pk-kick-arc calc(0.42s * var(--tempo, 1)) cubic-bezier(0.3, 0.6, 0.2, 1) both;
+}
+
+/* --- Fauces -------------------------------------------------------------- */
+
+/*
+ * Dos mitades que entran por arriba y por abajo (--dir las separa) y se
+ * cierran de golpe. El colmillo es el borde dentado del semicírculo.
+ */
+@keyframes pk-jaw {
+  0% {
+    transform: translate(-50%, calc(-50% + var(--dir) * -15cqw))
+      scaleY(var(--dir));
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  /* Cerradas se quedan SEPARADAS: si las dos mitades se juntan en el centro
+     la boca se lee como un bloque macizo y no como unas fauces. El hueco es
+     lo que hace de mordisco. */
+  70% {
+    transform: translate(-50%, calc(-50% + var(--dir) * -4.2cqw))
+      scaleY(var(--dir));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, calc(-50% + var(--dir) * -6.5cqw))
+      scaleY(var(--dir));
+    opacity: 0;
+  }
+}
+
+.pk-jaw {
+  position: absolute;
+  width: 15cqw;
+  height: 7cqw;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--c, #fff) 45%, transparent) 45%,
+    var(--c, #fff)
+  );
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 45%,
+    88% 100%,
+    76% 45%,
+    62% 92%,
+    50% 45%,
+    38% 92%,
+    24% 45%,
+    12% 100%,
+    0 45%
+  );
+  filter: drop-shadow(0 0 0.8cqw var(--c2, #fff));
+  animation: pk-jaw calc(0.38s * var(--tempo, 1)) cubic-bezier(0.5, 0, 0.3, 1) both;
+}
+
+/* --- Taladro ------------------------------------------------------------- */
+
+/* La broca gira MIENTRAS avanza; sin el giro es una lanza, no un taladro. */
+@keyframes pk-drill {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(-20cqw)
+      scaleX(0.7);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  75% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(-1cqw)
+      scaleX(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) translateX(1cqw)
+      scaleX(0.8);
+    opacity: 0;
+  }
+}
+
+/* Bandas del taladro girando sobre su eje, en un pseudo-elemento para que el
+   giro no pelee con el avance del padre. */
+@keyframes pk-drill-spin {
+  to {
+    background-position-x: -12cqw;
+  }
+}
+
+.pk-drill {
+  position: absolute;
+  width: 16cqw;
+  height: 5cqw;
+  clip-path: polygon(0 18%, 62% 0, 100% 50%, 62% 100%, 0 82%);
+  background: repeating-linear-gradient(
+    100deg,
+    var(--c, #fff) 0 1.1cqw,
+    var(--c2, #fff) 1.1cqw 2.2cqw
+  );
+  filter: drop-shadow(0 0 0.9cqw var(--c, #fff));
+  animation:
+    pk-drill calc(0.36s * var(--tempo, 1)) cubic-bezier(0.3, 0, 0.4, 1) both,
+    pk-drill-spin calc(0.12s * var(--tempo, 1)) linear infinite;
+}
+
+/* --- Rueda --------------------------------------------------------------- */
+
+/* El disco gira y se achata al arrollar. */
+@keyframes pk-spin-disc {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(520deg) scale(1.15, 0.9);
+    opacity: 0;
+  }
+}
+
+.pk-spin-disc {
+  position: absolute;
+  width: var(--s, 14cqw);
+  height: var(--s, 14cqw);
+  border-radius: 50%;
+  border: 0.7cqw dashed var(--c, #fff);
+  box-shadow: 0 0 1.4cqw color-mix(in srgb, var(--c2, #fff) 70%, transparent);
+  animation: pk-spin-disc calc(0.5s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Golpe pesado -------------------------------------------------------- */
+
+/* Una elipse que se ACHATA: es lo que dice «peso» sin dibujar el cuerpo. */
+@keyframes pk-slam-flat {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4, 1.3);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.5, 0.42);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.9, 0.25);
+    opacity: 0;
+  }
+}
+
+.pk-slam-flat {
+  position: absolute;
+  width: 20cqw;
+  height: 14cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    #ffffff 0%,
+    var(--c2, #fff) 30%,
+    var(--c, #fff) 60%,
+    transparent 78%
+  );
+  animation: pk-slam-flat calc(0.42s * var(--tempo, 1)) cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+/* --- Púas del suelo ------------------------------------------------------ */
+
+/*
+ * Brotan desde su base, no desde el centro: `transform-box: fill-box` mide el
+ * origen contra el propio polígono para que crezcan hacia arriba clavadas en
+ * el suelo.
+ */
+@keyframes pk-spire {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  55% {
+    transform: scaleY(1.08);
+  }
+  75% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.9);
+    opacity: 0;
+  }
+}
+
+.pk-spire {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: pk-spire calc(0.72s * var(--tempo, 1)) cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+/* --- El cielo entero ----------------------------------------------------- */
+
+/* Un tinte que entra y se va sobre TODA la arena: los movimientos de tiempo
+   no apuntan a nadie. */
+@keyframes pk-sky-wash {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pk-sky-wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--c2, #fff) 55%, transparent) 0%,
+    color-mix(in srgb, var(--c, #fff) 40%, transparent) 45%,
+    transparent 100%
+  );
+  animation: pk-sky-wash calc(1.1s * var(--tempo, 1)) ease-in-out both;
+}
+
+@keyframes pk-sky-mote {
+  0% {
+    transform: translate(-50%, -14cqw) scale(0.6);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--drift, 0cqw)), 16cqw) scale(1);
+    opacity: 0;
+  }
+}
+
+.pk-sky-mote {
+  position: absolute;
+  width: 1.6cqw;
+  height: 1.6cqw;
+  animation: pk-sky-mote calc(1.15s * var(--tempo, 1)) linear both;
+}
+
+/* --- El suelo encendido --------------------------------------------------- */
+
+/* La rejilla se dibuja sola de fondo a frente y se apaga. */
+@keyframes pk-grid-line {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pk-grid-line {
+  animation: pk-grid-line calc(1s * var(--tempo, 1)) ease-in-out both;
+}
+
+@keyframes pk-ground-glow {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.pk-ground-glow {
+  position: absolute;
+  inset: 52% 0 0 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--c, #fff) 55%, transparent),
+    transparent 70%
+  );
+  animation: pk-ground-glow calc(1s * var(--tempo, 1)) ease-in-out both;
+}
+
+/* --- Trampas sembradas ---------------------------------------------------- */
+
+/* Sale del que la pone, cruza y se QUEDA un momento en el suelo del rival:
+   sin esa pausa al final se lee como metralla, no como trampa. */
+@keyframes pk-hazard {
+  0% {
+    transform: translate(calc(-50% + var(--x0)), var(--y0)) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  85% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 0) scale(0.9);
+    opacity: 0;
+  }
+}
+
+.pk-hazard {
+  position: absolute;
+  width: 2.4cqw;
+  height: 2.4cqw;
+  animation: pk-hazard calc(1.05s * var(--tempo, 1)) cubic-bezier(0.3, 0.1, 0.4, 1) both;
+}
+
+/* --- Espacio retorcido ---------------------------------------------------- */
+
+@keyframes pk-warp-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2) rotate(0deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6) rotate(150deg);
+    opacity: 0;
+  }
+}
+
+.pk-warp-ring {
+  position: absolute;
+  width: var(--s, 14cqw);
+  height: var(--s, 14cqw);
+  border-radius: 50%;
+  border: 0.5cqw solid var(--c, #fff);
+  border-right-color: var(--c2, #fff);
+  border-left-color: transparent;
+  animation: pk-warp-ring calc(0.72s * var(--tempo, 1)) ease-out both;
+}
+
+/* El velo que dobla el fondo, con el eje inclinado para que se lea como una
+   distorsión del espacio y no como una niebla. */
+@keyframes pk-warp-veil {
+  0% {
+    opacity: 0;
+    transform: skewX(0deg);
+  }
+  35% {
+    opacity: 0.45;
+    transform: skewX(3deg);
+  }
+  65% {
+    transform: skewX(-2.5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: skewX(0deg);
+  }
+}
+
+.pk-warp-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--fx, 50%) var(--fy, 50%),
+    color-mix(in srgb, var(--c, #fff) 60%, transparent) 0%,
+    transparent 55%
+  );
+  animation: pk-warp-veil calc(0.85s * var(--tempo, 1)) ease-in-out both;
+}
+
+/* --- Sonido --------------------------------------------------------------- */
+
+/* Aros anchos y planos que salen del que grita y cruzan el campo. Van muy
+   achatados a propósito: el sonido se propaga por la arena, no hacia el
+   graderío. */
+@keyframes pk-sound-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15, 0.1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6, 1.1);
+    opacity: 0;
+  }
+}
+
+.pk-sound-ring {
+  position: absolute;
+  width: 40cqw;
+  height: 22cqw;
+  border-radius: 50%;
+  border: 0.55cqw solid var(--c, #fff);
+  animation: pk-sound-ring calc(0.78s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Robo de energía ------------------------------------------------------ */
+
+/* El zarcillo se DIBUJA hacia el rival (stroke-dashoffset) y se queda
+   agarrado mientras vuelve lo robado. */
+@keyframes pk-tendril {
+  0% {
+    stroke-dasharray: 120;
+    stroke-dashoffset: 120;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  45% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  85% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.pk-tendril {
+  animation: pk-tendril calc(1.1s * var(--tempo, 1)) ease-out both;
+}
+
+/* La energía subiendo por el zarcillo de vuelta a quien atacó. */
+@keyframes pk-siphon {
+  0% {
+    left: var(--x0);
+    top: var(--y0);
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    left: var(--x1);
+    top: var(--y1);
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.pk-siphon {
+  position: absolute;
+  width: 2.2cqw;
+  height: 2.2cqw;
+  border-radius: 50%;
+  background: var(--c, #fff);
+  box-shadow: 0 0 1.4cqw 0.3cqw color-mix(in srgb, var(--c, #fff) 70%, transparent);
+  animation: pk-siphon calc(0.5s * var(--tempo, 1)) ease-in-out both;
+}
+
+/* --- Levitación psíquica -------------------------------------------------- */
+
+/* Aros deformados que se CIERRAN sobre el que está suspendido (van de fuera
+   hacia dentro, al revés que una onda expansiva). */
+@keyframes pk-psy-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(1.8) rotate(0deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.35) rotate(-120deg);
+    opacity: 0;
+  }
+}
+
+.pk-psy-ring {
+  position: absolute;
+  width: var(--s, 20cqw);
+  height: calc(var(--s, 20cqw) * 0.62);
+  border-radius: 50%;
+  border: 0.6cqw solid var(--c, #fff);
+  border-top-color: var(--c2, #fff);
+  animation: pk-psy-ring calc(0.66s * var(--tempo, 1)) cubic-bezier(0.4, 0, 0.3, 1) both;
+}
+
+/* El que lo recibe sale del suelo y cae. Persiste hasta que la arena lo
+   quita, igual que las posturas de los movimientos de dos turnos. */
+@keyframes pk-psylift {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-9%) rotate(-3deg);
+  }
+  60% {
+    transform: translateY(-11%) rotate(4deg);
+  }
+  85% {
+    transform: translateY(-6%) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.pk-psylift {
+  animation: pk-psylift 0.9s cubic-bezier(0.3, 0.1, 0.3, 1) both;
+}
+
+/* --- Espectros ------------------------------------------------------------ */
+
+/* Suben desde debajo del rival ondulando, y se deshacen arriba. */
+@keyframes pk-wisp {
+  0% {
+    transform: translate(-50%, 0) scale(0.4);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.95;
+  }
+  60% {
+    transform: translate(calc(-50% + var(--sway, 0cqw)), -9cqw) scale(1.1);
+  }
+  100% {
+    transform: translate(calc(-50% - var(--sway, 0cqw)), -17cqw) scale(0.7);
+    opacity: 0;
+  }
+}
+
+.pk-wisp {
+  position: absolute;
+  width: 4.5cqw;
+  height: 9cqw;
+  border-radius: 50% 50% 45% 45%;
+  background: linear-gradient(
+    to top,
+    transparent,
+    color-mix(in srgb, var(--c, #fff) 65%, transparent) 40%,
+    var(--c2, #fff)
+  );
+  filter: blur(0.25cqw);
+  animation: pk-wisp calc(0.85s * var(--tempo, 1)) ease-out both;
+}
+
+/* La sombra que se cierra alrededor del que lo recibe. */
+@keyframes pk-gloom {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pk-gloom {
+  position: absolute;
+  width: 26cqw;
+  height: 26cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    transparent 30%,
+    color-mix(in srgb, var(--c, #000) 75%, transparent) 62%,
+    transparent 80%
+  );
+  animation: pk-gloom calc(0.8s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Burbujeo y gas ------------------------------------------------------- */
+
+@keyframes pk-gas {
+  0% {
+    transform: translate(-50%, -50%) scale(0.35);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0;
+  }
+}
+
+.pk-gas {
+  position: absolute;
+  width: 24cqw;
+  height: 18cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--c, #fff) 70%, transparent) 0%,
+    color-mix(in srgb, var(--c2, #fff) 45%, transparent) 55%,
+    transparent 78%
+  );
+  filter: blur(0.6cqw);
+  animation: pk-gas calc(1s * var(--tempo, 1)) ease-in-out both;
+}
+
+/* Las burbujas suben y REVIENTAN arriba (el estirón del 85% es el pop). */
+@keyframes pk-bubble {
+  0% {
+    transform: translate(-50%, 0) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.95;
+  }
+  85% {
+    transform: translate(-50%, calc(var(--rise, 10cqw) * -1)) scale(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, calc(var(--rise, 10cqw) * -1.1)) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pk-bubble {
+  position: absolute;
+  width: var(--s, 2.5cqw);
+  height: var(--s, 2.5cqw);
+  border-radius: 50%;
+  border: 0.28cqw solid var(--c, #fff);
+  background: color-mix(in srgb, var(--c, #fff) 28%, transparent);
+  animation: pk-bubble calc(0.95s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Esporas -------------------------------------------------------------- */
+
+/* La nube cruza desde quien la suelta y se POSA encima del rival. */
+@keyframes pk-powder-cloud {
+  0% {
+    transform: translate(calc(-50% + var(--x0)), calc(-50% + var(--y0)))
+      scale(0.35);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  65% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0;
+  }
+}
+
+.pk-powder-cloud {
+  position: absolute;
+  width: 26cqw;
+  height: 16cqw;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--c2, #fff) 60%, transparent) 0%,
+    color-mix(in srgb, var(--c, #fff) 50%, transparent) 50%,
+    transparent 76%
+  );
+  filter: blur(0.5cqw);
+  animation: pk-powder-cloud calc(0.95s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Ataduras ------------------------------------------------------------- */
+
+/* Los aros se cierran sobre el rival y APRIETAN (el 78% es el tirón). */
+@keyframes pk-band {
+  0% {
+    transform: translate(-50%, -50%) scale(1.7, 0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(0.85, 1);
+    opacity: 1;
+  }
+  78% {
+    transform: translate(-50%, -50%) scale(0.72, 1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.8, 1);
+    opacity: 0;
+  }
+}
+
+.pk-band {
+  position: absolute;
+  width: 18cqw;
+  height: 5cqw;
+  border-radius: 50%;
+  border: 0.65cqw solid var(--c, #fff);
+  border-bottom-color: var(--c2, #fff);
+  animation: pk-band calc(0.85s * var(--tempo, 1)) cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+/* --- Danzas --------------------------------------------------------------- */
+
+/*
+ * Órbita en dos piezas: el envoltorio GIRA (y arranca ya girado por --turn,
+ * para repartir las piezas por el círculo) y el hijo va desplazado del
+ * centro. Hacerlo en una sola capa obligaría a animar el desplazamiento y
+ * el giro a la vez, y las piezas saldrían en espiral en vez de en círculo.
+ */
+@keyframes pk-orbit {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--turn, 0deg)) scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(calc(var(--turn, 0deg) + 540deg))
+      translateY(-8cqw) scale(1);
+    opacity: 0;
+  }
+}
+
+.pk-orbit {
+  position: absolute;
+  width: 18cqw;
+  height: 18cqw;
+  animation: pk-orbit calc(1s * var(--tempo, 1)) cubic-bezier(0.3, 0.1, 0.3, 1) both;
+}
+
+.pk-orbit-piece {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 3cqw;
+  height: 3cqw;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 0.5cqw currentColor);
+}
+
+/* --- Curación ------------------------------------------------------------- */
+
+/* Aro cálido que se cierra sobre el que se cura, de fuera hacia dentro: al
+   revés que una onda de impacto, porque aquí no sale nada, ENTRA. */
+@keyframes pk-heal-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.pk-heal-ring {
+  position: absolute;
+  width: 20cqw;
+  height: 12cqw;
+  border-radius: 50%;
+  border: 0.5cqw solid var(--c, #4ade80);
+  box-shadow: 0 0 1.6cqw color-mix(in srgb, var(--c, #4ade80) 60%, transparent);
+  animation: pk-heal-ring calc(0.85s * var(--tempo, 1)) ease-in-out both;
+}
+
+/* --- Paneles -------------------------------------------------------------- */
+
+/* Se levanta desde el suelo delante de su dueño y se queda vibrando, con el
+   brillo recorriéndolo. */
+@keyframes pk-screen-pane {
+  0% {
+    transform: translate(-50%, -50%) scaleY(0.05);
+    opacity: 0;
+  }
+  30% {
+    transform: translate(-50%, -50%) scaleY(1.05);
+    opacity: 0.85;
+  }
+  45% {
+    transform: translate(-50%, -50%) scaleY(0.98);
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleY(1);
+    opacity: 0;
+  }
+}
+
+.pk-screen-pane {
+  position: absolute;
+  width: 15cqw;
+  height: 26cqw;
+  border: 0.4cqw solid var(--c2, #fff);
+  border-radius: 1cqw;
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--c, #fff) 12%, transparent) 0%,
+    color-mix(in srgb, var(--c2, #fff) 42%, transparent) 40%,
+    color-mix(in srgb, var(--c, #fff) 12%, transparent) 60%
+  );
+  box-shadow: 0 0 2cqw color-mix(in srgb, var(--c, #fff) 50%, transparent);
+  animation: pk-screen-pane calc(1s * var(--tempo, 1)) ease-out both;
+}
+
+/* --- Burbujas de protección ------------------------------------------------ */
+
+/* Se cierra de GOLPE (la curva la pasa de largo y vuelve) y se queda
+   temblando: es lo que hace que Protección se lea como un portazo. */
+@keyframes pk-shield-bubble {
+  0% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.9;
+  }
+  36% {
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 0;
+  }
+}
+
+.pk-shield-bubble {
+  position: absolute;
+  width: 26cqw;
+  height: 26cqw;
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  border: 0.5cqw solid var(--c2, #fff);
+  background: radial-gradient(
+    circle,
+    transparent 45%,
+    color-mix(in srgb, var(--c, #fff) 30%, transparent) 75%,
+    color-mix(in srgb, var(--c2, #fff) 45%, transparent) 100%
+  );
+  animation: pk-shield-bubble calc(0.9s * var(--tempo, 1)) cubic-bezier(0.3, 0, 0.2, 1) both;
 }
 
 @keyframes fx-screen-shake {
@@ -2062,6 +6067,172 @@ li:nth-child(3n) .aura-halo::before {
 
 .fx-bubble-pop {
   animation: fx-bubble-pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+/*
+ * Rótulo de impacto: «¡ES SUPEREFICAZ!» entrando de golpe sobre el campo.
+ *
+ * Entra pasándose de tamaño y volviendo — el rebote es lo que lo hace sonar a
+ * golpe y no a aviso — y se va hacia arriba desvaneciéndose, para no tapar la
+ * caja de texto que va a contar lo mismo un instante después. Los 140 ms de
+ * entrada y los ~420 de salida son los mismos que ya espera el sonido de
+ * eficacia, así que imagen y sonido caen juntos.
+ */
+@keyframes fx-stinger {
+  0% {
+    transform: scale(0.55) rotate(-4deg);
+    opacity: 0;
+  }
+  22% {
+    transform: scale(1.14) rotate(1.5deg);
+    opacity: 1;
+  }
+  34% {
+    transform: scale(1) rotate(0deg);
+  }
+  70% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.98) translateY(-14%);
+    opacity: 0;
+  }
+}
+
+.fx-stinger {
+  animation: fx-stinger 0.9s cubic-bezier(0.25, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Sin rebote ni desplazamiento: aparece, se lee y se va. */
+  .fx-stinger {
+    animation: fx-bubble-pop 0.2s ease-out both;
+  }
+}
+
+/*
+ * CIFRA DE DAÑO
+ *
+ * El número que salta del Pokémon golpeado. Es lo único del combate que dice
+ * CUÁNTO ha dolido en el mismo fotograma del impacto: la barra tarda medio
+ * segundo en vaciarse y la caja de texto llega después, así que hasta ahora el
+ * golpe se veía y se oía, pero no se medía.
+ *
+ * Sale disparado hacia arriba y hacia fuera del campo, se pasa de tamaño en el
+ * pico y cae desvaneciéndose — la parábola es lo que lo hace legible mientras
+ * la pantalla tiembla debajo.
+ */
+@keyframes fx-dmg {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(var(--dx, 0), -46%) scale(1.28);
+    opacity: 1;
+  }
+  32% {
+    transform: translate(var(--dx, 0), -58%) scale(1);
+  }
+  70% {
+    transform: translate(var(--dx, 0), -74%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx, 0), -150%) scale(0.92);
+    opacity: 0;
+  }
+}
+
+.fx-dmg {
+  animation: fx-dmg 1s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+/*
+ * MARCADOR DE RACHA
+ *
+ * Sube un peldaño cada vez que encadenas un golpe que duele — supereficaz o
+ * crítico — sin que te toquen entre medias. Entra dando un tirón hacia la
+ * izquierda, como los contadores de combo de los juegos de lucha, y late
+ * mientras la racha siga viva.
+ */
+@keyframes fx-combo-in {
+  0% {
+    transform: scale(0.5) rotate(-8deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.22) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes fx-combo-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--combo) 60%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px var(--combo));
+  }
+}
+
+.fx-combo {
+  animation:
+    fx-combo-in 0.34s cubic-bezier(0.2, 1.5, 0.4, 1) both,
+    fx-combo-glow 1.1s ease-in-out 0.34s infinite;
+}
+
+/*
+ * K.O.
+ *
+ * El rótulo del golpe que tumba: entra girado y enorme, aguanta un instante y
+ * se va hacia el fondo. Dura más que el resto de rótulos a propósito — es el
+ * único momento del turno en el que no pasa nada más y conviene saborearlo.
+ */
+@keyframes fx-ko {
+  0% {
+    transform: scale(2.6) rotate(-12deg);
+    opacity: 0;
+  }
+  14% {
+    transform: scale(0.94) rotate(3deg);
+    opacity: 1;
+  }
+  24% {
+    transform: scale(1.06) rotate(-1.5deg);
+  }
+  34% {
+    transform: scale(1) rotate(0deg);
+  }
+  72% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.fx-ko {
+  animation: fx-ko 1.15s cubic-bezier(0.2, 1.1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-dmg,
+  .fx-ko {
+    animation: fx-bubble-pop 0.2s ease-out both;
+  }
+
+  .fx-combo {
+    animation: fx-bubble-pop 0.2s ease-out both;
+  }
 }
 
 /*
@@ -2111,6 +6282,56 @@ li:nth-child(3n) .aura-halo::before {
   height: 14px;
   border-radius: 2px;
   animation: fx-confetti-fall 3.6s linear infinite;
+}
+
+/*
+ * EL DESAFÍO: la fila de Entrenadores que te esperan.
+ *
+ * Cada peldaño entra por su lado con su propio retardo, así la escalera se
+ * lee de izquierda a derecha como lo que es — un camino que hay que recorrer
+ * — en vez de aparecer entera de golpe. El último no entra: se planta.
+ */
+@keyframes fx-gauntlet-step {
+  0% {
+    transform: translateY(14px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.fx-gauntlet-step {
+  animation: fx-gauntlet-step 0.42s cubic-bezier(0.2, 1.2, 0.35, 1) both;
+}
+
+/* El jefe final respira: su aro de luz late despacio, sin parar. */
+@keyframes gauntlet-boss-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--edge) 70%, transparent),
+      0 0 18px -6px var(--edge);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--edge),
+      0 0 34px -4px var(--edge);
+  }
+}
+
+.gauntlet-boss {
+  animation: gauntlet-boss-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gauntlet-boss {
+    animation: none;
+    box-shadow:
+      0 0 0 2px var(--edge),
+      0 0 26px -6px var(--edge);
+  }
 }
 
 /*
@@ -2190,12 +6411,52 @@ li:nth-child(3n) .aura-halo::before {
   animation: champ-rays-spin 44s linear infinite;
 }
 
+/*
+ * La vitrina del botín. No es `premium-frame` como el resto de bloques de la
+ * ceremonia: ese marco es de oro y sirve para lo que se mira, y esto es lo que
+ * te LLEVAS. Va en el violeta del modo colección, con el borde encendido y el
+ * halo latiendo, para que se distinga a golpe de vista del Salón de la Fama y
+ * del registro de cifras — que son informativos — y se lea como lo que es, el
+ * premio de la copa.
+ */
+.champ-loot {
+  border: 1px solid color-mix(in srgb, #a78bfa 55%, transparent);
+  background:
+    radial-gradient(
+      ellipse 90% 120% at 50% 0%,
+      rgba(139, 92, 246, 0.22),
+      transparent 70%
+    ),
+    linear-gradient(to bottom, rgba(23, 12, 46, 0.88), rgba(6, 8, 18, 0.92));
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.14) inset,
+    0 0 40px -12px rgba(167, 139, 250, 0.75);
+  animation:
+    champ-in 0.6s ease-out both,
+    champ-loot-halo 3.6s ease-in-out 1s infinite;
+}
+
+@keyframes champ-loot-halo {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(196, 181, 253, 0.14) inset,
+      0 0 40px -12px rgba(167, 139, 250, 0.75);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(196, 181, 253, 0.24) inset,
+      0 0 62px -8px rgba(167, 139, 250, 0.95);
+  }
+}
+
 /* Sin movimiento la ceremonia sigue estando: la copa, el equipo y las cifras
    aparecen ya colocados, y los focos se quedan quietos detrás. */
 @media (prefers-reduced-motion: reduce) {
   .champ-trophy,
   .champ-in,
   .champ-hof,
+  .champ-loot,
   .champ-rays {
     animation: none;
     opacity: 1;
@@ -2226,11 +6487,9 @@ li:nth-child(3n) .aura-halo::before {
   animation: pk-idle 2.8s ease-in-out 0.7s infinite;
 }
 
-/* Sombra elíptica bajo el sprite: encoge cuando el Pokémon "sube". */
-.pk-ground-shadow {
-  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0) 70%);
-  transition: opacity 0.5s ease;
-}
+/* La oclusión bajo los pies del Entrenador la dibuja `TrainerFigure` con su
+   propio degradado: el que había aquí, al 0.4 de negro, no se leía sobre el
+   césped nocturno del estadio y dejaba a la figura flotando. */
 
 @keyframes pk-shadow-idle {
   0%,
@@ -2252,23 +6511,50 @@ li:nth-child(3n) .aura-halo::before {
 }
 
 /*
- * El entrenador rival de pie junto a su Pokémon: entra desde fuera del
- * encuadre, como quien acaba de plantarse en el campo, y luego respira más
- * despacio que las criaturas — es el único de los tres que no está peleando.
+ * Los dos Entrenadores. La apertura de un combate de los juegos es una
+ * coreografía en tres tiempos y aquí se reparte en tres piezas:
+ *
+ *   1. el carril, que los mete y los saca del encuadre por su lado;
+ *   2. el lanzamiento, que es lo que pone al Pokémon en el campo;
+ *   3. el respiro en bucle mientras esperan — más lento que el de las
+ *      criaturas, porque son los únicos dos que no están peleando.
+ *
+ * El carril ocupa la arena entera, así que su 100% es el ancho de pantalla:
+ * quien se va, se va del todo. Y como es una transición y no una animación,
+ * la vuelta (el Entrenador que reaparece para decir su frase de apuro o de
+ * derrota) sale gratis, en sentido contrario y con la misma curva.
  */
-@keyframes pk-trainer-in {
+.pk-trainer-lane {
+  transition: transform 0.62s cubic-bezier(0.22, 0.8, 0.28, 1);
+  will-change: transform;
+}
+
+/*
+ * El lanzamiento: se agacha a coger impulso, se estira hacia el campo y
+ * vuelve. Es un sprite plano, así que el brazo no se mueve — lo que vende el
+ * gesto es el peso, o sea el aplastado al agacharse y el estirón al soltar.
+ */
+@keyframes pk-trainer-throw {
   0% {
-    transform: translateX(28%);
-    opacity: 0;
+    transform: translateY(0) scale(1, 1);
+  }
+  24% {
+    transform: translateY(1.5%) scale(1.05, 0.93);
+  }
+  46% {
+    transform: translateY(-5%) scale(0.95, 1.07);
+  }
+  68% {
+    transform: translateY(0.6%) scale(1.02, 0.98);
   }
   100% {
-    transform: translateX(0);
-    opacity: 1;
+    transform: translateY(0) scale(1, 1);
   }
 }
 
-.pk-trainer-in {
-  animation: pk-trainer-in 0.65s cubic-bezier(0.2, 0.8, 0.3, 1) 0.25s both;
+.pk-trainer-throw {
+  transform-origin: 50% 100%;
+  animation: pk-trainer-throw 0.62s cubic-bezier(0.3, 0.7, 0.3, 1) both;
 }
 
 .pk-idle-t {
@@ -2441,13 +6727,14 @@ li:nth-child(3n) .aura-halo::before {
   .fx-bubble-pop,
   .fx-round-banner,
   .fx-confetti,
+  .fx-gauntlet-step,
   .pk-idle-p,
   .pk-idle-e,
   .pk-idle-t,
   .pk-shadow-p,
   .pk-shadow-e,
   .pk-shadow-t,
-  .pk-trainer-in,
+  .pk-trainer-throw,
   .pk-clouds,
   .pk-charge-glow,
   .pk-reappear,
@@ -2467,6 +6754,43 @@ li:nth-child(3n) .aura-halo::before {
   .pk-hex-ring,
   .pk-mote,
   .pk-brace,
+  .pk-wave,
+  .pk-swirl,
+  .pk-dive,
+  .pk-whiteout,
+  .pk-pulse-ring,
+  .pk-meteor,
+  .pk-gleam,
+  .pk-crescent,
+  .pk-knuckle,
+  .pk-kick-arc,
+  .pk-jaw,
+  .pk-drill,
+  .pk-spin-disc,
+  .pk-slam-flat,
+  .pk-spire,
+  .pk-sky-wash,
+  .pk-sky-mote,
+  .pk-grid-line,
+  .pk-ground-glow,
+  .pk-hazard,
+  .pk-warp-ring,
+  .pk-warp-veil,
+  .pk-sound-ring,
+  .pk-tendril,
+  .pk-siphon,
+  .pk-psy-ring,
+  .pk-psylift,
+  .pk-wisp,
+  .pk-gloom,
+  .pk-gas,
+  .pk-bubble,
+  .pk-powder-cloud,
+  .pk-band,
+  .pk-orbit,
+  .pk-heal-ring,
+  .pk-screen-pane,
+  .pk-shield-bubble,
   .cursor-blink {
     animation: none;
   }
@@ -2487,6 +6811,13 @@ li:nth-child(3n) .aura-halo::before {
   .pk-hide-vanish,
   .pk-faint {
     animation-duration: 1ms;
+  }
+
+  /* El carril de los Entrenadores es una transición, no una animación, así
+     que `animation: none` no lo alcanza: se corta aquí. Entran y salen igual,
+     pero de golpe — el estado final es el que cuenta la escena. */
+  .pk-trainer-lane {
+    transition: none;
   }
 }
 
@@ -2986,6 +7317,53 @@ html[data-theme="light"] .legend-text {
   background-clip: text;
 }
 
+/*
+ * El nivel blanco, sobre papel. Los otros cuatro sólo oscurecen su tono; éste
+ * tiene que cambiar de material, porque un banner blanco sobre fondo blanco no
+ * es un banner. Pasa a platino grabado: filo de grafito, cristal frío y el
+ * acento invertido — de ahí que `--ice` se vuelva tinta y `--ice-on`, papel.
+ */
+html[data-theme="light"] .mythic-frame {
+  --ice: #334155;
+  --ice-on: #f8fafc;
+  background:
+    linear-gradient(180deg, #f8fafc, #ffffff) padding-box,
+    linear-gradient(
+        120deg,
+        rgba(51, 65, 85, 0.9),
+        rgba(148, 163, 184, 0.5) 30%,
+        rgba(71, 85, 105, 0.85) 50%,
+        rgba(148, 163, 184, 0.5) 72%,
+        rgba(30, 41, 59, 0.9)
+      )
+      border-box;
+  box-shadow:
+    0 0 28px -8px rgba(51, 65, 85, 0.3),
+    inset 0 0 42px -24px rgba(100, 116, 139, 0.3);
+}
+
+html[data-theme="light"] .mythic-frame:hover {
+  box-shadow:
+    0 0 36px -6px rgba(51, 65, 85, 0.42),
+    inset 0 0 42px -20px rgba(100, 116, 139, 0.4);
+}
+
+/* El barrido de luz blanca no se ve sobre blanco: en claro es una sombra. */
+html[data-theme="light"] .mythic-sweep::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(15, 23, 42, 0.06),
+    transparent
+  );
+}
+
+html[data-theme="light"] .mythic-text {
+  background: linear-gradient(100deg, #0f172a, #475569 40%, #1e293b 60%, #334155);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
 /* Chips de tipo: mezcla hacia negro en lugar de blanco. */
 html[data-theme="light"] .type-chip {
   color: color-mix(in srgb, var(--type) 55%, black);
@@ -3216,6 +7594,214 @@ html[data-theme="light"] .mystery-sil {
 }
 
 /*
+ * El modo colección sobre papel.
+ *
+ * La rampa `slate-*` de Tailwind sí se remapea en claro, pero estos bloques
+ * llevan los hexadecimales escritos a mano (los necesitan los `color-mix` con
+ * `--edge`), y esos no se enteran del cambio de tema: aquí se traducen a mano.
+ */
+
+html[data-theme="light"] .album-eyebrow {
+  color: #0e7490;
+}
+
+/* El metal frío se apaga sobre blanco: la misma pieza, teñida en tinta.
+   `background-image` y NO el atajo `background`, que reiniciaría el
+   `background-clip: text` de la regla base y dejaría el rótulo convertido en
+   una barra de color con el texto invisible dentro. */
+html[data-theme="light"] .album-title {
+  background-image: linear-gradient(
+    100deg,
+    #0f172a,
+    #0e7490 38%,
+    #6d28d9 62%,
+    #0f172a
+  );
+  filter: none;
+}
+
+html[data-theme="light"] .album-rail {
+  background: rgba(226, 232, 240, 0.9);
+  box-shadow:
+    inset 0 1px 3px rgba(15, 23, 42, 0.18),
+    inset 0 0 0 1px rgba(100, 116, 139, 0.25);
+}
+
+html[data-theme="light"] .album-rail__fill {
+  box-shadow: 0 0 14px -6px rgba(8, 145, 178, 0.7);
+}
+
+html[data-theme="light"] .album-rail__fill::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+}
+
+html[data-theme="light"] .album-mark {
+  border-color: rgba(100, 116, 139, 0.7);
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .album-mark[data-done] {
+  border-color: #b45309;
+  background: #f59e0b;
+}
+
+html[data-theme="light"] .album-tab {
+  border-color: rgba(100, 116, 139, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.8));
+  color: #475569;
+}
+
+html[data-theme="light"] .album-tab:hover {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .album-tab[aria-pressed="true"] {
+  color: #0f172a;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--edge, #64748b) 22%, white),
+    rgba(255, 255, 255, 0.9)
+  );
+}
+
+/* El acento puro se queda corto sobre papel: se hunde hacia la tinta para que
+   el icono y la cifra sigan pasando el contraste mínimo. */
+html[data-theme="light"] .album-tab__icon {
+  color: color-mix(in srgb, var(--edge, #64748b) 70%, #0f172a);
+}
+
+html[data-theme="light"] .album-tab__hint {
+  color: #64748b;
+}
+
+html[data-theme="light"] .album-tab[aria-pressed="true"] .album-tab__hint {
+  color: color-mix(in srgb, var(--edge, #64748b) 45%, #334155);
+}
+
+html[data-theme="light"] .album-tab__badge {
+  background: color-mix(in srgb, var(--edge, #64748b) 25%, white);
+  color: color-mix(in srgb, var(--edge, #0f172a) 55%, #0f172a);
+}
+
+html[data-theme="light"] .album-filters {
+  border-color: rgba(100, 116, 139, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="light"] .album-control {
+  border-color: rgba(100, 116, 139, 0.28);
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+}
+
+html[data-theme="light"] .album-control:hover {
+  border-color: rgba(8, 145, 178, 0.6);
+  color: #0f172a;
+}
+
+html[data-theme="light"] .album-control:focus-visible {
+  border-color: #0891b2;
+  box-shadow: 0 0 14px -4px rgba(8, 145, 178, 0.7);
+}
+
+/* La lámina de plástico sobre papel: sigue siendo plástico, pero el brillo
+   viene de arriba en vez de salir de dentro. */
+html[data-theme="light"] .binder-sheet {
+  border-color: rgba(100, 116, 139, 0.22);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.75) 45%),
+    rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 18px 40px -32px rgba(15, 23, 42, 0.5);
+}
+
+html[data-theme="light"] .binder-sheet::before {
+  background-image: radial-gradient(
+    circle at 50% 50%,
+    rgba(203, 213, 225, 0.95) 42%,
+    rgba(71, 85, 105, 0.45) 45%,
+    transparent 58%
+  );
+}
+
+/* El brillo de la lámina, contenido: sobre papel un barrido blanco fuerte no
+   se lee como plástico, se lee como una franja de cartas descoloridas. */
+html[data-theme="light"] .binder-sheet::after {
+  background: linear-gradient(
+    115deg,
+    transparent 34%,
+    rgba(255, 255, 255, 0.3) 46%,
+    transparent 58%
+  );
+}
+
+/* Sobre papel el dorso baja todavía más: la numeración de la funda vacía es
+   tinta oscura, y el velo azul le comía el contraste que en oscuro le sobra. */
+html[data-theme="light"] .sleeve-back {
+  opacity: 0.14;
+}
+
+html[data-theme="light"] .binder-pocket {
+  border-color: rgba(100, 116, 139, 0.25);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+html[data-theme="light"] .binder__arrow,
+html[data-theme="light"] .binder__sizes {
+  border-color: rgba(100, 116, 139, 0.28);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+html[data-theme="light"] .binder__arrow {
+  color: #475569;
+}
+
+html[data-theme="light"] .binder__arrow:hover:not(:disabled) {
+  color: #0e7490;
+  border-color: rgba(8, 145, 178, 0.6);
+  box-shadow: 0 0 16px -6px rgba(8, 145, 178, 0.7);
+}
+
+html[data-theme="light"] .binder__page,
+html[data-theme="light"] .binder__size {
+  color: #475569;
+}
+
+html[data-theme="light"] .binder__size[aria-pressed="true"] {
+  background: rgba(8, 145, 178, 0.16);
+  color: #0e7490;
+}
+
+/* La funda con carta: sobre papel el halo del nivel no se ve, así que el
+   nivel pasa al canto — más grueso y en color macizo. */
+html[data-theme="light"] .tcg-sleeve--filled {
+  border-color: color-mix(in srgb, var(--edge, #64748b) 75%, #475569);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 8px 18px -14px rgba(15, 23, 42, 0.7);
+}
+
+
+/*
+ * Lema de cada banner de la portada («RADAR DUAL · VENTAJA DE TIPOS…»).
+ *
+ * En oscuro es un neón al 50% de opacidad, que sobre negro se lee de sobra.
+ * Ese mismo tono sobre blanco desaparece — y es justo la línea que cuenta lo
+ * que hace cada modo, o sea lo primero que lee quien entra. En claro pasa a
+ * tinta, que es lo que hace legible una segunda línea sobre papel.
+ */
+html[data-theme="light"] .cta-tagline {
+  color: #475569;
+}
+
+/*
  * Píldoras de preset y botón de lanzamiento: en oscuro el texto ES el color
  * de acento (neón sobre negro), pero ese mismo ámbar o verde sobre blanco no
  * llega a contraste AA. En claro se mezclan hacia tinta y el relleno sube,
@@ -3315,6 +7901,112 @@ html[data-theme="light"] .cup-note {
  * animación que lo acompaña.
  * ========================================================================== */
 
+/* ---- El dibujo de la bola -------------------------------------------------
+ * Una esfera de plástico pulido, no un círculo partido en dos: la carne roja
+ * se apaga hacia el borde, el brillo especular cae arriba a la izquierda, el
+ * suelo le devuelve luz por abajo y la banda negra se curva con el volumen.
+ *
+ * Todo cuelga de `--ball`, el diámetro que pone la escena (4,4cqw la tuya,
+ * 3,4cqw la del rival, que está más lejos): así el mismo dibujo vale para las
+ * dos en vez de aproximarlas con dos juegos de medidas parecidas.
+ */
+.pk-ball-box {
+  width: var(--ball, 4cqw);
+  height: var(--ball, 4cqw);
+}
+
+.pk-ball {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  /* Cuerpo: las dos mitades con su propio degradado esférico. El corte cae en
+     el 50% exacto, que es donde la apertura parte la bola en dos. */
+  background:
+    radial-gradient(
+      circle at 34% 26%,
+      #ff8a8a 0%,
+      #ef4444 34%,
+      #b91c1c 70%,
+      #7f1d1d 100%
+    )
+      no-repeat top / 100% 50%,
+    radial-gradient(
+        circle at 34% 74%,
+        #ffffff 0%,
+        #e8edf5 38%,
+        #b7c1d0 72%,
+        #7c8798 100%
+      )
+      no-repeat bottom / 100% 50%;
+  box-shadow:
+    /* Contorno */
+    inset 0 0 0 calc(var(--ball, 4cqw) * 0.035) rgba(3, 7, 14, 0.9),
+    /* Oclusión del lado en sombra */
+      inset calc(var(--ball, 4cqw) * -0.1) calc(var(--ball, 4cqw) * -0.12)
+      calc(var(--ball, 4cqw) * 0.22) rgba(2, 6, 15, 0.5),
+    /* Rebote de luz del suelo */
+      inset calc(var(--ball, 4cqw) * 0.06) calc(var(--ball, 4cqw) * 0.08)
+      calc(var(--ball, 4cqw) * 0.18) rgba(255, 255, 255, 0.35),
+    /* Y la sombra propia, que la despega del fondo */
+      0 calc(var(--ball, 4cqw) * 0.06) calc(var(--ball, 4cqw) * 0.16)
+      rgba(2, 6, 15, 0.55);
+}
+
+/* La banda negra que separa las mitades. */
+.pk-ball__band {
+  position: absolute;
+  inset: calc(50% - var(--ball, 4cqw) * 0.06) 0;
+  background: linear-gradient(
+    to bottom,
+    #0b1220,
+    #030711 45%,
+    #0b1220
+  );
+}
+
+/* El botón: aro negro, cerco claro y la lente, con su brillito. */
+.pk-ball__btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34%;
+  height: 34%;
+  margin: -17% 0 0 -17%;
+  border-radius: 999px;
+  background: #050a14;
+  box-shadow:
+    inset 0 0 0 calc(var(--ball, 4cqw) * 0.03) #cbd5e1,
+    0 0 calc(var(--ball, 4cqw) * 0.06) rgba(2, 6, 15, 0.8);
+}
+
+.pk-ball__btn::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 999px;
+  background: radial-gradient(circle at 34% 30%, #ffffff, #94a3b8 70%, #475569);
+}
+
+/* Reflejo especular: la mancha de luz dura del plástico. Va por encima de
+   todo, banda y botón incluidos — es luz reflejada en la superficie, no
+   pintura debajo. */
+.pk-ball__gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      ellipse 22% 16% at 31% 22%,
+      rgba(255, 255, 255, 0.95),
+      rgba(255, 255, 255, 0) 70%
+    ),
+    radial-gradient(
+      ellipse 46% 30% at 62% 88%,
+      rgba(255, 255, 255, 0.28),
+      rgba(255, 255, 255, 0) 72%
+    );
+}
+
 /* Vuelo de la bola: la horizontal es lineal y la vertical describe el arco,
    el truco de siempre para una parábola con dos elementos anidados. */
 @keyframes pk-ball-x {
@@ -3348,6 +8040,27 @@ html[data-theme="light"] .cup-note {
   }
 }
 
+/* La sombra de la bola sobre el campo. Se encoge y se aclara cuando la bola
+   sube, se abre y se oscurece cuando baja: es lo que convierte una parábola
+   dibujada en un objeto volando a una altura concreta. */
+@keyframes pk-ball-drop {
+  0% {
+    transform: scale(0.34);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.45;
+  }
+  55% {
+    transform: scale(0.42);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
 .pk-ball-x {
   animation: pk-ball-x 420ms linear both;
 }
@@ -3360,44 +8073,257 @@ html[data-theme="light"] .cup-note {
   animation: pk-ball-spin 420ms linear both;
 }
 
-/* Apertura: la bola se abre en blanco y suelta el destello del que sale el
-   Pokémon (que entra por su lado con `pk-send-in`). */
-@keyframes pk-ball-open {
+.pk-ball-drop {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 1.35);
+  height: calc(var(--ball, 4cqw) * 0.4);
+  margin-left: calc(var(--ball, 4cqw) * -0.675);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(2, 6, 15, 0.8),
+    rgba(2, 6, 15, 0) 70%
+  );
+  filter: blur(0.2cqw);
+  animation: pk-ball-drop 420ms cubic-bezier(0.35, 0, 0.6, 1) both;
+}
+
+/* ---- La apertura ----------------------------------------------------------
+ * La bola toca el suelo, se aplasta, rebota y se PARTE: la tapa sale girando
+ * hacia arriba y la base cae hacia el césped. Entre las dos se abre el núcleo
+ * de luz, sube la columna de la que se forma el Pokémon y la onda de choque
+ * recorre la hierba.
+ *
+ * Los tiempos son todos de la misma tirada, para que se lea como un solo
+ * gesto: 0-90 ms el aterrizaje, 90-420 ms el corte y la luz, 420-620 ms la
+ * cola. Y todo con `both`, que aquí la última pose ES el final — el
+ * componente desmonta la bola al terminar.
+ */
+@keyframes pk-ball-lid {
   0% {
+    transform: translateY(0) scale(1.18, 0.8);
+  }
+  16% {
+    transform: translateY(calc(var(--ball, 4cqw) * -0.1)) scale(0.92, 1.12);
+  }
+  30% {
+    transform: translateY(0) scale(1, 1);
+  }
+  100% {
+    transform: translateY(calc(var(--ball, 4cqw) * -0.85)) rotate(-32deg)
+      scale(0.9);
+    opacity: 0;
+  }
+}
+
+@keyframes pk-ball-base {
+  0% {
+    transform: translateY(0) scale(1.18, 0.8);
+  }
+  16% {
+    transform: translateY(calc(var(--ball, 4cqw) * -0.1)) scale(0.92, 1.12);
+  }
+  30% {
+    transform: translateY(0) scale(1, 1);
+  }
+  100% {
+    transform: translateY(calc(var(--ball, 4cqw) * 0.42)) rotate(18deg)
+      scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* Núcleo: la luz que había dentro, que se abre paso entre las dos mitades. */
+@keyframes pk-ball-core {
+  0%,
+  22% {
+    transform: scale(0.05);
+    opacity: 0;
+  }
+  32% {
     opacity: 1;
+  }
+  55% {
     transform: scale(1);
-    filter: brightness(1);
-  }
-  35% {
-    filter: brightness(4);
-    transform: scale(1.25);
   }
   100% {
+    transform: scale(2.6);
     opacity: 0;
-    transform: scale(1.5);
   }
 }
 
-@keyframes pk-ball-flash {
-  0% {
+/* Columna de luz: sube desde el suelo y se ensancha. Es de donde sale el
+   Pokémon, así que dura lo que tarda en revelarse el sprite. */
+@keyframes pk-ball-beam {
+  0%,
+  24% {
+    transform: scaleY(0.04) scaleX(0.5);
     opacity: 0;
-    transform: scale(0.15);
   }
-  25% {
+  36% {
+    transform: scaleY(1.06) scaleX(1);
+    opacity: 0.95;
+  }
+  62% {
+    transform: scaleY(1) scaleX(1.1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scaleY(1.04) scaleX(1.5);
+    opacity: 0;
+  }
+}
+
+/* Onda de choque sobre la hierba. */
+@keyframes pk-ball-ring {
+  0%,
+  20% {
+    transform: scale(0.16);
+    opacity: 0;
+  }
+  34% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Abanico de rayos girando, el remate del estallido. */
+@keyframes pk-ball-rays {
+  0%,
+  24% {
+    transform: rotate(0deg) scale(0.2);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: rotate(70deg) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Chispas: salen del centro por su ángulo y se apagan por el camino. El giro
+   va DENTRO del `transform` porque las propiedades sueltas se componen
+   T·R·S — un `translate` aparte saldría recto hacia arriba. */
+@keyframes pk-ball-spark {
+  0%,
+  22% {
+    transform: rotate(var(--angle, 0deg)) translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  34% {
     opacity: 1;
   }
   100% {
+    transform: rotate(var(--angle, 0deg))
+      translateY(calc(var(--ball, 4cqw) * -2.6)) scale(0.15);
     opacity: 0;
-    transform: scale(2.8);
   }
 }
 
-.pk-ball-open {
-  animation: pk-ball-open 260ms ease-out both;
+.pk-ball-lid,
+.pk-ball-base {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
 }
 
-.pk-ball-flash {
-  animation: pk-ball-flash 460ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+/* El recorte cae en la banda negra, que es por donde se abre una Poké Ball. */
+.pk-ball-lid {
+  clip-path: inset(0 0 50% 0);
+  animation: pk-ball-lid 480ms cubic-bezier(0.25, 0.85, 0.35, 1) both;
+}
+
+.pk-ball-base {
+  clip-path: inset(50% 0 0 0);
+  transform-origin: 50% 0;
+  animation: pk-ball-base 480ms cubic-bezier(0.25, 0.85, 0.35, 1) both;
+}
+
+.pk-ball-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 3.4);
+  height: calc(var(--ball, 4cqw) * 3.4);
+  margin: calc(var(--ball, 4cqw) * -1.7) 0 0 calc(var(--ball, 4cqw) * -1.7);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(224, 242, 254, 0.9) 26%,
+    rgba(147, 197, 253, 0.55) 46%,
+    rgba(147, 197, 253, 0) 70%
+  );
+  animation: pk-ball-core 520ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.pk-ball-beam {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 1.5);
+  height: calc(var(--ball, 4cqw) * 5.2);
+  margin-left: calc(var(--ball, 4cqw) * -0.75);
+  transform-origin: 50% 100%;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.95),
+    rgba(191, 219, 254, 0.6) 45%,
+    rgba(191, 219, 254, 0) 100%
+  );
+  mask-image: radial-gradient(ellipse 62% 100% at 50% 100%, #000, transparent);
+  filter: blur(0.3cqw);
+  animation: pk-ball-beam 560ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.pk-ball-ring {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 4.6);
+  height: calc(var(--ball, 4cqw) * 1.6);
+  margin-left: calc(var(--ball, 4cqw) * -2.3);
+  border-radius: 50%;
+  border: calc(var(--ball, 4cqw) * 0.09) solid rgba(224, 242, 254, 0.85);
+  box-shadow: 0 0 calc(var(--ball, 4cqw) * 0.4) rgba(191, 219, 254, 0.7);
+  animation: pk-ball-ring 520ms cubic-bezier(0.15, 0.8, 0.3, 1) both;
+}
+
+.pk-ball-rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 5.4);
+  height: calc(var(--ball, 4cqw) * 5.4);
+  margin: calc(var(--ball, 4cqw) * -2.7) 0 0 calc(var(--ball, 4cqw) * -2.7);
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(224, 242, 254, 0.7) 0deg 3deg,
+    transparent 3deg 20deg
+  );
+  mask-image: radial-gradient(closest-side, transparent 14%, #000 34%, transparent 78%);
+  animation: pk-ball-rays 560ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.pk-ball-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--ball, 4cqw) * 0.16);
+  height: calc(var(--ball, 4cqw) * 0.16);
+  margin: calc(var(--ball, 4cqw) * -0.08) 0 0 calc(var(--ball, 4cqw) * -0.08);
+  border-radius: 999px;
+  background: #f0f9ff;
+  box-shadow: 0 0 calc(var(--ball, 4cqw) * 0.3) rgba(191, 219, 254, 0.95);
+  animation: pk-ball-spark 620ms cubic-bezier(0.15, 0.75, 0.3, 1)
+    var(--spark, 0ms) both;
 }
 
 /* Retirada: el Pokémon se vuelve luz roja y se recoge en la bola. */
@@ -3441,9 +8367,73 @@ html[data-theme="light"] .cup-note {
   animation: pk-recall-ring 520ms ease-in both;
 }
 
-/* Objeto usado: el frasco cae sobre el Pokémon y sube el destello de cura
-   (verde) o de subida de característica (ámbar), como el brillo que envuelve
-   al Pokémon en los juegos. */
+/* Objeto usado: el frasco VUELA hasta el Pokémon —misma parábola que la bola,
+   con su propio arco—, revienta en un destello y sube el brillo de cura
+   (verde) o de subida de característica (ámbar), como el que envuelve al
+   Pokémon en los juegos. Las tres piezas van encadenadas: el aura y las
+   chispas arrancan con el retraso del vuelo (GEN7.itemThrow), así que empiezan
+   justo cuando el frasco toca. */
+@keyframes pk-item-x {
+  from {
+    transform: translateX(var(--from-x, -13cqw));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pk-item-y {
+  0% {
+    transform: translateY(var(--from-y, 11cqw)) rotate(-30deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(var(--peak-y, -9cqw)) rotate(10deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* Al aterrizar: el frasco se agranda, se pone al blanco y se deshace en la
+   propia luz que suelta. Antes se quedaba plantado a los pies del Pokémon
+   hasta desaparecer de golpe. */
+@keyframes pk-item-pop {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  18% {
+    transform: scale(1.22);
+    filter: brightness(2.6);
+  }
+  55% {
+    opacity: 0;
+    transform: scale(0.75) translateY(-35%);
+    filter: brightness(3.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.75) translateY(-35%);
+  }
+}
+
+.pk-item-x {
+  animation: pk-item-x 460ms linear both;
+}
+
+.pk-item-y {
+  animation: pk-item-y 460ms cubic-bezier(0.35, 0, 0.6, 1) both;
+}
+
+.pk-item-pop {
+  animation: pk-item-pop 900ms ease-out both;
+}
+
 @keyframes pk-item-spark {
   0% {
     opacity: 0;
@@ -3560,8 +8550,45 @@ html[data-theme="light"] .cup-note {
 
   /* Sin inclinación al puntero: la carta holográfica se queda recta y
      conserva únicamente el brillo, que no implica movimiento. */
-  .holo-card {
+  .holo-card,
+  .holo-tilt {
     transform: none !important;
+  }
+
+  /*
+   * La metralla del sobre y los rayos de rareza son adorno puro. El fogonazo
+   * y el anillo NO se esconden: su `animationend` es lo que hace avanzar la
+   * apertura, así que se quedan — invisibles, porque duran un milisegundo.
+   */
+  .tear-shard,
+  .rare-rays {
+    display: none;
+  }
+
+  /*
+   * El polvo de las repetidas. La conversión no depende de que estas
+   * animaciones terminen —el abono lo hace la escena, que ni siquiera monta el
+   * chorro cuando se pide menos movimiento—, así que aquí sobra del todo. La
+   * cifra sigue subiendo en la hucha, que es el premio; lo que se va es el
+   * vuelo. Se esconde igualmente por si el ajuste cambia con la escena abierta.
+   */
+  .dust-stream,
+  .dust-drain {
+    display: none;
+  }
+
+  /* Barnices en bucle del sobre: adorno puro, y en bucle infinito. La brecha
+     del corte y las mitades NO se tocan — son la acción, no el adorno. */
+  .pack-art__gloss,
+  .pack-art__rays,
+  .pack-stage__beams {
+    display: none;
+  }
+
+  /* El arcoíris de las Hyper Raras se para en su fotograma inicial en vez de
+     quedarse congelado a un 300 % de recorrido, que se ve como un borrón. */
+  .tcg-card[data-rarity="hyper"] .tcg-edge {
+    animation: none;
   }
 
   /* El barrido de escaneo y las ascuas son puro adorno en bucle. */
@@ -3571,5 +8598,991 @@ html[data-theme="light"] .cup-note {
   .elite-sweep::after,
   .legend-sweep::after {
     display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * LA TIENDA DE SOBRES
+ *
+ * El escaparate del modo colección: cuatro sobres en un expositor, no cuatro
+ * tarjetas con una miniatura dentro. Todo lo de aquí cuelga de las tres
+ * variables que cada sobre ya trae puestas —`--edge` su neón, `--deep` el fondo
+ * del envoltorio y `--glint` su brillo—, así que un sobre nuevo es una fila más
+ * en `PACK_ART` y no una regla más en esta hoja.
+ *
+ * Nada de esto toca la ceremonia de apertura, que vive en `.pack-stage` y se
+ * queda exactamente como estaba.
+ */
+
+.shop-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 1.5rem 0.9rem 1.3rem;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(34, 211, 238, 0.13), transparent 60%),
+    radial-gradient(90% 70% at 8% 112%, rgba(168, 85, 247, 0.13), transparent 62%),
+    linear-gradient(180deg, #070b16 0%, #04060f 55%, #02040a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(226, 232, 240, 0.07),
+    0 30px 70px -50px #000;
+}
+
+@media (min-width: 640px) {
+  .shop-stage {
+    padding: 2rem 1.6rem 1.7rem;
+  }
+}
+
+/* Rejilla de HUD desvaneciéndose hacia el centro: da fondo sin pedir turno. */
+.shop-stage__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px) 0 0 / 100% 2.6rem,
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px) 0 0 / 2.6rem 100%;
+  mask-image: radial-gradient(125% 85% at 50% 0%, #000 8%, transparent 72%);
+}
+
+/* Aurora lenta detrás de todo. Es lo único que se mueve solo en la pantalla. */
+.shop-stage__aurora {
+  position: absolute;
+  inset: -35% -12% auto;
+  height: 62%;
+  pointer-events: none;
+  opacity: 0.5;
+  filter: blur(70px);
+  background: conic-gradient(
+    from 210deg at 50% 50%,
+    rgba(34, 211, 238, 0.16),
+    rgba(168, 85, 247, 0.15),
+    rgba(250, 204, 21, 0.1),
+    rgba(34, 211, 238, 0.16)
+  );
+  animation: shop-aurora 20s ease-in-out infinite;
+}
+
+@keyframes shop-aurora {
+  0%,
+  100% {
+    translate: -4% 0;
+    scale: 1;
+  }
+  50% {
+    translate: 4% 3%;
+    scale: 1.09;
+  }
+}
+
+/* ---- Cabecera y saldo ---------------------------------------------------- */
+
+.shop-head {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.shop-head__title {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.05rem, 3.4vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* Rótulo metálico: el degradado va en el texto, no detrás. */
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 44%, #8fa3bd 62%, #e8eefb 100%);
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(148, 163, 184, 0.28));
+}
+
+.shop-head__sub {
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.shop-balance {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  padding: 0.45rem 1.15rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fde68a;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.22), rgba(120, 53, 15, 0.28));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 28px -10px rgba(251, 191, 36, 0.9);
+}
+
+.shop-balance__coin {
+  color: #fbbf24;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.85));
+}
+
+/* Cifras de ancho fijo: el contador cuenta hacia abajo y no puede bailar. */
+.shop-balance__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lo que acaba de costar, desprendiéndose del saldo. */
+.shop-balance__spent {
+  position: absolute;
+  left: 50%;
+  top: -0.2rem;
+  pointer-events: none;
+  font-size: 0.82rem;
+  color: #fca5a5;
+  text-shadow: 0 0 12px rgba(248, 113, 113, 0.85);
+  animation: shop-spent 1000ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes shop-spent {
+  0% {
+    opacity: 0;
+    translate: -50% 0.7rem;
+    scale: 0.9;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -50% -2.3rem;
+    scale: 1.06;
+  }
+}
+
+/* ---- El expositor -------------------------------------------------------- */
+
+.shop-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  /* Los cuatro en fila SIEMPRE, también en el teléfono. El escaparate se lee de
+     izquierda a derecha como una escalera de precios, y en dos filas de dos la
+     mitad de la escalera cae fuera de la pantalla: para comparar el Relámpago
+     con el Especial ex habría que recordar el primero. Lo que encoge en el
+     móvil es la tarjeta, no la fila. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+  list-style: none;
+  padding: 0;
+}
+
+@media (min-width: 1024px) {
+  .shop-grid {
+    gap: 1.1rem;
+  }
+}
+
+/* La perspectiva vive en la casilla, no en la tarjeta: dentro de la tarjeta el
+   giro se aplicaría en plano y la inclinación no se leería como volumen. */
+.shop-grid > li {
+  display: flex;
+  perspective: 900px;
+}
+
+.shop-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  overflow: hidden;
+  border-radius: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--edge) 30%, rgba(148, 163, 184, 0.16));
+  padding: 0.9rem 0.7rem 1rem;
+  transform-style: preserve-3d;
+  background:
+    radial-gradient(
+      120% 70% at 50% -20%,
+      color-mix(in srgb, var(--edge) 20%, transparent),
+      transparent 62%
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--deep) 72%, #05080f), #04060d);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 22px 45px -32px #000;
+  /* El giro lo escribe `.holo-tilt`; esta transición es la que lo suaviza, y
+     tiene que seguir nombrando `transform` porque esta regla va después. */
+  transition:
+    transform 150ms ease-out,
+    box-shadow 260ms ease,
+    border-color 260ms ease;
+}
+
+.shop-card:hover {
+  border-color: color-mix(in srgb, var(--edge) 62%, transparent);
+  /* Dos sombras paralelas: la del canto, del color del sobre, y una segunda
+     más abierta del destello. Es lo que despega la tarjeta del fondo. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 26px 55px -28px color-mix(in srgb, var(--edge) 60%, transparent),
+    0 0 70px -34px var(--glint);
+}
+
+/* Piscina de luz bajo la cabecera de la tarjeta. */
+.shop-card__aura {
+  position: absolute;
+  inset: 0 0 42% 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 260ms ease;
+  background: radial-gradient(
+    70% 80% at 50% 8%,
+    color-mix(in srgb, var(--edge) 40%, transparent),
+    transparent 72%
+  );
+}
+
+.shop-card:hover .shop-card__aura {
+  opacity: 0.8;
+}
+
+/* Brillo especular persiguiendo al cursor. `--px`, `--py` y `--holo` los
+   escribe `useHoloTilt` en el nodo, sin pasar por React. */
+.shop-card__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: calc(var(--holo, 0) * 0.85);
+  transition: opacity 220ms ease;
+  background: radial-gradient(
+    9rem 9rem at calc(var(--px, 0.5) * 100%) calc(var(--py, 0.5) * 100%),
+    color-mix(in srgb, var(--glint) 45%, transparent),
+    transparent 68%
+  );
+}
+
+.shop-card__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glint) 24%, transparent);
+}
+
+/* ---- El clima de cada sobre ---------------------------------------------- */
+
+.shop-card__fx {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Relámpago: abanico de rayos girando muy despacio y chispas encima. */
+.shop-card[data-pack="bolt"] .shop-card__fx {
+  background: repeating-conic-gradient(
+    from 0deg at 50% 20%,
+    rgba(250, 204, 21, 0.11) 0deg 4deg,
+    transparent 4deg 15deg
+  );
+  mask-image: radial-gradient(62% 52% at 50% 18%, #000, transparent 76%);
+  animation: shop-spin 26s linear infinite;
+}
+
+.shop-card[data-pack="bolt"] .shop-card__fx::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(2px 2px at 22% 30%, #fef08a, transparent 62%),
+    radial-gradient(1.6px 1.6px at 73% 22%, #fde047, transparent 62%),
+    radial-gradient(2.2px 2.2px at 61% 63%, #fef9c3, transparent 62%),
+    radial-gradient(1.4px 1.4px at 31% 70%, #fde047, transparent 62%);
+  animation: shop-sparkle 2.8s ease-in-out infinite;
+}
+
+/* Élite: escamas de dragón y una ráfaga de viento que cruza la lámina. */
+.shop-card[data-pack="elite"] .shop-card__fx {
+  opacity: 0.75;
+  background:
+    radial-gradient(
+        circle at 50% 0,
+        transparent 57%,
+        color-mix(in srgb, var(--edge) 24%, transparent) 60%,
+        transparent 64%
+      )
+      0 0 / 1.4rem 1.1rem,
+    radial-gradient(
+        circle at 50% 0,
+        transparent 57%,
+        color-mix(in srgb, var(--edge) 14%, transparent) 60%,
+        transparent 64%
+      )
+      0.7rem 0.55rem / 1.4rem 1.1rem;
+  mask-image: linear-gradient(195deg, #000 4%, transparent 68%);
+}
+
+.shop-card[data-pack="elite"] .shop-card__fx::after {
+  content: "";
+  position: absolute;
+  inset: -25% -70%;
+  background: linear-gradient(74deg, transparent 44%, rgba(209, 250, 229, 0.22) 50%, transparent 56%);
+  animation: shop-wind 6s ease-in-out infinite;
+}
+
+/* Maestro: chapa metálica y el barrido de oro de un escudo. */
+.shop-card[data-pack="master"] .shop-card__fx {
+  background: repeating-linear-gradient(
+    126deg,
+    rgba(252, 211, 77, 0.1) 0 2px,
+    transparent 2px 9px
+  );
+  mask-image: linear-gradient(160deg, #000 0%, transparent 74%);
+}
+
+.shop-card[data-pack="master"] .shop-card__fx::after {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background: conic-gradient(
+    from 140deg at 50% 42%,
+    transparent 0deg,
+    rgba(252, 211, 77, 0.28) 36deg,
+    transparent 74deg
+  );
+  animation: shop-spin 15s linear infinite;
+}
+
+/* Especial: orbes de energía psíquica flotando alrededor del sobre. */
+.shop-card[data-pack="special"] .shop-card__fx::before,
+.shop-card[data-pack="special"] .shop-card__fx::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(7px);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--glint) 75%, transparent),
+    transparent 70%
+  );
+}
+
+.shop-card[data-pack="special"] .shop-card__fx::before {
+  width: 3.2rem;
+  height: 3.2rem;
+  left: -0.8rem;
+  top: 18%;
+  opacity: 0.55;
+  animation: shop-float 7s ease-in-out infinite;
+}
+
+.shop-card[data-pack="special"] .shop-card__fx::after {
+  width: 2.2rem;
+  height: 2.2rem;
+  right: -0.5rem;
+  top: 46%;
+  opacity: 0.45;
+  animation: shop-float 5.5s ease-in-out infinite reverse;
+}
+
+@keyframes shop-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes shop-sparkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    scale: 0.96;
+  }
+  50% {
+    opacity: 0.9;
+    scale: 1.04;
+  }
+}
+
+@keyframes shop-wind {
+  0%,
+  100% {
+    translate: -30% 0;
+    opacity: 0;
+  }
+  45% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    translate: 30% 0;
+    opacity: 0;
+  }
+}
+
+@keyframes shop-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0.35rem -0.9rem;
+  }
+}
+
+/* ---- Contenido de la tarjeta --------------------------------------------- */
+
+.shop-card__art {
+  position: relative;
+  z-index: 1;
+  width: min(9.5rem, 76%);
+  transition: filter 260ms ease;
+}
+
+.shop-card:hover .shop-card__art {
+  filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.6));
+}
+
+.shop-card__price {
+  position: relative;
+  z-index: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.42);
+  padding: 0.1rem 0.7rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.shop-card__desc {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: clamp(0.68rem, 1.1vw, 0.76rem);
+  line-height: 1.35;
+  color: #94a3b8;
+}
+
+.shop-buy {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--edge) 55%, transparent);
+  padding: 0.5rem 0.85rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #f8fafc;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--edge) 34%, transparent),
+    rgba(2, 6, 23, 0.72)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 20px -12px color-mix(in srgb, var(--edge) 90%, transparent);
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 220ms ease,
+    translate 120ms ease;
+}
+
+.shop-buy:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 28px -8px color-mix(in srgb, var(--edge) 95%, transparent);
+}
+
+.shop-buy:active {
+  translate: 0 1px;
+}
+
+.shop-buy:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--edge) 85%, transparent);
+  outline-offset: 2px;
+}
+
+/* Sin PE suficientes el botón se apaga, pero SIGUE respondiendo: el temblor
+   es la única respuesta que explica por qué no se puede comprar. */
+.shop-buy[data-locked="true"] {
+  cursor: not-allowed;
+  border-color: rgba(100, 116, 139, 0.4);
+  color: #64748b;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.1), rgba(2, 6, 23, 0.7));
+  box-shadow: none;
+}
+
+.shop-buy__label {
+  position: relative;
+  z-index: 1;
+  display: block;
+  /* En cuanto la tarjeta estrecha, «Comprar · 60 PE» se parte. Equilibrado se
+     parte por el punto —«Comprar» / «· 60 PE»— en vez de dejar el «PE» solo en
+     la segunda línea. Cuando cabe entera no hace nada. */
+  text-wrap: balance;
+}
+
+.shop-buy__pulse {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+}
+
+/* ---- La compra ----------------------------------------------------------- */
+
+.shop-card[data-state="buying"] {
+  z-index: 2;
+  /* `translate` y `scale` y no `transform`: el giro del puntero vive en
+     `transform` y machacarlo aquí congelaría la inclinación a media compra. */
+  animation: shop-lift 900ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+@keyframes shop-lift {
+  0% {
+    translate: 0 0;
+    scale: 1;
+  }
+  22% {
+    translate: 0 -14px;
+    scale: 1.045;
+  }
+  55% {
+    translate: 0 -10px;
+    scale: 1.02;
+  }
+  100% {
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+.shop-card[data-state="buying"] .shop-card__rim {
+  animation: shop-rim 900ms ease-out;
+}
+
+@keyframes shop-rim {
+  0% {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glint) 24%, transparent);
+  }
+  18% {
+    box-shadow:
+      inset 0 0 0 2px #fde68a,
+      inset 0 0 34px -6px #fbbf24;
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glint) 24%, transparent);
+  }
+}
+
+.shop-card__ripple {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 2.2rem;
+  height: 2.2rem;
+  translate: -50% -50%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--glint) 85%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shop-card[data-state="buying"] .shop-card__ripple {
+  animation: shop-ripple 820ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes shop-ripple {
+  0% {
+    opacity: 0.95;
+    scale: 0.2;
+  }
+  70% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+    scale: 7;
+  }
+}
+
+.shop-card[data-state="buying"] .shop-buy__pulse {
+  animation: shop-pulse 640ms ease-out;
+}
+
+@keyframes shop-pulse {
+  0% {
+    opacity: 0;
+    translate: -120% 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 120% 0;
+  }
+}
+
+.shop-card[data-state="denied"] .shop-buy {
+  border-color: rgba(248, 113, 113, 0.85);
+  color: #fecaca;
+  box-shadow:
+    0 0 26px -6px rgba(239, 68, 68, 0.9),
+    inset 0 0 22px -10px rgba(239, 68, 68, 0.9);
+  animation: shop-shake 520ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.shop-card[data-state="denied"] .shop-card__rim {
+  animation: shop-deny 520ms ease-out;
+}
+
+@keyframes shop-shake {
+  10%,
+  90% {
+    translate: -2px 0;
+  }
+  20%,
+  80% {
+    translate: 4px 0;
+  }
+  30%,
+  50%,
+  70% {
+    translate: -6px 0;
+  }
+  40%,
+  60% {
+    translate: 6px 0;
+  }
+}
+
+@keyframes shop-deny {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glint) 24%, transparent);
+  }
+  30% {
+    box-shadow:
+      inset 0 0 0 1px rgba(248, 113, 113, 0.9),
+      inset 0 0 30px -10px rgba(239, 68, 68, 0.85);
+  }
+}
+
+/* El sobre comprado, viajando a la pestaña de Sobres. Va por una curva que le
+   pone `PackFlight` en `offset-path`, en coordenadas de ventana. */
+.pack-comet {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 70;
+  width: 2.6rem;
+  height: 3.6rem;
+  border-radius: 0.45rem;
+  pointer-events: none;
+  offset-rotate: 0deg;
+  offset-anchor: 50% 50%;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--glint) 85%, transparent),
+    var(--edge) 45%,
+    var(--deep)
+  );
+  box-shadow:
+    0 0 26px -2px color-mix(in srgb, var(--edge) 90%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--glint) 70%, transparent);
+}
+
+.pack-comet__trail {
+  position: absolute;
+  inset: -140% -70%;
+  border-radius: 50%;
+  filter: blur(11px);
+  opacity: 0.8;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--edge) 55%, transparent),
+    transparent 72%
+  );
+}
+
+/* La pestaña acusa el golpe: es donde termina de contarse la compra. */
+.album-tab[data-landing="true"] {
+  animation: tab-land 720ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.album-tab[data-landing="true"] .album-tab__badge {
+  animation: badge-pop 720ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes tab-land {
+  0% {
+    scale: 1;
+  }
+  25% {
+    scale: 1.06;
+    box-shadow: 0 0 38px -6px color-mix(in srgb, var(--edge) 95%, transparent);
+  }
+  60% {
+    scale: 0.99;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    scale: 0.6;
+    filter: brightness(2.2);
+  }
+  45% {
+    scale: 1.35;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* ---- Movimientos --------------------------------------------------------- */
+
+.shop-ledger {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.4rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  padding: 0.9rem 1rem 1rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.72));
+  backdrop-filter: blur(10px);
+}
+
+.shop-ledger::before {
+  content: "";
+  position: absolute;
+  inset-inline: 8%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.6), transparent);
+}
+
+.shop-ledger__title {
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.shop-ledger ul {
+  margin-top: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.shop-ledger__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.5rem;
+  padding: 0.42rem 0.4rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  transition: background-color 180ms ease;
+}
+
+.shop-ledger__row + .shop-ledger__row {
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.shop-ledger__row:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.shop-ledger__reason {
+  color: #94a3b8;
+}
+
+.shop-ledger__amount {
+  border-radius: 999px;
+  padding: 0.05rem 0.55rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-ledger__amount[data-sign="up"] {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.shop-ledger__amount[data-sign="down"] {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.shop-ledger__empty {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* ---- La tienda en el móvil ------------------------------------------------
+ *
+ * El teléfono enseña EXACTAMENTE el mismo escaparate que el escritorio: los
+ * cuatro sobres en fila, cada uno con su portada, su precio, su línea de
+ * garantías y su botón, y debajo los movimientos. Nada se apila, nada se
+ * esconde y no cambia ni una palabra — sólo la escala.
+ *
+ * Todo lo que se recorta aquí es aire: el escenario pierde relleno lateral, la
+ * rejilla junta las columnas y la tarjeta aprieta su interior, que es de donde
+ * sale el ancho de las portadas. La cuenta es la de siempre: cuanto menos
+ * márgen, más sobre.
+ */
+@media (max-width: 640px) {
+  .shop-stage {
+    border-radius: 1.1rem;
+    /* Casi al borde: cada milímetro de relleno lateral se lo reparten cuatro
+       tarjetas, así que aquí vale por cuatro. */
+    padding: 0.9rem 0.45rem 0.85rem;
+  }
+
+  /* La rejilla de fondo, a la escala de la pantalla: a 2,6 rem eran tres
+     líneas en todo el ancho y se leían como un defecto, no como un fondo. */
+  .shop-stage__grid {
+    background-size:
+      100% 1.6rem,
+      1.6rem 100%;
+  }
+
+  .shop-head__sub {
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+
+  .shop-balance {
+    margin-top: 0.55rem;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.85rem;
+  }
+
+  .shop-grid {
+    gap: 0.4rem;
+    margin-top: 0.85rem;
+  }
+
+  .shop-card {
+    gap: 0.28rem;
+    border-radius: 0.8rem;
+    padding: 0.45rem 0.28rem 0.5rem;
+  }
+
+  /* La portada se queda con casi todo el ancho de la tarjeta: es lo que se
+     reconoce de un vistazo, y a este tamaño el resto es letra de apoyo. */
+  .shop-card__art {
+    width: 92%;
+  }
+
+  .shop-card__price {
+    padding: 0.02rem 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .shop-card__desc {
+    font-size: 0.66rem;
+    line-height: 1.28;
+    /* Reparte las líneas en vez de dejar una palabra suelta al final: en una
+       columna de cuatro dedos de ancho, una viuda es una línea entera. */
+    text-wrap: pretty;
+  }
+
+  .shop-buy {
+    padding: 0.35rem 0.15rem;
+    font-size: 0.66rem;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  /* El brillo del cursor no existe en una pantalla táctil, y a este tamaño su
+     radio de 9 rem cubría la tarjeta entera de un dedazo. */
+  .shop-card__shine {
+    display: none;
+  }
+
+  .shop-ledger {
+    margin-top: 0.95rem;
+    border-radius: 0.8rem;
+    padding: 0.6rem 0.7rem 0.65rem;
+  }
+
+  .shop-ledger__title {
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+  }
+
+  .shop-ledger ul {
+    margin-top: 0.3rem;
+  }
+
+  .shop-ledger__row {
+    gap: 0.6rem;
+    padding: 0.3rem 0.25rem;
+    font-size: 0.74rem;
+  }
+
+  .shop-ledger__amount {
+    padding: 0.02rem 0.45rem;
+  }
+
+  .shop-ledger__empty {
+    margin-top: 0.3rem;
+    font-size: 0.78rem;
+  }
+}
+
+/* Sin movimiento: la tienda se queda quieta y legible. El sobre comprado no
+   vuela —eso ya lo decide el componente—, así que aquí sólo se apaga lo que
+   se mueve solo. */
+@media (prefers-reduced-motion: reduce) {
+  .shop-stage__aurora,
+  .shop-card__fx,
+  .shop-card__fx::before,
+  .shop-card__fx::after,
+  .shop-card[data-state="buying"],
+  .shop-card[data-state="buying"] .shop-card__rim,
+  .shop-card[data-state="buying"] .shop-card__ripple,
+  .shop-card[data-state="buying"] .shop-buy__pulse,
+  .shop-card[data-state="denied"] .shop-buy,
+  .album-tab[data-landing="true"],
+  .album-tab[data-landing="true"] .album-tab__badge {
+    animation: none;
+  }
+
+  .shop-balance__spent {
+    display: none;
+  }
+
+  .shop-card[data-state="denied"] .shop-buy {
+    border-color: rgba(248, 113, 113, 0.85);
+    color: #fecaca;
   }
 }

@@ -7,6 +7,7 @@ import { detailDict } from "./dictionaries/detail";
 import { homeDict } from "./dictionaries/home";
 import { layoutDict } from "./dictionaries/layout";
 import { listDict } from "./dictionaries/list";
+import { tcgDict } from "./dictionaries/tcg";
 import { teamDict } from "./dictionaries/team";
 import { tournamentDict } from "./dictionaries/tournament";
 import { trainerDict } from "./dictionaries/trainer";
@@ -22,6 +23,7 @@ export function getDict(lang: Lang) {
     team: teamDict[lang],
     battle: battleDict[lang],
     tournament: tournamentDict[lang],
+    tcg: tcgDict[lang],
     bag: bagDict[lang],
     compare: compareDict[lang],
     trainer: trainerDict[lang],

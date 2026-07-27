@@ -110,14 +110,14 @@ export function PokemonPicker({
       style={{ "--side": accent } as CSSProperties}
       className="relative w-full"
     >
-      <p className="mb-1.5 font-mono text-xs tracking-[0.25em] text-[var(--side)] uppercase">
+      <p className="mb-1.5 font-mono text-xs tracking-[0.25em] text-[var(--side)] uppercase max-sm:mb-1 max-sm:text-[9px] max-sm:tracking-[0.12em]">
         {sideLabel}
       </p>
 
       {value ? (
         // Chosen: a compact chip that re-opens the search when clicked.
-        <div className="flex items-center gap-2.5 rounded-lg border border-[color-mix(in_srgb,var(--side)_45%,transparent)] bg-black/40 p-2 shadow-[0_0_18px_-8px_var(--side)]">
-          <span className="relative h-10 w-10 shrink-0">
+        <div className="flex items-center gap-2.5 rounded-lg border border-[color-mix(in_srgb,var(--side)_45%,transparent)] bg-black/40 p-2 shadow-[0_0_18px_-8px_var(--side)] max-sm:gap-1 max-sm:p-1">
+          <span className="relative h-10 w-10 shrink-0 max-sm:h-7 max-sm:w-7">
             {valueId !== null && (
               <Image
                 src={artworkUrl(valueId)}
@@ -129,11 +129,11 @@ export function PokemonPicker({
             )}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-mono text-sm font-semibold text-slate-100">
+            <span className="block truncate font-mono text-sm font-semibold text-slate-100 max-sm:text-[11px]">
               {valueLabel ?? formatName(value)}
             </span>
             {valueId !== null && (
-              <span className="block font-pixel text-[12px] text-slate-500">
+              <span className="block font-pixel text-[12px] text-slate-500 max-sm:text-[8px]">
                 {formatDexNumber(valueId)}
               </span>
             )}
@@ -156,7 +156,7 @@ export function PokemonPicker({
         <label className="relative block">
           <Search
             size={17}
-            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-slate-400 max-sm:left-1.5 max-sm:h-3.5 max-sm:w-3.5"
           />
           <input
             ref={inputRef}
@@ -179,7 +179,7 @@ export function PokemonPicker({
             onKeyDown={onKeyDown}
             placeholder={t.searchPlaceholder}
             aria-label={t.searchAria(sideLabel)}
-            className="h-12 w-full rounded-lg border border-slate-700/80 bg-hud-1/90 pr-4 pl-11 font-mono text-sm text-slate-200 outline-none transition focus:border-[color-mix(in_srgb,var(--side)_70%,transparent)] focus:shadow-[0_0_16px_-2px_var(--side)]"
+            className="h-12 w-full rounded-lg border border-slate-700/80 bg-hud-1/90 pr-4 pl-11 font-mono text-sm text-slate-200 outline-none transition focus:border-[color-mix(in_srgb,var(--side)_70%,transparent)] focus:shadow-[0_0_16px_-2px_var(--side)] max-sm:h-10 max-sm:pr-1.5 max-sm:pl-6"
           />
         </label>
       )}
@@ -191,9 +191,9 @@ export function PokemonPicker({
         type="button"
         onClick={() => setGridOpen(true)}
         aria-label={t.chooseAria(sideLabel)}
-        className="mt-2 inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-lg border-2 border-[color-mix(in_srgb,var(--side)_55%,transparent)] bg-[color-mix(in_srgb,var(--side)_12%,transparent)] px-4 font-mono text-sm font-bold tracking-wider text-[var(--side)] uppercase shadow-[0_0_18px_-8px_var(--side)] transition hover:bg-[color-mix(in_srgb,var(--side)_22%,transparent)] hover:shadow-[0_0_22px_-4px_var(--side)]"
+        className="mt-2 inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-lg border-2 border-[color-mix(in_srgb,var(--side)_55%,transparent)] bg-[color-mix(in_srgb,var(--side)_12%,transparent)] px-4 font-mono text-sm font-bold tracking-wider text-[var(--side)] uppercase shadow-[0_0_18px_-8px_var(--side)] transition hover:bg-[color-mix(in_srgb,var(--side)_22%,transparent)] hover:shadow-[0_0_22px_-4px_var(--side)] max-sm:mt-1 max-sm:h-9 max-sm:gap-1 max-sm:px-1.5 max-sm:text-[9px] max-sm:leading-[1.15] max-sm:tracking-normal"
       >
-        <LayoutGrid size={19} className="shrink-0" />
+        <LayoutGrid size={19} className="shrink-0 max-sm:h-3 max-sm:w-3" />
         {value ? t.pickByImageChange : t.pickByImage}
       </button>
 

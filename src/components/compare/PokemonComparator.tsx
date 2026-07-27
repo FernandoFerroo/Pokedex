@@ -175,7 +175,9 @@ export function PokemonComparator() {
       {/* Selector dual + botón VS central                                  */}
       {/* ---------------------------------------------------------------- */}
       <div className="rounded-2xl border border-sky-400/30 bg-hud-3/80 px-4 py-5 shadow-[0_0_36px_rgba(0,0,0,0.45)] sm:px-6">
-        <div className="grid items-start gap-4 md:grid-cols-[1fr_auto_1fr] md:gap-6">
+        {/* A · VS · B en tres columnas también en el móvil: el enfrentamiento
+            se lee de un vistazo, que es lo que cuenta el selector. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 md:gap-6">
           <PokemonPicker
             side="a"
             sideLabel={t.sideA}
@@ -199,7 +201,7 @@ export function PokemonComparator() {
                 "--aura-b": SIDE_B_COLOR,
               } as CSSProperties
             }
-            className="vs-clash relative mx-auto flex h-16 w-16 items-center justify-center self-center rounded-full border border-sky-400/60 bg-black/70 font-display text-xl font-black tracking-tighter text-sky-300 shadow-[0_0_26px_-6px_rgba(56,189,248,0.9)] transition enabled:hover:scale-105 enabled:hover:text-sky-500 disabled:opacity-40 md:mt-7"
+            className="vs-clash relative mt-7 flex h-16 w-16 items-center justify-center self-center rounded-full border border-sky-400/60 bg-black/70 font-display text-xl font-black tracking-tighter text-sky-300 shadow-[0_0_26px_-6px_rgba(56,189,248,0.9)] transition max-sm:mt-5 max-sm:h-10 max-sm:w-10 max-sm:text-sm enabled:hover:scale-105 enabled:hover:text-sky-500 disabled:opacity-40"
           >
             <span className="relative">VS</span>
             <ArrowLeftRight
@@ -288,7 +290,7 @@ export function PokemonComparator() {
           {/* Comparativa estadística                                        */}
           {/* -------------------------------------------------------------- */}
           <Panel icon={<Gauge size={19} />} title={t.statsTitle}>
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,430px)_1fr] lg:items-center">
+            <div className="grid grid-cols-[minmax(0,46%)_1fr] items-center gap-8 max-sm:gap-2 lg:grid-cols-[minmax(0,430px)_1fr]">
               <div>
                 <p className="mb-3 text-center font-mono text-sm font-semibold tracking-[0.2em] text-slate-300 uppercase">
                   {t.radarTitle}

@@ -1,6 +1,7 @@
 import { BrandLink } from "@/components/layout/BrandLink";
 import { LangToggle, ThemeToggle } from "@/components/layout/HeaderToggles";
 import { TeamHeaderButton } from "@/components/team/TeamCta";
+import { PeHeaderChip } from "@/components/tcg/PeHeaderChip";
 import { getDict } from "@/lib/i18n";
 import type { Lang, Theme } from "@/lib/i18n/config";
 
@@ -97,6 +98,8 @@ export function Header({ lang, theme }: { lang: Lang; theme: Theme }) {
         </BrandLink>
 
         <span className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          {/* Saldo de PE: abre la fila de estado, antes del "Online". */}
+          <PeHeaderChip />
           <span className="hidden items-center gap-2 font-mono text-xs tracking-[0.2em] text-emerald-400 uppercase md:flex">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" />

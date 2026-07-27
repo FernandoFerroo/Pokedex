@@ -2,14 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { LogOut, Swords } from "lucide-react";
 import {
-  pickFallbackMove,
-  pickRivalItem,
-  pickRivalReplacement,
-  resolveTurn,
-} from "@/lib/battle/engine";
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { LogOut, Swords } from "lucide-react";
+import { pickRivalReplacement, resolveTurn } from "@/lib/battle/engine";
+import {
+  createRivalMemory,
+  pickAction,
+  profileFor,
+  rememberMove,
+  type RivalMemory,
+} from "@/lib/battle/rival-ai";
 import { announcesOnEntry } from "@/lib/battle/abilities";
 import {
   BAG_ITEMS,
@@ -20,6 +29,7 @@ import {
   type BagItemId,
 } from "@/lib/battle/items";
 import { useT } from "@/lib/i18n/client";
+import { AI_TRAINER, PLAYER_TRAINER, trainerArt } from "@/lib/trainers/roster";
 import { artworkUrl, typeAura } from "@/lib/pokemon-meta";
 import { cn } from "@/lib/utils";
 import { useSfx } from "@/components/audio/SfxProvider";
@@ -43,15 +53,20 @@ import {
   GEN7,
   type SpriteView,
   type StageHandle,
+  type TrainerStance,
 } from "./BattleStage2D";
 import {
   ActionMenu,
   BagMenu,
+  ComboMeter,
   Databox,
+  DamageNumber,
   DialogueBubble,
   MessageBox,
   MoveMenu,
+  Stinger,
   SwitchMenu,
+  type StingerKind,
 } from "./BattleHud";
 
 type Phase =
@@ -72,6 +87,27 @@ type Phase =
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Compás del guion, como multiplicador de la velocidad normal: el mismo que el
+ * «Modo Estándar» del torneo, que es `speedFor("turbo")` en
+ * `lib/tournament/config` — 2, o sea, cada pausa de lectura a la mitad.
+ *
+ * Aquí es una constante y no una prop porque el Modo Combate no ofrece elegir
+ * ritmo: se juega siempre al estándar. La copia del número es deliberada — el
+ * torneo lo elige por copa y esto no —, pero si allí se retoca, hay que
+ * retocarlo aquí para que un combate suelto y uno de torneo sigan sonando
+ * igual.
+ *
+ * Sólo se acortan las esperas de LECTURA. Las que están casadas con una
+ * animación CSS — la bola, la retirada, el momento del impacto — se quedan como
+ * están: son un contrato con `globals.css`, y adelantarlas no acelera nada,
+ * sólo descuadra el golpe de su fogonazo.
+ */
+const SPEED = 2;
+
+/** Una pausa de lectura, ya escalada por el compás del combate. */
+const wait = (ms: number) => sleep(ms / SPEED);
+
 /** The packed bag survives reloads and rematches, like the roster does. */
 const BAG_STORAGE_KEY = "pokedex-bag-v1";
 
@@ -83,6 +119,31 @@ function loadBag(): Bag {
   } catch {
     return { ...DEFAULT_BAG };
   }
+}
+
+/**
+ * La jugada del rival, contada en una línea para que el modelo escriba encima.
+ *
+ * Es todo lo que necesita: qué se hace y con qué intención. Antes se le pasaba
+ * el estado entero y se le pedía que decidiera, y la mayor parte del presupuesto
+ * del prompt se iba en enseñarle una táctica que se le da mal; ahora la
+ * decisión ya está tomada y sólo se le pide aquello que sí se le da bien.
+ */
+function describeDecision(
+  action: BattleAction,
+  state: BattleState,
+  reason: string | null,
+): { play: string; reason: string | null } {
+  const rival = state.rival.team[state.rival.active];
+  if (action.kind === "move") {
+    const move = rival.moves.find((m) => m.slug === action.move);
+    return { play: `${rival.label} usa ${move?.label ?? action.move}`, reason };
+  }
+  if (action.kind === "switch") {
+    const to = state.rival.team[action.to];
+    return { play: `cambia a ${rival.label} por ${to?.label ?? "otro"}`, reason };
+  }
+  return { play: `usa un objeto sobre ${rival.label}`, reason };
 }
 
 /**
@@ -98,6 +159,7 @@ const spriteView = (b: Battler, side: Side, slot: number): SpriteView => ({
   url: side === "player" ? b.sprites.back : b.sprites.front,
   aura: typeAura(b.types[0]),
   label: b.label,
+  height: b.height,
 });
 
 /**
@@ -108,13 +170,19 @@ const spriteView = (b: Battler, side: Side, slot: number): SpriteView => ({
  */
 export function BattleScreen() {
   const t = useT();
+  /**
+   * Cómo se le llama al rival: su clase y su nombre, igual que en el torneo
+   * («Líder de Gimnasio Brock» allí, «Científico Colress» aquí). La clase se
+   * traduce desde el catálogo del torneo, que es donde vive el diccionario de
+   * clases de Entrenador para los nueve idiomas.
+   */
+  const rivalName = `${t.tournament.trainerClass[AI_TRAINER.classKey]} ${AI_TRAINER.name}`;
+  /** Su retrato es el propio sprite oficial, así que está desde el fotograma uno. */
+  const avatar = trainerArt(AI_TRAINER.slug);
   const { team, hydrated } = useTeam();
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [rival, setRival] = useState<RivalProfile | null>(null);
-  const [avatar, setAvatar] = useState<string | null>(null);
-  /** Full-body cut-out of the rival, standing next to its Pokémon. */
-  const [trainerSprite, setTrainerSprite] = useState<string | null>(null);
   const [dialogue, setDialogue] = useState<string | null>(null);
   /** Current battle-box text (one message at a time, like the games). */
   const [message, setMessage] = useState("");
@@ -138,6 +206,43 @@ export function BattleScreen() {
     player: false,
     rival: false,
   });
+  /**
+   * Dónde está cada Entrenador. Los dos empiezan fuera del encuadre y sólo
+   * entran para la presentación y el lanzamiento: mientras se eligen ataques,
+   * el campo es de los Pokémon.
+   */
+  const [stance, setStance] = useState<Record<Side, TrainerStance>>({
+    player: "off",
+    rival: "off",
+  });
+  /**
+   * Quién se planta a cada lado.
+   *
+   * Enfrente hay UNO, siempre el mismo: Colress, el científico de los juegos
+   * (ver `AI_TRAINER`). Antes se sorteaba entre los once del plantel de Kanto
+   * a partir del nombre que hubiera inventado el modelo, así que el Modo
+   * Combate no tenía cara propia — cada partida traía a un Líder distinto sin
+   * que ninguno significase nada. El equipo y la labia los sigue escribiendo
+   * el modelo; quien los juega es él.
+   */
+  const trainers = useMemo(
+    () => ({
+      player: {
+        sprite: trainerArt(PLAYER_TRAINER.slug),
+        name: PLAYER_TRAINER.name,
+        foot: PLAYER_TRAINER.foot,
+      },
+      rival: rival
+        ? {
+            sprite: trainerArt(AI_TRAINER.slug),
+            name: AI_TRAINER.name,
+            foot: AI_TRAINER.foot,
+          }
+        : null,
+      stance,
+    }),
+    [rival, stance],
+  );
   /**
    * Ranura que la escena dibuja, por lado — y no siempre la que está activa
    * en el motor.
@@ -164,6 +269,11 @@ export function BattleScreen() {
   const historyRef = useRef<string[]>([]);
   /** Last rival choice (null = aleatorio), so «Revancha» repeats it. */
   const lastRivalRef = useRef<TeamMember[] | null>(null);
+  /**
+   * Lo que el rival recuerda: qué le has enseñado y cuándo cambió por última
+   * vez. Dura todo el combate, y se renueva con cada rival nuevo.
+   */
+  const memoryRef = useRef<RivalMemory>(createRivalMemory());
 
   /* ---------------------------------------------------------------- */
   /* Sound                                                            */
@@ -182,6 +292,56 @@ export function BattleScreen() {
   const later = useCallback((ms: number, fn: () => void) => {
     cueTimers.current.push(window.setTimeout(fn, ms));
   }, []);
+
+  /** Rótulo de impacto sobre el campo; ver `Stinger` en el HUD. */
+  const [stinger, setStinger] = useState<{
+    seq: number;
+    kind: StingerKind;
+    text: string;
+  } | null>(null);
+  const stingerSeq = useRef(0);
+
+  /** Cifra de daño y racha de golpes encadenados; ver `hud/HitFx`. */
+  const [hit, setHit] = useState<{
+    seq: number;
+    side: Side;
+    amount: number;
+    effectiveness: number;
+    crit: boolean;
+  } | null>(null);
+  const [combo, setCombo] = useState(0);
+  const comboRef = useRef(0);
+
+  /** Sube con cada golpe tuyo que duela; se rompe al fallar o al encajar uno. */
+  const bumpCombo = useCallback(
+    (good: boolean) => {
+      const next = good ? comboRef.current + 1 : 0;
+      comboRef.current = next;
+      setCombo(next);
+      if (next >= 2) sfx.play("combo", next);
+    },
+    [sfx],
+  );
+
+  const showStinger = useCallback(
+    (eff: number, crit: boolean) => {
+      const pick = (): { kind: StingerKind; text: string } | null => {
+        if (crit) return { kind: "crit", text: t.battle.engine.crit };
+        if (eff === 0) return { kind: "immune", text: t.battle.hintNoEffect };
+        if (eff > 1) return { kind: "super", text: t.battle.engine.superEffective };
+        if (eff < 1) return { kind: "resist", text: t.battle.engine.notVeryEffective };
+        return null;
+      };
+      const next = pick();
+      if (!next) return;
+      const seq = ++stingerSeq.current;
+      setStinger({ seq, ...next });
+      later(950, () =>
+        setStinger((current) => (current?.seq === seq ? null : current)),
+      );
+    },
+    [later, t],
+  );
 
   /** Low-health alarm: beeps while your active Pokémon sits under 20% PS. */
   const updateAlarm = useCallback(() => {
@@ -280,9 +440,7 @@ export function BattleScreen() {
     historyRef.current = [];
     setDialogue(null);
     setFled(false);
-    // A rematch draws a fresh persona, so last battle's art must not linger.
-    setAvatar(null);
-    setTrainerSprite(null);
+    setStance({ player: "off", rival: "off" });
     try {
       const res = await fetch("/api/battle/setup", {
         method: "POST",
@@ -316,24 +474,10 @@ export function BattleScreen() {
       // Pokémon lands on the platform, not after a round-trip.
       [...data.player, ...data.rival.team].forEach((b) => sfx.preloadCry(b.cry));
 
-      // Non-blocking flourish: the rival's generated art, in its two shapes —
-      // the bust that fills the speech bubble and the full-body cut-out that
-      // stands on the field. They are requested side by side and land
-      // whenever they land; the stage draws a silhouette until then.
-      const { nombre, estilo } = data.rival;
-      const art = (kind: "portrait" | "field", apply: (image: string) => void) =>
-        fetch("/api/battle/avatar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nombre, estilo, kind }),
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d) => {
-            if (aliveRef.current && typeof d?.image === "string") apply(d.image);
-          })
-          .catch(() => {});
-      void art("portrait", setAvatar);
-      void art("field", setTrainerSprite);
+      // Ya no se le pide un retrato al generador de imágenes: el rival es
+      // siempre el mismo Entrenador oficial, así que su cara es su sprite y
+      // está desde el primer fotograma — sin esperar medio minuto, sin gastar
+      // una llamada y sin que el bocadillo enseñe una inicial mientras tanto.
     } catch {
       if (aliveRef.current) {
         setError(t.battle.noServer);
@@ -359,22 +503,36 @@ export function BattleScreen() {
     const state = battleRef.current;
     if (!state || !rival) return;
     setPhase("busy");
-    pushMsg(t.battle.challenge(rival.nombre));
-    await sleep(1300);
+    // 1 · Presentación: los dos Entrenadores entran de fuera de cuadro, cada
+    //     uno por su lado, con el campo todavía vacío.
+    setStance({ player: "ready", rival: "ready" });
+    pushMsg(t.battle.challenge(rivalName));
+    await wait(1500);
     if (!aliveRef.current) return;
-    // Each trainer's lead bursts out of its ball and cries, in turn.
-    pushMsg(t.battle.trainerSendsOut(rival.nombre, state.rival.team[0].label));
+    // 2 · Lanzamiento: los dos sueltan su bola a la vez.
+    setStance({ player: "throw", rival: "throw" });
+    // Lo que dura el propio lanzamiento: se sale de escena con el gesto
+    // terminado, no a medio soltar la bola. Con suelo, porque por debajo de un
+    // tercio de segundo el gesto deja de leerse como un lanzamiento y parece
+    // un tic.
+    await sleep(Math.max(350, 620 / SPEED));
+    if (!aliveRef.current) return;
+    // 3 · Entrada: cada Pokémon sale de la luz de su bola y grita, por turnos,
+    //     y los Entrenadores SE QUEDAN junto al suyo — como en los combates de
+    //     los juegos, donde quien da las órdenes está en el campo.
+    setStance({ player: "ready", rival: "ready" });
+    pushMsg(t.battle.trainerSendsOut(rivalName, state.rival.team[0].label));
     await enter("rival");
     if (!aliveRef.current) return;
-    await sleep(620);
+    await wait(620);
     if (!aliveRef.current) return;
     pushMsg(t.battle.engine.sendOut(state.player.team[0].label, "player"));
     await enter("player");
     if (!aliveRef.current) return;
-    await sleep(760);
+    await wait(760);
     if (!aliveRef.current) return;
     setPhase("select");
-  }, [rival, pushMsg, t, enter]);
+  }, [rival, pushMsg, t, rivalName, enter]);
 
   /* ---------------------------------------------------------------- */
   /* Rival brain                                                      */
@@ -388,23 +546,32 @@ export function BattleScreen() {
         .map((_, i) => i)
         .filter((i) => i !== state.rival.active && state.rival.team[i].hp > 0);
 
-      // The rival carries a bag too: when its Pokémon is about to drop it
-      // heals instead of asking the model for a move, exactly like a trainer
-      // in the games would.
-      const item = pickRivalItem(state);
-      if (item) {
-        return {
-          action: item,
-          dialogue: t.battle.dialogueDefault,
-        };
-      }
+      // La JUGADA la decide el cerebro de casa, siempre.
+      //
+      // Antes la elegía el modelo, y cuando contestaba con un movimiento que
+      // no existía —o tardaba, o fallaba la red— el combate caía en
+      // `pickFallbackMove`, la heurística más simple que hay aquí: el rival
+      // pasaba de listo a torpe sin avisar. Ahora el suelo es el techo, la
+      // animación no espera a ninguna petición, y al modelo se le pide sólo
+      // aquello en lo que es mejor que cualquier heurística: la frase.
+      const action = pickAction(
+        state,
+        "rival",
+        profileFor("ace"),
+        memoryRef.current,
+      );
+      const reason = memoryRef.current.lastReason;
 
       try {
         const res = await fetch("/api/battle/turn", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            trainer: rival?.nombre,
+            // Quién habla. Va el nombre fijo y no el que devolviera el modelo
+            // al montar la partida: el rival es siempre el mismo, y si el
+            // reparto de personas falló y cayó en una frase de reserva, la
+            // voz del combate no tiene por qué irse con ella.
+            trainer: rivalName,
             rivalActive: {
               name: rActive.name,
               label: rActive.label,
@@ -435,39 +602,25 @@ export function BattleScreen() {
               types: pActive.types,
             },
             lastEvents: historyRef.current.slice(-6),
+            // Al modelo se le dice lo que se va a jugar y por qué, y sólo se
+            // le pide la frase. Reaccionar a una decisión que ya está tomada
+            // da mucho mejor texto que adivinarla.
+            decision: describeDecision(action, state, reason),
           }),
         });
         if (res.ok) {
           const data = (await res.json()) as RivalTurnResponse;
-          let action: BattleAction | null = null;
-          if (data.action?.kind === "switch") {
-            // The route answers with the BENCH index; map to team index.
-            const teamIndex = benchIdx[data.action.to];
-            if (teamIndex !== undefined) action = { kind: "switch", to: teamIndex };
-          } else if (data.action?.kind === "move") {
-            const slug = (data.action as { move?: string }).move;
-            const move = rActive.moves.find((m) => m.slug === slug && m.pp > 0);
-            if (move) action = { kind: "move", move: move.slug };
-          }
-          if (action) {
-            return {
-              action,
-              dialogue:
-                typeof data.dialogue === "string"
-                  ? data.dialogue
-                  : t.battle.dialogueDefault,
-            };
+          if (typeof data.dialogue === "string" && data.dialogue) {
+            return { action, dialogue: data.dialogue };
           }
         }
       } catch {
-        // Network hiccup: the heuristic below keeps the battle moving.
+        // Se cae la red y no pasa nada: la jugada ya está decidida, y lo único
+        // que se pierde es la frase.
       }
-      return {
-        action: pickFallbackMove(state),
-        dialogue: t.battle.dialogueFallback,
-      };
+      return { action, dialogue: t.battle.dialogueDefault };
     },
-    [rival, t],
+    [rivalName, t],
   );
 
   /* ---------------------------------------------------------------- */
@@ -481,14 +634,30 @@ export function BattleScreen() {
    */
   const msgWait = useCallback(
     (text: string, extra = 0) =>
-      sleep(Math.min(2800, Math.max(900, text.length * 9 + 500)) + extra),
+      wait(Math.min(2800, Math.max(900, text.length * 9 + 500)) + extra),
+    [],
+  );
+
+  /**
+   * Lo que tarda una línea en escribirse sola, sin el tiempo de lectura que
+   * añade `msgWait`. Es lo que se espera antes de lanzar una animación: en los
+   * juegos el nombre del movimiento acaba de aparecer y ENTONCES se ve el
+   * ataque, nunca los dos a la vez.
+   */
+  const typeWait = useCallback(
+    (text: string) => wait(Math.min(1200, text.length * 9 + 160)),
     [],
   );
 
   const replay = useCallback(
     async (events: BattleEvent[]) => {
-      for (const event of events) {
+      // Recorrido por índice para poder mirar el evento siguiente: es lo que
+      // distingue el turno de carga de un movimiento de dos turnos del turno
+      // en que por fin golpea.
+      for (let i = 0; i < events.length; i++) {
         if (!aliveRef.current) return;
+        const event = events[i];
+        const next = events[i + 1];
         const state = battleRef.current;
         switch (event.kind) {
           case "switch": {
@@ -500,7 +669,7 @@ export function BattleScreen() {
               pushMsg(t.battle.recall(leaving.label, event.side));
               await leave(event.side);
               if (!aliveRef.current) return;
-              await sleep(220);
+              await wait(220);
               if (!aliveRef.current) return;
             }
             pushMsg(event.text);
@@ -516,19 +685,32 @@ export function BattleScreen() {
             await msgWait(event.text);
             break;
           case "use-move": {
+            // Compás de los juegos: primero se lee «¡X usó Y!» hasta el
+            // final, y solo entonces arranca la animación. Escribir el
+            // nombre del movimiento POR ENCIMA de su propia animación es lo
+            // que hacía que esto no se sintiera como un combate.
             pushMsg(event.text);
-            stageRef.current?.attack(event.side, {
+            await typeWait(event.text);
+            if (!aliveRef.current) return;
+            // The attacker roars as it lunges, then the swing itself.
+            const attacker = state
+              ? state[event.side].team[state[event.side].active]
+              : null;
+            sfx.cry(attacker?.cry, 0.55);
+            // Turno 1 de un movimiento de dos: el motor manda el «usó» y
+            // acto seguido la carga. Ahí NO se anima el ataque — el Pokémon
+            // solo se eleva o se hunde, y el golpe llega al turno siguiente.
+            if (next?.kind === "charge" && next.side === event.side) {
+              await wait(160);
+              break;
+            }
+            const timing = stageRef.current?.attack(event.side, {
               slug: event.move.slug,
               type: event.move.type,
               damageClass: event.move.damageClass,
               release: event.release,
               selfTarget: event.move.effects?.target === "self",
             });
-            // The attacker roars as it lunges, then the swing itself.
-            const attacker = state
-              ? state[event.side].team[state[event.side].active]
-              : null;
-            sfx.cry(attacker?.cry, 0.55);
             // Attacks whoosh; a status move just shimmers into effect.
             if (event.move.damageClass === "status") {
               sfx.play("statUp");
@@ -541,8 +723,10 @@ export function BattleScreen() {
               type: event.move.type,
               damageClass: event.move.damageClass,
             };
-            // A release re-entry (Dig resurfacing…) takes an extra beat.
-            await msgWait(event.text, event.release ? 400 : 100);
+            // Se cede el turno EXACTAMENTE cuando el golpe conecta: el evento
+            // de daño que viene detrás trae el respingo, la barra y el
+            // estallido, y así los tres caen en el mismo fotograma.
+            await sleep(timing?.impactAt ?? 340);
             break;
           }
           case "charge":
@@ -567,6 +751,23 @@ export function BattleScreen() {
               ratio,
               crit: event.crit,
             });
+            // La cifra salta en el fotograma del impacto; la barra tarda medio
+            // segundo en contar lo mismo. `seq` la vuelve a montar en cada
+            // golpe para que dos seguidos no compartan nodo ni animación.
+            const hitSeq = ++stingerSeq.current;
+            setHit({
+              seq: hitSeq,
+              side: event.side,
+              amount: event.amount,
+              effectiveness: event.effectiveness,
+              crit: event.crit,
+            });
+            later(1000, () =>
+              setHit((current) => (current?.seq === hitSeq ? null : current)),
+            );
+            bumpCombo(
+              event.side === "rival" && (event.crit || event.effectiveness > 1),
+            );
             const move = lastMoveRef.current;
             sfx.impact(move?.type ?? "normal", move?.damageClass ?? "physical", ratio);
             // The bar rattles as it drains, then the verdict stinger lands
@@ -578,16 +779,19 @@ export function BattleScreen() {
                 sfx.effectiveness(event.effectiveness),
               );
             }
+            showStinger(event.effectiveness, event.crit);
             sync(); // HP bar drains to the new value.
             // Low-health alarm, on the same 20% threshold as the pulsing bar.
             updateAlarm();
             if (event.text) pushMsg(event.text);
-            await (event.text ? msgWait(event.text) : sleep(750));
+            await (event.text ? msgWait(event.text) : wait(750));
             break;
           }
           case "miss":
             pushMsg(event.text);
             sfx.play("miss");
+            // Fallar es lo que rompe una racha; que falle el rival, no.
+            if (event.side === "player") bumpCombo(false);
             await msgWait(event.text);
             break;
           case "note":
@@ -609,10 +813,18 @@ export function BattleScreen() {
             await msgWait(event.text, event.item ? 250 : 0);
             break;
           case "faint": {
-            await sleep(250);
+            await wait(250);
+            // El K.O. se anuncia a lo grande y en el compás del porrazo, antes
+            // de que el Pokémon se hunda tras la plataforma.
+            const koSeq = ++stingerSeq.current;
+            setStinger({ seq: koSeq, kind: "ko", text: t.battle.koStinger });
+            later(1200, () =>
+              setStinger((current) => (current?.seq === koSeq ? null : current)),
+            );
+            sfx.play("ko");
             stageRef.current?.faint(event.side);
             sfx.alarm(false);
-            sfx.play("faint");
+            later(220, () => sfx.play("faint"));
             // El Pokémon se queja al caer, como en los juegos, y solo después
             // se hunde tras la plataforma.
             const victim = state?.[event.side].team[shownRef.current[event.side]];
@@ -627,12 +839,32 @@ export function BattleScreen() {
             pushMsg(event.text);
             sfx.alarm(false);
             sfx.play(event.winner === "player" ? "victory" : "defeat");
+            // Quien pierde vuelve al campo a dar la cara, y se queda: el
+            // combate ha terminado, así que ya no tapa nada.
+            setStance((s) =>
+              event.winner === "player"
+                ? { ...s, rival: "ready" }
+                : { ...s, player: "ready" },
+            );
             await msgWait(event.text, 400);
             break;
         }
       }
     },
-    [pushMsg, sync, msgWait, sfx, later, updateAlarm, t, enter, leave],
+    [
+      pushMsg,
+      sync,
+      msgWait,
+      typeWait,
+      sfx,
+      later,
+      updateAlarm,
+      showStinger,
+      bumpCombo,
+      t,
+      enter,
+      leave,
+    ],
   );
 
   /* ---------------------------------------------------------------- */
@@ -664,6 +896,9 @@ export function BattleScreen() {
           : await askRival(state);
         if (!aliveRef.current) return;
         if (decision.dialogue) setDialogue(decision.dialogue);
+
+        // Lo que el jugador ENSEÑA es lo único que el rival puede haber visto.
+        if (action.kind === "move") rememberMove(memoryRef.current, action.move);
 
         const events = resolveTurn(
           state,
@@ -697,7 +932,7 @@ export function BattleScreen() {
             // El relevo llega en su bola, igual que el titular.
             await enter("rival");
             if (!aliveRef.current) return;
-            await sleep(700);
+            await wait(700);
           }
         }
         if (state.player.team[state.player.active].hp <= 0) {
@@ -708,7 +943,7 @@ export function BattleScreen() {
 
         const playerCharge = state.player.team[state.player.active].charging;
         if (!playerCharge) break;
-        await sleep(650);
+        await wait(650);
         if (!aliveRef.current) return;
         action = { kind: "move", move: playerCharge.move };
       }
@@ -847,17 +1082,38 @@ export function BattleScreen() {
   return (
     // Sin max-width: la arena toma el mayor rectángulo que quepa bajo la
     // cabecera (el alto la limita en monitores anchos vía max-h).
-    <div className="relative mx-auto flex h-[calc(100dvh-5rem)] min-h-[32rem] w-full flex-col overflow-hidden sm:px-3 sm:py-1.5">
+    <div
+      className="relative mx-auto flex h-[calc(100dvh-5rem)] min-h-[32rem] w-full flex-col overflow-hidden sm:px-3 sm:py-1.5"
+      // Las mismas tres alturas del HUD que usa el torneo, en un solo sitio:
+      // la caja de texto, la ficha que se apoya justo encima y la fila desde
+      // la que crecen los menús. El Modo Combate se había quedado con un
+      // carril de 16rem, y en él las cápsulas de «Mochila» y «Huir» salían con
+      // el rótulo cortado; son las mismas teclas, así que van al mismo ancho.
+      style={
+        {
+          // Franja que ocupa la caja de texto abajo del todo.
+          "--hud-msg": "5.4rem",
+          // Alto reservado para los mandos, medido sobre el menú MÁS ALTO —los
+          // cuatro ataques más «Volver»—, no sobre el que esté abierto: así tu
+          // ficha no salta media pantalla cada vez que se pulsa «Lucha».
+          "--hud-slot": "12.5rem",
+        } as CSSProperties
+      }
+    >
       {/* The arena is a canvas of absolutely positioned pieces with no visible
           title, so the page would otherwise reach a screen reader with no
           top-level heading at all. */}
       <h1 className="sr-only">{t.a11y.battleTitle}</h1>
-      {/* Game frame: panoramic 16:9 "console screen" on desktop (mobile keeps
-          the full column height), with the HUD floating over the stage. */}
+      {/* Game frame: panoramic 16:9 "console screen" on desktop, and on the
+          phone a portrait console — pantalla 16:9 arriba y mandos debajo, que
+          es como se juega a esto en vertical. */}
       <div className="flex min-h-0 flex-1 items-center justify-center">
-        <div className="relative flex h-full w-full flex-col overflow-hidden border border-slate-800 bg-black shadow-[0_0_40px_rgba(0,0,0,0.8)] sm:aspect-video sm:h-auto sm:max-h-full sm:rounded-2xl sm:border-2 sm:border-slate-700/70">
-        {/* Stage */}
-        <div className="relative min-h-0 flex-1">
+        <div className="relative flex h-full w-full flex-col overflow-hidden border border-slate-800 bg-black shadow-[0_0_40px_rgba(0,0,0,0.8)] max-sm:h-auto max-sm:max-h-full max-sm:rounded-xl sm:aspect-video sm:h-full sm:w-auto sm:max-h-full sm:max-w-full sm:rounded-2xl sm:border-2 sm:border-slate-700/70">
+        {/* Escenario. En el teléfono es una pantalla 16:9 fija en la parte
+            alta: así la escena conserva su encuadre (rival arriba a la derecha,
+            tu Pokémon abajo a la izquierda) en vez de estirarse por una columna
+            vertical y dejar medio cielo vacío. */}
+        <div className="relative w-full max-sm:aspect-[4/3] max-sm:shrink-0 sm:min-h-0 sm:flex-1">
           <BattleStage2D
             ref={stageRef}
             scenario="simulacion"
@@ -873,15 +1129,26 @@ export function BattleScreen() {
                 ? spriteView(rShown, "rival", shown.rival)
                 : null
             }
-            trainer={rival ? { image: trainerSprite, name: rival.nombre } : null}
+            trainers={trainers}
           />
 
           {/* Enemy databox, top-left like in the games. Va con su Pokémon: se
               marcha cuando la bola se lo lleva y vuelve con el siguiente,
               nunca con el hueco vacío. */}
           {onField.rival && rShown && state && (
-            <div className="absolute top-3 left-3">
+            <div className="absolute top-3 left-3 max-sm:top-2 max-sm:left-2">
               <Databox battler={rShown} side="enemy" team={state.rival.team} />
+            </div>
+          )}
+
+          {/* Tu ficha, ABAJO A LA DERECHA sobre el campo — su sitio en los
+              juegos, enfrentada en diagonal a la del rival. En el teléfono se
+              dibuja aquí, dentro de la pantalla; de `sm` en adelante la de la
+              columna de mandos (que va con el menú) ocupa su lugar, y esta se
+              retira para no duplicarla. */}
+          {onField.player && pShown && state && (
+            <div className="absolute right-2 bottom-2 sm:hidden">
+              <Databox battler={pShown} side="player" team={state.player.team} />
             </div>
           )}
 
@@ -908,19 +1175,54 @@ export function BattleScreen() {
             </Link>
           </div>
 
-          {/* Rival trainer speech bubble. */}
+          {stinger && (
+              <Stinger key={stinger.seq} kind={stinger.kind} text={stinger.text} />
+            )}
+
+          {/* Cifra de daño saltando del que la ha recibido. */}
+          {hit && (
+            <DamageNumber
+              key={hit.seq}
+              amount={hit.amount}
+              side={hit.side}
+              effectiveness={hit.effectiveness}
+              crit={hit.crit}
+            />
+          )}
+
+          {/* Racha de golpes encadenados, sobre el centro del campo. */}
+          {phase !== "intro" && phase !== "over" && <ComboMeter count={combo} />}
+
+            {/* Rival trainer speech bubble. */}
           {dialogue && rival && phase !== "intro" && phase !== "over" && (
             <div className="absolute top-12 right-3 max-w-[50%]">
-              <DialogueBubble avatar={avatar} name={rival.nombre} text={dialogue} />
+              <DialogueBubble avatar={avatar} name={rivalName} text={dialogue} pixel />
             </div>
           )}
 
+        </div>
+
+        {/* Consola. En el teléfono es una franja real bajo la pantalla —
+            ficha, texto y mandos, en ese orden, sin taparse entre sí ni
+            taparle el campo al combate. De `sm` en adelante el envoltorio
+            desaparece (`contents`) y sus piezas vuelven a flotar sobre el
+            escenario, que es la vista de sobremesa de siempre. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto border-t border-white/10 bg-gradient-to-b from-[#0d1626] to-black p-1.5 sm:contents">
           {/* Right rail: player databox above the contextual command column,
               bottom-right like the SwSh command menu. */}
-          <div className="absolute right-2 bottom-[5.25rem] flex w-60 max-w-[62vw] flex-col items-end gap-2 sm:right-4 sm:w-64">
+          <div className="max-sm:contents sm:absolute sm:right-4 sm:bottom-[var(--hud-msg)] sm:flex sm:w-[27rem] sm:flex-col sm:items-end sm:gap-2">
             {onField.player && pShown && state && (
-              <Databox battler={pShown} side="player" team={state.player.team} />
+              // Tu ficha va CLAVADA justo encima de la caja de texto, como en
+              // los juegos, y no apilada sobre el menú: colgando del menú
+              // saltaba media pantalla cada vez que se abría «Lucha», porque
+              // cuatro ataques miden el triple que los cuatro comandos.
+              <div className="max-sm:hidden">
+                <Databox battler={pShown} side="player" team={state.player.team} />
+              </div>
             )}
+            {/* Hueco de mandos de alto FIJO, con el menú pegado abajo: lo
+                único que cambia al cambiar de menú es el menú. */}
+            <div className="w-full max-sm:order-3 sm:flex sm:h-[var(--hud-slot)] sm:flex-col sm:justify-end">
             {phase === "select" && state && (
               <div className="w-full">
                 <ActionMenu
@@ -965,11 +1267,16 @@ export function BattleScreen() {
                 />
               </div>
             )}
+            </div>
           </div>
 
-          {/* Message bar along the bottom, like the Switch text window. */}
-          <div className="absolute inset-x-2 bottom-2 sm:inset-x-3 sm:bottom-3">
-            <MessageBox text={boxText} />
+          {/* Message bar: bajo la pantalla en el teléfono, sobre ella en el
+              escritorio — el mismo sitio de siempre en cada formato.
+              De borde a borde, como la ventana de diálogo de una consola: no
+              es un panel flotando sobre el campo, es el marco inferior de la
+              pantalla. */}
+          <div className="max-sm:order-2 max-sm:mt-auto sm:absolute sm:inset-x-0 sm:bottom-0">
+            <MessageBox text={boxText} speed={SPEED} />
           </div>
         </div>
 
@@ -1010,24 +1317,20 @@ export function BattleScreen() {
           </p>
           <div className="flex items-center gap-4">
             <span className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-red-500/70 bg-hud-1 shadow-[0_0_28px_rgba(239,68,68,0.6)]">
-              {avatar ? (
-                // Generated portrait: named rather than empty, since the rival
-                // it depicts is the whole point of this screen.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatar}
-                  alt={t.a11y.rivalPortraitOf(rival.nombre)}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="font-display text-3xl font-bold text-red-400">
-                  {rival.nombre.charAt(0)}
-                </span>
-              )}
+              {/* Su sprite oficial, acercado a la cara y sin suavizar: es
+                  pixel art de 80×80, y el retrato es el mismo que después se
+                  planta en el campo. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatar}
+                alt={t.a11y.rivalPortraitOf(rivalName)}
+                className="h-full w-full origin-top scale-[2.1] object-contain object-top"
+                style={{ imageRendering: "pixelated" }}
+              />
             </span>
             <div className="text-left">
               <h2 className="font-display text-xl font-bold text-slate-100">
-                {rival.nombre}
+                {rivalName}
               </h2>
               <p className="mt-1 text-sm text-red-200/90 italic">
                 {t.battle.motto(rival.lema)}
