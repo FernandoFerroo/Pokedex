@@ -10,11 +10,13 @@ import {
   Search,
   Sparkles,
   Swords,
+  Wand2,
   X,
 } from "lucide-react";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { isKnownAt, type SelectableMethod } from "@/lib/battle/learnset";
+import { MOVE_PRESETS, type MovePreset } from "@/lib/battle/move-presets";
 import type { Dict } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/client";
 import type { Lang } from "@/lib/i18n/config";
@@ -30,6 +32,7 @@ import {
   DEFAULT_LEVEL,
   type BuildOptionsResponse,
   type MemberBuild,
+  type MoveCoachResponse,
   type MoveOption,
   type TeamMember,
 } from "@/types/team";
@@ -120,24 +123,23 @@ function moveTitle(move: MoveOption, t: TeamDict, lang: Lang): string {
 function MoveStats({ move }: { move: MoveOption }) {
   const t = useI18n().dict.team;
   return (
-    <span className="flex shrink-0 items-center gap-2">
+    // Misma ficha del movimiento que en escritorio — categoría, potencia,
+    // precisión y PP —; en el móvil encoge, no se recorta.
+    <span className="flex shrink-0 items-center gap-2 max-sm:gap-1">
       <TypeBadge type={move.type} />
       <span
         className={cn(
-          "hidden w-14 font-mono text-xs sm:inline",
+          "w-14 font-mono text-xs max-sm:w-9 max-sm:text-[9px]",
           DAMAGE_CLASS_TONE[move.damageClass] ?? "text-slate-500",
         )}
       >
         {t.damageClass[move.damageClass] ?? "—"}
       </span>
-      <span className="font-mono text-xs whitespace-nowrap text-slate-400">
-        {t.movePowerAbbr(move.power ?? "—")}
-        <span className="hidden sm:inline">
-          {" "}
-          {t.moveAccuracyAbbr(move.accuracy ?? "—")}
-          {" · "}
-          {t.movePp(move.pp ?? "—")}
-        </span>
+      <span className="font-mono text-xs whitespace-nowrap text-slate-400 max-sm:text-[9px]">
+        {t.movePowerAbbr(move.power ?? "—")}{" "}
+        {t.moveAccuracyAbbr(move.accuracy ?? "—")}
+        {" · "}
+        {t.movePp(move.pp ?? "—")}
       </span>
     </span>
   );
@@ -160,7 +162,7 @@ function SelectedMoves({
   const t = dict.team;
   // 2×2 grid like the games' battle menu; each pick wears its type color.
   return (
-    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2.5 max-sm:gap-1.5">
       {Array.from({ length: 4 }, (_, i) => {
         const slug = slugs[i];
         if (!slug) {
@@ -303,6 +305,19 @@ export function BuildEditor({
   /** Which shelf the catalogue is showing: level-up moves or TMs. */
   const [source, setSource] = useState<SelectableMethod>("level-up");
   const [query, setQuery] = useState("");
+  /** Free-text wish for the AI coach; the preset chips don't go through it. */
+  const [coachPrompt, setCoachPrompt] = useState("");
+  /** Which coach request is in flight: a preset chip, the text box, or none. */
+  const [coachBusy, setCoachBusy] = useState<MovePreset | "custom" | null>(null);
+  const [coachError, setCoachError] = useState<string | null>(null);
+  /** What the coach said about the set it just applied. */
+  const [coachNote, setCoachNote] = useState<{
+    motivo: string;
+    toppedUp: boolean;
+  } | null>(null);
+  /** Only the newest ask may write: a slow first answer must not land on top
+      of a second, faster one the user has already seen applied. */
+  const coachSeq = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   /** Toda la ficha se viste del tipo principal de la especie. */
   const aura = typeAura(member.types[0]);
@@ -385,6 +400,54 @@ export function BuildEditor({
       const current = prev.filter(knows);
       return current.length < 4 ? [...current, slug] : prev;
     });
+  };
+
+  /**
+   * Hands the wish to the coach and drops the four moves it answers with
+   * straight into the slots.
+   *
+   * The server picks only from this species' real repertoire at this level —
+   * the same two shelves listed below — so whatever comes back is something
+   * the catalogue would have let you tick by hand. Nothing here needs to
+   * re-check that; `kept` still parks anything the level stops allowing, which
+   * is what covers a level edit made while the request was in flight.
+   */
+  const askCoach = async (ask: { preset?: MovePreset; prompt?: string }) => {
+    const text = ask.prompt?.trim() ?? "";
+    if (!ask.preset && !text) {
+      setCoachError(t.coachMoveErrEmpty);
+      return;
+    }
+    const seq = ++coachSeq.current;
+    setCoachBusy(ask.preset ?? "custom");
+    setCoachError(null);
+    setCoachNote(null);
+    try {
+      const res = await fetch("/api/battle/move-coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          species: member.name,
+          level,
+          preset: ask.preset,
+          prompt: text,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | (MoveCoachResponse & { error?: string })
+        | null;
+      if (seq !== coachSeq.current) return;
+      if (!res.ok || !data || data.error || !data.moves?.length) {
+        setCoachError(data?.error ?? t.coachMoveErrFailed);
+        return;
+      }
+      setMoves(data.moves.slice(0, 4));
+      setCoachNote({ motivo: data.motivo, toppedUp: data.toppedUp });
+    } catch {
+      if (seq === coachSeq.current) setCoachError(t.coachMoveErrFailed);
+    } finally {
+      if (seq === coachSeq.current) setCoachBusy(null);
+    }
   };
 
   const save = () => {
@@ -578,6 +641,101 @@ export function BuildEditor({
             <p className="mt-2.5 font-mono text-xs leading-relaxed text-slate-500">
               {t.movesHelpLevel(level)}
             </p>
+          </Section>
+
+          {/* Entrenador IA: el atajo al catálogo. Va justo ENCIMA de las dos
+              estanterías porque es la vía rápida a lo mismo — pides un set y
+              te lo rellena — y quien prefiera elegir a mano lo tiene debajo,
+              donde siempre estuvo. Lo que propone sale del mismo repertorio
+              legal a este nivel, así que nunca aparece un movimiento que la
+              lista de abajo no dejaría marcar. */}
+          <Section icon={Wand2} title={t.coachMoveTitle}>
+            <p className="font-mono text-xs leading-relaxed text-slate-500">
+              {t.coachMoveHint(level)}
+            </p>
+
+            {/* Sugerencias por defecto: un toque y el set está puesto, sin
+                tener que saber qué escribir. */}
+            <p className="mt-3 font-mono text-[10px] tracking-[0.2em] text-slate-400 uppercase">
+              {t.coachMovePresets}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {MOVE_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  disabled={!options || coachBusy !== null}
+                  onClick={() => void askCoach({ preset })}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 font-mono text-xs transition disabled:opacity-50",
+                    coachBusy === preset
+                      ? "border-fuchsia-400/80 bg-fuchsia-400/15 text-fuchsia-200"
+                      : "border-slate-700/80 bg-hud-1/70 text-slate-300 hover:border-fuchsia-400/60 hover:text-fuchsia-200",
+                  )}
+                >
+                  {coachBusy === preset && (
+                    <Sparkles size={12} className="animate-pulse" />
+                  )}
+                  {t.coachMovePreset[preset]}
+                </button>
+              ))}
+            </div>
+
+            {/* Petición libre, para lo que las sugerencias no cubren. */}
+            <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+              <label className="relative min-w-0 flex-1">
+                <Wand2
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-500"
+                />
+                <input
+                  type="text"
+                  value={coachPrompt}
+                  disabled={!options || coachBusy !== null}
+                  onChange={(e) => setCoachPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void askCoach({ prompt: coachPrompt });
+                    }
+                  }}
+                  maxLength={300}
+                  placeholder={t.coachMovePlaceholder}
+                  aria-label={t.coachMoveAria}
+                  className="h-11 w-full rounded-lg border border-slate-700/80 bg-hud-1/90 pr-3 pl-9 font-mono text-sm text-slate-200 outline-none transition focus:border-fuchsia-400/70 focus:shadow-[0_0_16px_-2px_rgba(217,70,239,0.55)] disabled:opacity-50"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!options || coachBusy !== null}
+                onClick={() => void askCoach({ prompt: coachPrompt })}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-fuchsia-400/60 bg-fuchsia-400/15 px-5 font-mono text-sm font-bold tracking-wider text-fuchsia-200 uppercase transition hover:bg-fuchsia-400/25 hover:shadow-[0_0_22px_-4px_rgba(217,70,239,0.75)] disabled:opacity-50 disabled:shadow-none"
+              >
+                <Sparkles
+                  size={14}
+                  className={cn(coachBusy !== null && "animate-pulse")}
+                />
+                {coachBusy !== null ? t.coachMoveRunning : t.coachMoveRun}
+              </button>
+            </div>
+
+            {coachError && (
+              <p className="mt-2.5 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 font-mono text-xs text-red-400">
+                {coachError}
+              </p>
+            )}
+            {coachNote?.motivo && (
+              <p className="mt-2.5 rounded-md border border-fuchsia-400/30 bg-fuchsia-400/8 px-3 py-2 font-mono text-xs leading-relaxed text-fuchsia-100/90">
+                {coachNote.motivo}
+              </p>
+            )}
+            {coachNote?.toppedUp && (
+              // Ámbar: los huecos los ha puesto el servidor, no la respuesta a
+              // lo que se pidió, y eso hay que decirlo.
+              <p className="mt-2 rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 font-mono text-xs leading-relaxed text-amber-300">
+                {t.coachMoveToppedUp}
+              </p>
+            )}
           </Section>
 
           {/* Catalogue, split in the two shelves a build may draw from. */}

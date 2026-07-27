@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Crown, RotateCcw } from "lucide-react";
-import type { CSSProperties } from "react";
+import { Crown, Layers, RotateCcw, Sparkles } from "lucide-react";
+import { useEffect, type CSSProperties } from "react";
+import { useSfx } from "@/components/audio/SfxProvider";
 import { Scenery } from "@/components/battle/scene/Scenery";
+import { PackAward } from "@/components/tcg/PackAward";
+import type { RunReward } from "@/lib/tcg/rewards";
 import { useT } from "@/lib/i18n/client";
 import { typeAura } from "@/lib/pokemon-meta";
 import { cn } from "@/lib/utils";
 import type { Battler } from "@/types/battle";
 import type {
   TournamentFormat,
+  TournamentPace,
   TournamentRecord,
   TournamentTrainer,
 } from "@/types/tournament";
-import { difficultyOf, drawSize } from "@/types/tournament";
+import { difficultyOf, drawSize, isArcadePace } from "@/types/tournament";
+import { formatClock } from "@/lib/tournament/score";
 
 /**
  * Ceremonia de campeón: lo último que ve quien gana el torneo, así que es la
@@ -43,6 +48,12 @@ interface ChampionScreenProps {
   format: TournamentFormat;
   /** Regla de curación con la que se disputó el torneo. */
   heal: boolean;
+  /** Ritmo al que se jugó: decide qué cifras cuenta la ceremonia. */
+  pace: TournamentPace;
+  /** Lo que duró la partida, en milisegundos. Sólo se enseña con reloj. */
+  runMs: number;
+  /** Puntos sumados en las rondas ganadas. */
+  score: number;
   /** La escalera completa; el último peldaño es el finalista. */
   trainers: TournamentTrainer[];
   /** El equipo tal y como acabó la final, heridas incluidas. */
@@ -51,24 +62,42 @@ interface ChampionScreenProps {
   record: TournamentRecord;
   /** Vuelve al vestíbulo a inscribirse en otra copa. */
   onAgain: () => void;
+  /**
+   * Botín de la copa: sobres y Puntos de Entrenador. Opcional porque una
+   * carrera reanudada de antes del modo colección no lo calculó.
+   */
+  reward?: RunReward;
 }
 
 export function ChampionScreen({
   format,
   heal,
+  pace,
+  runMs,
+  score,
   trainers,
   team,
   record,
   onAgain,
+  reward,
 }: ChampionScreenProps) {
   const t = useT();
+  const sfx = useSfx();
   const tt = t.tournament;
+  const ttcg = t.tcg;
   const gem = CUP_GEM[format];
   const cup = tt.cupName[format];
   const finalist = trainers[trainers.length - 1];
   const finalistName = `${finalist?.trainerClass ?? ""} ${
     finalist?.name ?? ""
   }`.trim();
+
+  // La fanfarria de la copa, una sola vez al montar la ceremonia. Va aquí y no
+  // en el torneo porque esto es lo que se ve al ganar: el sonido y la copa
+  // subiendo tienen que arrancar en el mismo fotograma.
+  useEffect(() => {
+    sfx.play("champion");
+  }, [sfx]);
 
   return (
     <div
@@ -110,16 +139,67 @@ export function ChampionScreen({
           </p>
         </div>
 
+        {/* ---- Botín ----
+            Justo debajo de la copa y POR DELANTE de la vitrina: lo que uno se
+            lleva a casa de un torneo son los sobres, y enterrarlos bajo el
+            Salón de la Fama los dejaba fuera de pantalla en un teléfono — el
+            premio de la carrera contado en un renglón al que había que bajar.
+            Aquí es la segunda cosa que se ve, y ocupa lo que ocupa un premio. */}
+        {reward && (reward.pe > 0 || Object.keys(reward.packs).length > 0) && (
+          <section
+            className="champ-in champ-loot premium-sweep relative w-full overflow-hidden rounded-2xl px-4 py-5 sm:px-6"
+            style={{ animationDelay: "420ms" }}
+          >
+            <h2 className="flex items-center justify-center gap-2 font-mono text-sm font-bold tracking-[0.32em] text-violet-100 uppercase sm:text-base">
+              <Layers size={18} className="text-violet-300" />
+              {ttcg.rewardTitle}
+            </h2>
+
+            {/* Los sobres no se anuncian: se entregan. Ya están en la
+                estantería cuando esto se pinta, y la coreografía es lo que
+                convierte «+2 sobres» en haberlos recibido. */}
+            <PackAward packs={reward.packs} pe={reward.pe} />
+
+            {reward.flawless && (
+              <p className="mt-3 text-center font-mono text-[11px] tracking-[0.2em] text-emerald-300 uppercase">
+                {ttcg.rewardFlawless}
+                {reward.godPack && (
+                  <span className="ml-2 text-fuchsia-300">
+                    {ttcg.rewardGodPack}
+                  </span>
+                )}
+              </p>
+            )}
+
+            <div className="mt-4 flex justify-center">
+              <Link
+                href="/album?view=packs"
+                className="glass-btn inline-flex items-center gap-2 rounded-full px-5 py-2 font-mono text-xs text-violet-100"
+              >
+                <Sparkles size={14} />
+                {ttcg.rewardCta}
+              </Link>
+            </div>
+          </section>
+        )}
+
         {/* ---- Salón de la Fama ---- */}
         <section
           className="champ-in premium-frame premium-sweep relative w-full overflow-hidden rounded-2xl px-4 py-4 sm:px-6"
-          style={{ animationDelay: "420ms" }}
+          style={{ animationDelay: "560ms" }}
         >
           <h2 className="mb-4 flex items-center justify-center gap-2 font-mono text-[11px] tracking-[0.32em] text-amber-200/80 uppercase sm:text-xs">
             <Crown size={14} className="text-amber-300" />
             {tt.hallOfFame}
           </h2>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
+          {/* Seis huecos para un equipo de tres dejarían media fila vacía: la
+              vitrina se ajusta a lo que hay dentro. */}
+          <ul
+            className={cn(
+              "grid gap-2 max-sm:gap-1 sm:gap-3",
+              team.length > 3 ? "grid-cols-6" : "grid-cols-3",
+            )}
+          >
             {team.map((member, i) => (
               <HallOfFameSlot key={member.id} member={member} index={i} />
             ))}
@@ -128,14 +208,27 @@ export function ChampionScreen({
 
         {/* ---- Registro de la carrera ---- */}
         <div
-          className="champ-in grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
+          className="champ-in grid w-full grid-cols-4 gap-2 max-sm:gap-1 sm:gap-3"
           style={{ animationDelay: "560ms" }}
         >
           <Stat label={tt.roundsWord} value={`${trainers.length}`} />
-          {/* El cuadro completo del que se sale campeón: 8, 16 o 32. */}
-          <Stat label={tt.championStatTrainers} value={`${drawSize(format)}`} />
-          <Stat label={tt.championStatTitles} value={`${record.titles}`} highlight />
-          <Stat label={tt.championStatStreak} value={`${record.bestStreak}`} />
+          {/* Con reloj — Relámpago o Turbo — la partida se mide por lo que
+              tardó y lo que sumó; en Clásico, por el tamaño del cuadro y la
+              mejor racha. */}
+          {isArcadePace(pace) ? (
+            <>
+              <Stat label={tt.championStatTime} value={formatClock(runMs)} highlight />
+              <Stat label={tt.championStatScore} value={`${score}`} highlight />
+              <Stat label={tt.championStatTitles} value={`${record.titles}`} />
+            </>
+          ) : (
+            <>
+              {/* El cuadro completo del que se sale campeón: 8, 16 o 32. */}
+              <Stat label={tt.championStatTrainers} value={`${drawSize(format)}`} />
+              <Stat label={tt.championStatTitles} value={`${record.titles}`} highlight />
+              <Stat label={tt.championStatStreak} value={`${record.bestStreak}`} />
+            </>
+          )}
         </div>
 
         {/* ---- Salidas ---- */}

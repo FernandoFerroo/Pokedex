@@ -9,11 +9,13 @@ interface TypeBadgeProps {
   type: string;
   size?: "sm" | "md";
   /**
-   * Shrinks the chip below `sm` so a dual-type pair fits on one line inside a
-   * ~111px dex card, instead of wrapping and making those cards a row taller
-   * than their single-type neighbours. Grid cards only.
+   * Shrinks the chip below `sm` so it fits inside a ~54px dex card, where the
+   * six-per-row grid leaves room for the primary type and nothing else.
+   * Grid cards only.
    */
   compactOnMobile?: boolean;
+  /** Extra classes from the call site (hiding it at a breakpoint, mostly). */
+  className?: string;
 }
 
 /** Neon game-style chip: `.type-chip` derives its colors from `--type`.
@@ -23,6 +25,7 @@ export function TypeBadge({
   type,
   size = "sm",
   compactOnMobile = false,
+  className,
 }: TypeBadgeProps) {
   const { lang } = useI18n();
   return (
@@ -32,7 +35,8 @@ export function TypeBadge({
         "type-chip inline-flex items-center rounded font-mono font-semibold tracking-widest uppercase",
         size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-2.5 py-1 text-xs",
         compactOnMobile &&
-          "max-sm:px-1 max-sm:text-[10px] max-sm:tracking-normal",
+          "max-sm:truncate max-sm:px-0.5 max-sm:text-[7px] max-sm:leading-[1.4] max-sm:tracking-normal",
+        className,
       )}
     >
       {typeLabel(type, lang)}

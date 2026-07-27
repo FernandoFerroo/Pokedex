@@ -94,9 +94,9 @@ export function BagBuilder({
         ))}
       </div>
 
-      <p className="text-sm leading-relaxed text-slate-300">{t.intro}</p>
+      <p className="text-sm leading-relaxed text-slate-300 max-sm:hidden">{t.intro}</p>
 
-      <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
         {BAG_ITEM_IDS.map((id) => {
           const count = bag[id] ?? 0;
           const tint = BAG_ITEMS[id].tint;
@@ -107,18 +107,18 @@ export function BagBuilder({
               key={id}
               style={{ "--tint": tint } as CSSProperties}
               className={cn(
-                "flex flex-col gap-2 rounded-xl border p-3 backdrop-blur-sm transition",
+                "flex flex-col gap-2 rounded-xl border p-3 backdrop-blur-sm transition max-sm:gap-1 max-sm:rounded-lg max-sm:p-1.5",
                 count > 0
                   ? "border-[color-mix(in_srgb,var(--tint)_60%,transparent)] bg-[color-mix(in_srgb,var(--tint)_10%,transparent)] shadow-[0_0_20px_-8px_var(--tint)]"
                   : "border-slate-700/70 bg-black/30",
               )}
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:gap-0.5 max-sm:text-center">
                 {/* Sprite oficial del objeto, sobre un disco del color del
                     ítem para que se lea igual en tema claro y oscuro. */}
                 <span
                   className={cn(
-                    "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border transition",
+                    "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border transition max-sm:h-8 max-sm:w-8",
                     count > 0
                       ? "border-[color-mix(in_srgb,var(--tint)_55%,transparent)] bg-[color-mix(in_srgb,var(--tint)_18%,transparent)] shadow-[0_0_14px_-6px_var(--tint)]"
                       : "border-slate-700/70 bg-black/40",
@@ -131,7 +131,7 @@ export function BagBuilder({
                     height={32}
                     unoptimized
                     className={cn(
-                      "h-8 w-8 object-contain transition",
+                      "h-8 w-8 object-contain transition max-sm:h-6 max-sm:w-6",
                       // Los sprites de objeto son diminutos; el escalado
                       // pixelado los mantiene nítidos en vez de borrosos.
                       "[image-rendering:pixelated]",
@@ -139,13 +139,13 @@ export function BagBuilder({
                     )}
                   />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-mono text-sm font-semibold text-slate-100">
+                <span className="min-w-0 flex-1 max-sm:w-full">
+                  <span className="block truncate font-mono text-sm font-semibold text-slate-100 max-sm:text-[8px]">
                     {t.itemName[id]}
                   </span>
                   <span
                     className={cn(
-                      "block font-mono text-sm font-bold",
+                      "block font-mono text-sm font-bold max-sm:text-[9px]",
                       count > 0 ? "text-[var(--tint)]" : "text-slate-600",
                     )}
                   >
@@ -153,16 +153,16 @@ export function BagBuilder({
                   </span>
                 </span>
               </div>
-              <p className="min-h-8 font-mono text-xs leading-snug text-slate-400">
+              <p className="min-h-8 font-mono text-xs leading-snug text-slate-400 max-sm:hidden">
                 {t.itemDesc[id]}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 max-sm:gap-1">
                 <button
                   type="button"
                   onClick={() => setCount(id, count - 1)}
                   disabled={count === 0}
                   aria-label={t.removeAria(t.itemName[id])}
-                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-slate-700/80 bg-black/40 text-slate-300 transition enabled:hover:border-red-500/60 enabled:hover:text-red-400 enabled:active:scale-95 disabled:opacity-35"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-slate-700/80 bg-black/40 text-slate-300 transition enabled:hover:border-red-500/60 enabled:hover:text-red-400 enabled:active:scale-95 disabled:opacity-35 max-sm:h-6"
                 >
                   <Minus size={15} />
                 </button>
@@ -172,7 +172,7 @@ export function BagBuilder({
                   disabled={!canAdd}
                   aria-label={t.addAria(t.itemName[id])}
                   title={atMax ? t.maxOf(t.itemName[id]) : full ? t.full : undefined}
-                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-slate-700/80 bg-black/40 text-slate-300 transition enabled:hover:border-[var(--tint)] enabled:hover:text-[var(--tint)] enabled:active:scale-95 disabled:opacity-35"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-slate-700/80 bg-black/40 text-slate-300 transition enabled:hover:border-[var(--tint)] enabled:hover:text-[var(--tint)] enabled:active:scale-95 disabled:opacity-35 max-sm:h-6"
                 >
                   <Plus size={15} />
                 </button>

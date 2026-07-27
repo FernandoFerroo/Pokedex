@@ -37,10 +37,39 @@ export type SfxCue =
   | "heal"
   | "statUp"
   | "statDown"
+  /**
+   * Escalón de racha. Se toca con el número de golpes encadenados como
+   * `scale`, y cada peldaño sube un tono: la recompensa de encadenar tiene que
+   * OÍRSE subiendo, no repetirse igual.
+   */
+  | "combo"
+  /** Golpe que tumba: el porrazo seco justo antes del desplome. */
+  | "ko"
   | "victory"
+  /**
+   * La ceremonia de campeón: la misma fanfarria, pero con el redoble que la
+   * anuncia y las campanas que la rematan. Es lo que suena al levantar la copa,
+   * no al ganar un combate.
+   */
+  | "champion"
   | "defeat"
   | "tick"
-  | "alarm";
+  | "alarm"
+  /** El envoltorio del sobre rasgándose de arriba abajo. */
+  | "packTear"
+  /** Una carta girando sobre la mesa y asentándose boca arriba. */
+  | "cardFlip"
+  /**
+   * Fogonazo previo a una rareza. `scale` es el peldaño: 1 Holo Rara,
+   * 2 Pokémon ex o Ilustración Rara, 3 Hyper Rara.
+   */
+  | "rareReveal"
+  /**
+   * Una repetida deshaciéndose en Puntos de Entrenador. `scale` es el mismo
+   * peldaño de rareza que usa «rareReveal»: una Hyper Rara deja noventa PE y
+   * tiene que sonar como noventa.
+   */
+  | "dustConvert";
 
 /** Impact families: each move type maps to the texture of its hit. */
 type ImpactFamily =
@@ -263,6 +292,96 @@ class SfxManager {
   /* Cues                                                             */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * LA FANFARRIA. Lo que suena al ganar, y la pieza más larga del soundboard.
+   *
+   * Una sola voz de onda cuadrada —lo que había antes— es un aviso, no una
+   * celebración: seis pitidos secos que se apagan antes de que dé tiempo a
+   * entender que se ha ganado. Esto es una fanfarria de verdad, con las cuatro
+   * capas que la hacen sonar a orquesta de chip:
+   *
+   *   · MELODÍA — tresillo de llamada sobre Sol, la tónica sostenida arriba y
+   *     una escalera La-Si-Do que se planta en un Mi agudo. La frase SUBE y
+   *     acaba abierta, que es lo que la separa de «defeat», que baja y cierra.
+   *   · ARMONÍA — la misma frase a una tercera diatónica por debajo, apenas más
+   *     floja. Es de donde sale el cuerpo: dos voces en terceras suenan a banda,
+   *     una sola suena a consola.
+   *   · BAJO — triángulo grave marcando I-I-IV-I. Sostiene el acorde final
+   *     mientras las dos voces de arriba ya están quietas.
+   *   · REMATE — la tríada de Do mayor abierta en seno sobre la última nota,
+   *     con un brillo de ruido que sube por encima. Es la cola: la fanfarria
+   *     no termina en corte, se posa.
+   *
+   * @param at    Retardo desde «ahora», en segundos. La ceremonia lo usa para
+   *              dejar sonar antes el redoble.
+   * @param scale Multiplicador de volumen; la copa suena un punto por encima.
+   */
+  private fanfare(at = 0, scale = 1): void {
+    const g = (value: number) => value * scale;
+
+    // [frecuencia, entrada, duración]. Do mayor: Sol-Sol-Sol / Do / La-Si-Do /
+    // Mi. La armonía va nota a nota una tercera diatónica por debajo.
+    const LEAD: Array<[number, number, number]> = [
+      [784, 0, 0.1], // Sol5 ─┐ tresillo de llamada
+      [784, 0.13, 0.1], //     │
+      [784, 0.26, 0.1], // ────┘
+      [1046, 0.39, 0.34], // Do6 sostenido
+      [880, 0.78, 0.11], // La5 ─┐ escalera
+      [988, 0.91, 0.11], // Si5  │
+      [1046, 1.04, 0.11], // Do6 ┘
+      [1318, 1.17, 0.78], // Mi6, la nota en la que se planta
+    ];
+    const HARMONY = [659, 659, 659, 880, 698, 784, 880, 1046];
+
+    LEAD.forEach(([freq, offset, dur], i) => {
+      this.tone({
+        freq,
+        type: "square",
+        dur,
+        gain: g(0.14),
+        at: at + offset,
+      });
+      this.tone({
+        freq: HARMONY[i],
+        type: "square",
+        dur,
+        gain: g(0.075),
+        at: at + offset,
+      });
+    });
+
+    // Bajo: I - I - IV - I.
+    (
+      [
+        [131, 0, 0.36],
+        [131, 0.39, 0.36],
+        [175, 0.78, 0.36],
+        [131, 1.17, 0.9],
+      ] as Array<[number, number, number]>
+    ).forEach(([freq, offset, dur]) =>
+      this.tone({ freq, type: "triangle", dur, gain: g(0.13), at: at + offset }),
+    );
+
+    // Remate: la tríada abierta bajo la última nota y el brillo que la corona.
+    [523, 659, 784, 1046].forEach((freq, i) =>
+      this.tone({
+        freq,
+        type: "sine",
+        dur: 1.05,
+        gain: g(0.07 - i * 0.008),
+        at: at + 1.17,
+      }),
+    );
+    this.burst({
+      dur: 0.9,
+      gain: g(0.06),
+      filter: "highpass",
+      from: 1400,
+      to: 8000,
+      at: at + 1.17,
+    });
+  }
+
   /** Fires a named cue. Unknown names are ignored, never thrown. */
   play(cue: SfxCue, scale = 1): void {
     switch (cue) {
@@ -375,25 +494,68 @@ class SfxManager {
       case "statDown":
         this.tone({ freq: 900, to: 320, type: "triangle", dur: 0.3, gain: 0.13 });
         break;
+      case "combo": {
+        // `scale` es el número de la racha (2, 3, 4…): cada golpe encadenado
+        // sube un tono entero sobre el anterior y se planta al séptimo, que
+        // es donde el arpegio dejaría de sonar a premio y empezaría a pitar.
+        const step = Math.min(6, Math.max(0, Math.round(scale) - 2));
+        const root = 660 * Math.pow(1.122, step * 2);
+        this.tone({ freq: root, type: "square", dur: 0.06, gain: 0.12 });
+        this.tone({
+          freq: root * 1.5,
+          type: "square",
+          dur: 0.12,
+          gain: 0.13,
+          at: 0.06,
+        });
+        break;
+      }
+      case "ko":
+        // Porrazo grave con cola metálica: el golpe que decide, medio segundo
+        // antes de que el sonido de caída se lo lleve.
+        this.burst({ dur: 0.2, gain: 0.34, filter: "lowpass", from: 1600, to: 90 });
+        this.tone({ freq: 140, to: 42, type: "square", dur: 0.34, gain: 0.2 });
+        this.tone({ freq: 1970, to: 620, type: "sawtooth", dur: 0.28, gain: 0.08 });
+        break;
 
       // End of battle.
       case "victory":
+        // Redoble corto de entrada y la fanfarria entera. El combate se gana
+        // en seco, sin la antesala que sí lleva la copa.
+        this.burst({
+          dur: 0.2,
+          gain: 0.08,
+          filter: "bandpass",
+          from: 2600,
+          to: 1000,
+          q: 0.6,
+        });
+        this.fanfare(0.06);
+        break;
+      case "champion":
+        // Levantar la copa: primero el estadio conteniendo el aliento —un
+        // redoble que crece medio segundo—, luego la misma fanfarria un punto
+        // más alta, y encima las campanas del título.
+        this.burst({
+          dur: 0.62,
+          gain: 0.13,
+          filter: "bandpass",
+          from: 700,
+          to: 3200,
+          q: 0.5,
+        });
+        this.tone({ freq: 98, to: 196, type: "triangle", dur: 0.62, gain: 0.12 });
+        this.fanfare(0.6, 1.12);
+        // Campanas sobre el acorde final: dos golpes de octava que siguen
+        // sonando cuando la fanfarria ya se ha apagado.
         [
-          [784, 0],
-          [784, 0.12],
-          [784, 0.24],
-          [1046, 0.38],
-          [932, 0.62],
-          [1046, 0.78],
-        ].forEach(([freq, at], i) =>
-          this.tone({
-            freq,
-            type: "square",
-            dur: i >= 3 ? 0.26 : 0.11,
-            gain: 0.15,
-            at,
-          }),
-        );
+          [2093, 1.72],
+          [1568, 1.94],
+          [2093, 2.16],
+        ].forEach(([freq, at]) => {
+          this.tone({ freq, type: "sine", dur: 1.1, gain: 0.07, at });
+          this.tone({ freq: freq * 2, type: "sine", dur: 0.5, gain: 0.025, at });
+        });
         break;
       case "defeat":
         [
@@ -413,6 +575,128 @@ class SfxManager {
       case "alarm":
         this.tone({ freq: 1046, type: "square", dur: 0.09, gain: 0.13 });
         break;
+
+      // Sobre: el plástico cediendo. Una fricción larga de banda ancha que se
+      // va cerrando, el chasquido agudo del corte al llegar al final y un
+      // golpe grave debajo, para que la rotura tenga cuerpo y no sea sólo
+      // siseo. NO se reutiliza «victory»: dura un segundo largo y seguiría
+      // sonando durante el tercer giro de carta.
+      case "packTear":
+        this.burst({
+          dur: 0.44,
+          gain: 0.19,
+          filter: "bandpass",
+          from: 3600,
+          to: 850,
+          q: 0.5,
+        });
+        this.burst({
+          dur: 0.16,
+          gain: 0.15,
+          filter: "highpass",
+          from: 2400,
+          to: 6400,
+          at: 0.3,
+        });
+        this.tone({
+          freq: 300,
+          to: 88,
+          type: "sawtooth",
+          dur: 0.24,
+          gain: 0.1,
+          at: 0.28,
+        });
+        break;
+
+      // Carta: el canto rozando al girar y el golpecito seco de cartón al
+      // caer de plano. Corto a propósito — suena cinco o seis veces seguidas.
+      case "cardFlip":
+        this.burst({
+          dur: 0.08,
+          gain: 0.1,
+          filter: "bandpass",
+          from: 5400,
+          to: 2100,
+          q: 1.8,
+        });
+        this.tone({
+          freq: 1520,
+          to: 780,
+          type: "triangle",
+          dur: 0.07,
+          gain: 0.07,
+          at: 0.02,
+        });
+        this.tone({ freq: 210, type: "square", dur: 0.04, gain: 0.09, at: 0.21 });
+        break;
+
+      // Rareza: una tríada que ABRE hacia arriba —lo contrario de «faint»—
+      // con un brillo que sigue subiendo por encima. `scale` la transporta por
+      // peldaños, como hace «combo»: una Hyper Rara tiene que sonar más ALTA
+      // que una Holo, no simplemente más fuerte.
+      case "rareReveal": {
+        const step = Math.min(2, Math.max(0, Math.round(scale) - 1));
+        const root = 784 * Math.pow(1.122, step * 2);
+        [
+          [root, 0],
+          [root * 1.335, 0.09],
+          [root * 1.682, 0.18],
+        ].forEach(([freq, at]) =>
+          this.tone({ freq, type: "triangle", dur: 0.5, gain: 0.11, at }),
+        );
+        this.tone({
+          freq: root * 2.67,
+          to: root * 4,
+          type: "sine",
+          dur: 0.5,
+          gain: 0.06,
+          at: 0.18,
+        });
+        this.burst({
+          dur: 0.5,
+          gain: 0.07,
+          filter: "highpass",
+          from: 1200,
+          to: 7200,
+          at: 0.16,
+        });
+        break;
+      }
+
+      // Repetida: la carta deshaciéndose en polvo y el polvo cayendo en la
+      // hucha. Cuatro campanillas que suben en abanico —el brillo levantando
+      // el vuelo—, un siseo fino que las acompaña y el «clin» del contador al
+      // final, que es lo que remata el gesto. Todo por encima de los 1000 Hz
+      // para que no se confunda con el giro de la carta, que suena grave.
+      case "dustConvert": {
+        const step = Math.min(2, Math.max(0, Math.round(scale) - 1));
+        const root = 1046 * Math.pow(1.122, step);
+        [0, 0.045, 0.09, 0.145].forEach((at, i) =>
+          this.tone({
+            freq: root * (1 + i * 0.25),
+            type: "sine",
+            dur: 0.17,
+            gain: 0.075 - i * 0.008,
+            at,
+          }),
+        );
+        this.burst({
+          dur: 0.42,
+          gain: 0.045,
+          filter: "highpass",
+          from: 3400,
+          to: 9600,
+        });
+        this.tone({
+          freq: root * 2,
+          to: root * 3,
+          type: "triangle",
+          dur: 0.13,
+          gain: 0.07,
+          at: 0.34,
+        });
+        break;
+      }
     }
   }
 

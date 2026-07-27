@@ -63,6 +63,16 @@ const es = {
   roundsWord: "Rondas",
   cupTrainers: (count: number) => `${count} Entrenadores`,
   cupPathLabel: "Recorrido",
+  /**
+   * El cartel del torneo: la fila de Entrenadores que esperan en la copa
+   * elegida, con cara y nombre, antes de inscribirse. Es lo que convierte
+   * «5 rondas» en un desafío concreto — ver a Lance al final decide más que
+   * cualquier descripción.
+   */
+  gauntletLabel: "A quién te enfrentas",
+  gauntletBoss: "Jefe final",
+  gauntletHint: (n: number) => `${n} Entrenadores. Uno detrás de otro. Sin revanchas.`,
+  cupBossLine: (name: string) => `Acaba en ${name}`,
   cupSelected: "Seleccionada",
   cupSelectAria: (name: string) => `Elegir la ${name}`,
   rulesLabel: "Reglas",
@@ -70,6 +80,33 @@ const es = {
   healOnHint: "Tu equipo se recupera al 100% tras cada victoria.",
   healOff: "Modo Desafío",
   healOffHint: "El desgaste y los PS perdidos se acumulan ronda tras ronda.",
+  /**
+   * El ritmo de la partida. No es una dificultad — eso lo elige la copa —,
+   * sino cuánto dura: Relámpago la comprime a un rato de recreativa y Clásico
+   * es el torneo largo de siempre.
+   */
+  paceLabel: "Ritmo",
+  /**
+   * OJO con `turbo`: la clave es interna y el nombre visible es «Estándar».
+   * Se renombró sólo la etiqueta a propósito — la clave viaja dentro de los
+   * récords guardados (`bestTurboMs`, `bestTurboScore`), y cambiarla le
+   * borraría la marca a quien ya tuviera una. El código y sus comentarios
+   * siguen llamándolo Turbo; la pantalla, Estándar.
+   */
+  paceName: {
+    blitz: "Relámpago",
+    turbo: "Estándar",
+    classic: "Clásico",
+  },
+  paceHint: {
+    blitz: "3 vs 3 y animaciones al doble. Una partida entera en unos 3 minutos.",
+    turbo:
+      "6 vs 6 al mismo doble de velocidad, con reloj y marcador. Unos 6 minutos.",
+    classic: "6 vs 6 al ritmo de siempre. La partida larga, sin recortes.",
+  },
+  /** Marca de un ritmo con reloj: «Estándar 5:41 · 7 320 pts». */
+  paceRecordLabel: (pace: string, time: string, score: number) =>
+    `${pace} ${time} · ${score} pts`,
   startCta: "Entrar al torneo",
   resumeTitle: "Torneo en curso",
   resumeBody: (round: number, total: number) =>
@@ -99,12 +136,12 @@ const es = {
   bracketLocked: "Bloqueado",
   trophyLabel: "COPA",
   nextRivalTitle: "Tu próximo rival",
-  /** Under the six gold balls of the rival dossier. */
-  sixVsSix: "Combate 6 vs 6",
+  /** Bajo las bolas doradas del expediente rival: seis, o tres en Relámpago. */
+  versusLabel: (size: number) => `Combate ${size} vs ${size}`,
   rivalRosterLabel: "Equipo rival",
-  /** Warning shown while the player brings fewer than six Pokémon. */
-  rosterNote: (count: number) =>
-    `Cada Entrenador lucha con 6 Pokémon. Tu equipo lleva ${count}/6.`,
+  /** Aviso mientras el jugador entra con menos Pokémon de los que se juegan. */
+  rosterNote: (count: number, size: number) =>
+    `Cada Entrenador lucha con ${size} Pokémon. Tu equipo lleva ${count}/${size}.`,
   fightCta: "¡Al combate!",
   saveExitCta: "Guardar y salir",
   bracketAria: "Cuadro del torneo",
@@ -140,6 +177,8 @@ const es = {
   championStatTitles: "Títulos",
   championStatStreak: "Mejor racha",
   championStatTrainers: "Entrenadores",
+  championStatTime: "Tiempo",
+  championStatScore: "Puntos",
   eliminatedTitle: "ELIMINADO",
   eliminatedBody: (round: number, trainer: string) =>
     `Has caído en la ronda ${round} contra ${trainer}.`,
@@ -164,9 +203,12 @@ const es = {
     veteran: "Veterano",
     ace: "As del Combate",
     blackBelt: "Cinturón Negro",
+    gymLeader: "Líder de Gimnasio",
+    gymLeaderF: "Líder de Gimnasio",
     champion: "Campeón",
     championF: "Campeona",
     eliteFour: "Alto Mando",
+    scientist: "Científico",
   } as Record<TrainerClassKey, string>,
   tierLabel: {
     rookie: "Novato",
@@ -239,6 +281,10 @@ const en: typeof es = {
   roundsWord: "Rounds",
   cupTrainers: (count: number) => `${count} Trainers`,
   cupPathLabel: "Path",
+  gauntletLabel: "Who you are up against",
+  gauntletBoss: "Final boss",
+  gauntletHint: (n) => `${n} trainers. One after another. No rematches.`,
+  cupBossLine: (name) => `Ends with ${name}`,
   cupSelected: "Selected",
   cupSelectAria: (name: string) => `Choose the ${name}`,
   rulesLabel: "Rules",
@@ -246,6 +292,19 @@ const en: typeof es = {
   healOnHint: "Your team is restored to 100% after every win.",
   healOff: "Challenge Mode",
   healOffHint: "Wear and lost HP pile up round after round.",
+  paceLabel: "Pace",
+  paceName: {
+    blitz: "Blitz",
+    turbo: "Standard",
+    classic: "Classic",
+  },
+  paceHint: {
+    blitz: "3 vs 3 and double-speed animations. A whole run in about 3 minutes.",
+    turbo:
+      "6 vs 6 at the same double speed, clock and score included. About 6 minutes.",
+    classic: "6 vs 6 at the usual pace. The long run, uncut.",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score} pts`,
   startCta: "Enter the tournament",
   resumeTitle: "Tournament in progress",
   resumeBody: (round, total) => `You stopped at round ${round} of ${total}.`,
@@ -272,10 +331,10 @@ const en: typeof es = {
   bracketLocked: "Locked",
   trophyLabel: "CUP",
   nextRivalTitle: "Your next rival",
-  sixVsSix: "6 vs 6 battle",
+  versusLabel: (size) => `${size} vs ${size} battle`,
   rivalRosterLabel: "Rival team",
-  rosterNote: (count) =>
-    `Every trainer fights with 6 Pokémon. Your team brings ${count}/6.`,
+  rosterNote: (count, size) =>
+    `Every trainer fights with ${size} Pokémon. Your team brings ${count}/${size}.`,
   fightCta: "Fight!",
   saveExitCta: "Save and exit",
   bracketAria: "Tournament bracket",
@@ -307,6 +366,8 @@ const en: typeof es = {
   championStatTitles: "Titles",
   championStatStreak: "Best streak",
   championStatTrainers: "Trainers",
+  championStatTime: "Time",
+  championStatScore: "Points",
   eliminatedTitle: "ELIMINATED",
   eliminatedBody: (round, trainer) =>
     `You went down in round ${round} against ${trainer}.`,
@@ -329,9 +390,12 @@ const en: typeof es = {
     veteran: "Veteran",
     ace: "Ace Trainer",
     blackBelt: "Black Belt",
+    gymLeader: "Gym Leader",
+    gymLeaderF: "Gym Leader",
     champion: "Champion",
     championF: "Champion",
     eliteFour: "Elite Four",
+    scientist: "Scientist",
   },
   tierLabel: {
     rookie: "Rookie",
@@ -404,6 +468,10 @@ const fr: typeof es = {
   roundsWord: "Manches",
   cupTrainers: (count: number) => `${count} Dresseurs`,
   cupPathLabel: "Parcours",
+  gauntletLabel: "Qui vous attend",
+  gauntletBoss: "Boss final",
+  gauntletHint: (n) => `${n} Dresseurs. L’un après l’autre. Sans revanche.`,
+  cupBossLine: (name) => `Se termine par ${name}`,
   cupSelected: "Sélectionnée",
   cupSelectAria: (name: string) => `Choisir la ${name}`,
   rulesLabel: "Règles",
@@ -411,6 +479,20 @@ const fr: typeof es = {
   healOnHint: "Ton équipe récupère 100% de ses PV après chaque victoire.",
   healOff: "Mode Défi",
   healOffHint: "L'usure et les PV perdus s'accumulent manche après manche.",
+  paceLabel: "Rythme",
+  paceName: {
+    blitz: "Éclair",
+    turbo: "Standard",
+    classic: "Classique",
+  },
+  paceHint: {
+    blitz:
+      "3 contre 3 et animations à double vitesse. Une partie entière en 3 minutes environ.",
+    turbo:
+      "6 contre 6 à la même double vitesse, chrono et score compris. 6 minutes environ.",
+    classic: "6 contre 6 au rythme habituel. La partie longue, sans coupes.",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score} pts`,
   startCta: "Entrer dans le tournoi",
   resumeTitle: "Tournoi en cours",
   resumeBody: (round, total) =>
@@ -438,10 +520,10 @@ const fr: typeof es = {
   bracketLocked: "Verrouillé",
   trophyLabel: "COUPE",
   nextRivalTitle: "Ton prochain rival",
-  sixVsSix: "Combat 6 contre 6",
+  versusLabel: (size) => `Combat ${size} contre ${size}`,
   rivalRosterLabel: "Équipe rivale",
-  rosterNote: (count) =>
-    `Chaque Dresseur combat avec 6 Pokémon. Ton équipe en compte ${count}/6.`,
+  rosterNote: (count, size) =>
+    `Chaque Dresseur combat avec ${size} Pokémon. Ton équipe en compte ${count}/${size}.`,
   fightCta: "Au combat !",
   saveExitCta: "Sauvegarder et quitter",
   bracketAria: "Tableau du tournoi",
@@ -473,6 +555,8 @@ const fr: typeof es = {
   championStatTitles: "Titres",
   championStatStreak: "Meilleure série",
   championStatTrainers: "Dresseurs",
+  championStatTime: "Temps",
+  championStatScore: "Points",
   eliminatedTitle: "ÉLIMINÉ",
   eliminatedBody: (round, trainer) =>
     `Tu es tombé à la manche ${round} face à ${trainer}.`,
@@ -495,9 +579,12 @@ const fr: typeof es = {
     veteran: "Vétéran",
     ace: "Topdresseur",
     blackBelt: "Ceinture Noire",
+    gymLeader: "Champion d'Arène",
+    gymLeaderF: "Championne d'Arène",
     champion: "Maître",
     championF: "Maîtresse",
     eliteFour: "Conseil 4",
+    scientist: "Scientifique",
   },
   tierLabel: {
     rookie: "Débutant",
@@ -570,6 +657,10 @@ const de: typeof es = {
   roundsWord: "Runden",
   cupTrainers: (count: number) => `${count} Trainer`,
   cupPathLabel: "Weg",
+  gauntletLabel: "Wer dich erwartet",
+  gauntletBoss: "Endgegner",
+  gauntletHint: (n) => `${n} Trainer. Einer nach dem anderen. Keine Revanche.`,
+  cupBossLine: (name) => `Endet mit ${name}`,
   cupSelected: "Ausgewählt",
   cupSelectAria: (name: string) => `Den ${name} wählen`,
   rulesLabel: "Regeln",
@@ -577,6 +668,20 @@ const de: typeof es = {
   healOnHint: "Dein Team wird nach jedem Sieg zu 100% geheilt.",
   healOff: "Herausforderungsmodus",
   healOffHint: "Abnutzung und verlorene KP summieren sich Runde für Runde.",
+  paceLabel: "Tempo",
+  paceName: {
+    blitz: "Blitz",
+    turbo: "Standard",
+    classic: "Klassisch",
+  },
+  paceHint: {
+    blitz:
+      "3 gegen 3 und doppelt so schnelle Animationen. Ein ganzer Lauf in etwa 3 Minuten.",
+    turbo:
+      "6 gegen 6 im selben Tempo, mit Uhr und Punktestand. Etwa 6 Minuten.",
+    classic: "6 gegen 6 im gewohnten Tempo. Der lange Lauf, ungekürzt.",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score} Pkt.`,
   startCta: "Ins Turnier einsteigen",
   resumeTitle: "Laufendes Turnier",
   resumeBody: (round, total) =>
@@ -604,10 +709,10 @@ const de: typeof es = {
   bracketLocked: "Gesperrt",
   trophyLabel: "POKAL",
   nextRivalTitle: "Dein nächster Gegner",
-  sixVsSix: "Kampf 6 gegen 6",
+  versusLabel: (size) => `Kampf ${size} gegen ${size}`,
   rivalRosterLabel: "Gegnerteam",
-  rosterNote: (count) =>
-    `Jeder Trainer kämpft mit 6 Pokémon. Dein Team hat ${count}/6.`,
+  rosterNote: (count, size) =>
+    `Jeder Trainer kämpft mit ${size} Pokémon. Dein Team hat ${count}/${size}.`,
   fightCta: "In den Kampf!",
   saveExitCta: "Speichern und verlassen",
   bracketAria: "Turnierbaum",
@@ -639,6 +744,8 @@ const de: typeof es = {
   championStatTitles: "Titel",
   championStatStreak: "Beste Serie",
   championStatTrainers: "Trainer",
+  championStatTime: "Zeit",
+  championStatScore: "Punkte",
   eliminatedTitle: "AUSGESCHIEDEN",
   eliminatedBody: (round, trainer) =>
     `Du bist in Runde ${round} gegen ${trainer} gescheitert.`,
@@ -661,9 +768,12 @@ const de: typeof es = {
     veteran: "Veteran",
     ace: "Ass-Trainer",
     blackBelt: "Schwarzgurt",
+    gymLeader: "Arenaleiter",
+    gymLeaderF: "Arenaleiterin",
     champion: "Champ",
     championF: "Champ",
     eliteFour: "Top Vier",
+    scientist: "Forscher",
   },
   tierLabel: {
     rookie: "Neuling",
@@ -736,6 +846,10 @@ const it: typeof es = {
   roundsWord: "Turni",
   cupTrainers: (count: number) => `${count} Allenatori`,
   cupPathLabel: "Percorso",
+  gauntletLabel: "Chi ti aspetta",
+  gauntletBoss: "Boss finale",
+  gauntletHint: (n) => `${n} Allenatori. Uno dopo l’altro. Nessuna rivincita.`,
+  cupBossLine: (name) => `Finisce con ${name}`,
   cupSelected: "Selezionata",
   cupSelectAria: (name: string) => `Scegli la ${name}`,
   rulesLabel: "Regole",
@@ -743,6 +857,20 @@ const it: typeof es = {
   healOnHint: "La squadra recupera il 100% dei PS dopo ogni vittoria.",
   healOff: "Modalità Sfida",
   healOffHint: "L'usura e i PS persi si accumulano turno dopo turno.",
+  paceLabel: "Ritmo",
+  paceName: {
+    blitz: "Lampo",
+    turbo: "Standard",
+    classic: "Classico",
+  },
+  paceHint: {
+    blitz:
+      "3 contro 3 e animazioni al doppio della velocità. Una partita intera in circa 3 minuti.",
+    turbo:
+      "6 contro 6 alla stessa velocità doppia, con cronometro e punteggio. Circa 6 minuti.",
+    classic: "6 contro 6 al ritmo di sempre. La partita lunga, senza tagli.",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score} pt`,
   startCta: "Entra nel torneo",
   resumeTitle: "Torneo in corso",
   resumeBody: (round, total) => `Ti sei fermato al turno ${round} di ${total}.`,
@@ -769,10 +897,10 @@ const it: typeof es = {
   bracketLocked: "Bloccato",
   trophyLabel: "COPPA",
   nextRivalTitle: "Il tuo prossimo rivale",
-  sixVsSix: "Lotta 6 contro 6",
+  versusLabel: (size) => `Lotta ${size} contro ${size}`,
   rivalRosterLabel: "Squadra rivale",
-  rosterNote: (count) =>
-    `Ogni Allenatore lotta con 6 Pokémon. La tua squadra ne ha ${count}/6.`,
+  rosterNote: (count, size) =>
+    `Ogni Allenatore lotta con ${size} Pokémon. La tua squadra ne ha ${count}/${size}.`,
   fightCta: "Alla lotta!",
   saveExitCta: "Salva ed esci",
   bracketAria: "Tabellone del torneo",
@@ -804,6 +932,8 @@ const it: typeof es = {
   championStatTitles: "Titoli",
   championStatStreak: "Serie migliore",
   championStatTrainers: "Allenatori",
+  championStatTime: "Tempo",
+  championStatScore: "Punti",
   eliminatedTitle: "ELIMINATO",
   eliminatedBody: (round, trainer) =>
     `Sei caduto al turno ${round} contro ${trainer}.`,
@@ -826,9 +956,12 @@ const it: typeof es = {
     veteran: "Veterano",
     ace: "Asso",
     blackBelt: "Cintura Nera",
+    gymLeader: "Capopalestra",
+    gymLeaderF: "Capopalestra",
     champion: "Campione",
     championF: "Campionessa",
     eliteFour: "Superquattro",
+    scientist: "Scienziato",
   },
   tierLabel: {
     rookie: "Novellino",
@@ -900,6 +1033,10 @@ const ja: typeof es = {
   roundsWord: "回戦",
   cupTrainers: (count: number) => `${count}人のトレーナー`,
   cupPathLabel: "コース",
+  gauntletLabel: "たちはだかる相手",
+  gauntletBoss: "ラスボス",
+  gauntletHint: (n) => `トレーナー${n}人と連戦。 再戦なし。`,
+  cupBossLine: (name) => `最後は${name}`,
   cupSelected: "選択中",
   cupSelectAria: (name: string) => `${name}を えらぶ`,
   rulesLabel: "ルール",
@@ -907,6 +1044,18 @@ const ja: typeof es = {
   healOnHint: "勝つたびに手持ちのHPが100%回復する。",
   healOff: "チャレンジモード",
   healOffHint: "消耗と失ったHPはラウンドごとに積み重なる。",
+  paceLabel: "テンポ",
+  paceName: {
+    blitz: "スピードモード",
+    turbo: "スタンダードモード",
+    classic: "クラシック",
+  },
+  paceHint: {
+    blitz: "3対3、アニメーションは2倍速。1回の挑戦がおよそ3分で終わる。",
+    turbo: "6対6、同じ2倍速でタイムとスコアつき。1回およそ6分。",
+    classic: "6対6、いつものテンポ。省略なしの長い挑戦。",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score}点`,
   startCta: "トーナメントに参加",
   resumeTitle: "進行中のトーナメント",
   resumeBody: (round, total) => `${total}回戦中の第${round}回戦で中断している。`,
@@ -933,10 +1082,10 @@ const ja: typeof es = {
   bracketLocked: "未開放",
   trophyLabel: "優勝カップ",
   nextRivalTitle: "次の相手",
-  sixVsSix: "6対6のバトル",
+  versusLabel: (size) => `${size}対${size}のバトル`,
   rivalRosterLabel: "相手のチーム",
-  rosterNote: (count) =>
-    `どのトレーナーも6匹で戦う。きみのチームは${count}/6。`,
+  rosterNote: (count, size) =>
+    `どのトレーナーも${size}匹で戦う。きみのチームは${count}/${size}。`,
   fightCta: "たたかう！",
   saveExitCta: "セーブしてやめる",
   bracketAria: "トーナメント表",
@@ -966,6 +1115,8 @@ const ja: typeof es = {
   championStatTitles: "優勝回数",
   championStatStreak: "最高連勝",
   championStatTrainers: "参加人数",
+  championStatTime: "タイム",
+  championStatScore: "スコア",
   eliminatedTitle: "はいたい",
   eliminatedBody: (round, trainer) => `第${round}回戦で${trainer}に敗れた。`,
   eliminatedStreak: (wins) =>
@@ -985,9 +1136,12 @@ const ja: typeof es = {
     veteran: "ベテラントレーナー",
     ace: "エーストレーナー",
     blackBelt: "からておう",
+    gymLeader: "ジムリーダー",
+    gymLeaderF: "ジムリーダー",
     champion: "チャンピオン",
     championF: "チャンピオン",
     eliteFour: "してんのう",
+    scientist: "けんきゅういん",
   },
   tierLabel: {
     rookie: "しんじん",
@@ -1059,6 +1213,10 @@ const ko: typeof es = {
   roundsWord: "라운드",
   cupTrainers: (count: number) => `트레이너 ${count}명`,
   cupPathLabel: "경로",
+  gauntletLabel: "맞서게 될 상대",
+  gauntletBoss: "최종 보스",
+  gauntletHint: (n) => `트레이너 ${n}명과 연전. 재대결은 없다.`,
+  cupBossLine: (name) => `마지막은 ${name}`,
   cupSelected: "선택됨",
   cupSelectAria: (name: string) => `${name} 선택`,
   rulesLabel: "규칙",
@@ -1066,6 +1224,18 @@ const ko: typeof es = {
   healOnHint: "승리할 때마다 팀 HP가 100% 회복된다.",
   healOff: "챌린지 모드",
   healOffHint: "소모와 잃은 HP가 라운드마다 누적된다.",
+  paceLabel: "템포",
+  paceName: {
+    blitz: "스피드 모드",
+    turbo: "스탠다드 모드",
+    classic: "클래식",
+  },
+  paceHint: {
+    blitz: "3대3, 애니메이션은 2배속. 한 판이 약 3분이면 끝납니다.",
+    turbo: "6대6, 같은 2배속에 시계와 점수까지. 한 판에 약 6분.",
+    classic: "6대6, 평소의 템포. 생략 없는 긴 도전.",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score}점`,
   startCta: "토너먼트 참가",
   resumeTitle: "진행 중인 토너먼트",
   resumeBody: (round, total) => `${total}라운드 중 ${round}라운드에서 멈췄다.`,
@@ -1092,10 +1262,10 @@ const ko: typeof es = {
   bracketLocked: "잠김",
   trophyLabel: "우승컵",
   nextRivalTitle: "다음 상대",
-  sixVsSix: "6대6 배틀",
+  versusLabel: (size) => `${size}대${size} 배틀`,
   rivalRosterLabel: "상대 팀",
-  rosterNote: (count) =>
-    `모든 트레이너는 6마리로 싸웁니다. 당신의 팀은 ${count}/6입니다.`,
+  rosterNote: (count, size) =>
+    `모든 트레이너는 ${size}마리로 싸웁니다. 당신의 팀은 ${count}/${size}입니다.`,
   fightCta: "배틀 시작!",
   saveExitCta: "저장하고 나가기",
   bracketAria: "토너먼트 대진표",
@@ -1125,6 +1295,8 @@ const ko: typeof es = {
   championStatTitles: "우승 횟수",
   championStatStreak: "최고 연승",
   championStatTrainers: "참가 인원",
+  championStatTime: "타임",
+  championStatScore: "점수",
   eliminatedTitle: "탈락",
   eliminatedBody: (round, trainer) =>
     `${round}라운드에서 ${trainer}에게 패했다.`,
@@ -1145,9 +1317,12 @@ const ko: typeof es = {
     veteran: "베테랑트레이너",
     ace: "에이스트레이너",
     blackBelt: "가라테왕",
+    gymLeader: "체육관 관장",
+    gymLeaderF: "체육관 관장",
     champion: "챔피언",
     championF: "챔피언",
     eliteFour: "사천왕",
+    scientist: "연구원",
   },
   tierLabel: {
     rookie: "신인",
@@ -1218,6 +1393,10 @@ const zhHans: typeof es = {
   roundsWord: "轮",
   cupTrainers: (count: number) => `${count} 位训练家`,
   cupPathLabel: "赛程",
+  gauntletLabel: "你将面对的对手",
+  gauntletBoss: "最终boss",
+  gauntletHint: (n) => `${n} 位训练家连续挑战，没有重赛。`,
+  cupBossLine: (name) => `终点是${name}`,
   cupSelected: "已选择",
   cupSelectAria: (name: string) => `选择${name}`,
   rulesLabel: "规则",
@@ -1225,6 +1404,18 @@ const zhHans: typeof es = {
   healOnHint: "每胜一轮，队伍HP恢复至100%。",
   healOff: "挑战模式",
   healOffHint: "消耗与失去的HP会一轮轮累积。",
+  paceLabel: "节奏",
+  paceName: {
+    blitz: "闪电模式",
+    turbo: "标准模式",
+    classic: "经典",
+  },
+  paceHint: {
+    blitz: "3对3，动画双倍速。一整局大约3分钟。",
+    turbo: "6对6，同样的双倍速，还有计时和得分。一整局大约6分钟。",
+    classic: "6对6，一如既往的节奏。完整的长局，不做删减。",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score}分`,
   startCta: "进入锦标赛",
   resumeTitle: "进行中的锦标赛",
   resumeBody: (round, total) => `你停在第 ${round} 轮，共 ${total} 轮。`,
@@ -1251,9 +1442,10 @@ const zhHans: typeof es = {
   bracketLocked: "未解锁",
   trophyLabel: "奖杯",
   nextRivalTitle: "你的下一位对手",
-  sixVsSix: "6对6对战",
+  versusLabel: (size) => `${size}对${size}对战`,
   rivalRosterLabel: "对手队伍",
-  rosterNote: (count) => `每位训练家都带6只宝可梦出战。你的队伍：${count}/6。`,
+  rosterNote: (count, size) =>
+    `每位训练家都带${size}只宝可梦出战。你的队伍：${count}/${size}。`,
   fightCta: "开始对战！",
   saveExitCta: "保存并退出",
   bracketAria: "锦标赛对阵表",
@@ -1283,6 +1475,8 @@ const zhHans: typeof es = {
   championStatTitles: "夺冠次数",
   championStatStreak: "最佳连胜",
   championStatTrainers: "参赛人数",
+  championStatTime: "时间",
+  championStatScore: "分数",
   eliminatedTitle: "被淘汰",
   eliminatedBody: (round, trainer) => `你在第 ${round} 轮败给了${trainer}。`,
   eliminatedStreak: (wins) =>
@@ -1302,9 +1496,12 @@ const zhHans: typeof es = {
     veteran: "资深训练家",
     ace: "王牌训练家",
     blackBelt: "空手道王",
+    gymLeader: "道馆馆主",
+    gymLeaderF: "道馆馆主",
     champion: "冠军",
     championF: "冠军",
     eliteFour: "四天王",
+    scientist: "研究员",
   },
   tierLabel: {
     rookie: "新手",
@@ -1375,6 +1572,10 @@ const zhHant: typeof es = {
   roundsWord: "輪",
   cupTrainers: (count: number) => `${count} 位訓練家`,
   cupPathLabel: "賽程",
+  gauntletLabel: "你將面對的對手",
+  gauntletBoss: "最終boss",
+  gauntletHint: (n) => `${n} 位訓練家連續挑戰，沒有重賽。`,
+  cupBossLine: (name) => `終點是${name}`,
   cupSelected: "已選擇",
   cupSelectAria: (name: string) => `選擇${name}`,
   rulesLabel: "規則",
@@ -1382,6 +1583,18 @@ const zhHant: typeof es = {
   healOnHint: "每勝一輪，隊伍HP恢復至100%。",
   healOff: "挑戰模式",
   healOffHint: "消耗與失去的HP會一輪輪累積。",
+  paceLabel: "節奏",
+  paceName: {
+    blitz: "閃電模式",
+    turbo: "標準模式",
+    classic: "經典",
+  },
+  paceHint: {
+    blitz: "3對3，動畫雙倍速。一整局大約3分鐘。",
+    turbo: "6對6，同樣的雙倍速，還有計時與得分。一整局大約6分鐘。",
+    classic: "6對6，一如既往的節奏。完整的長局，不做刪減。",
+  },
+  paceRecordLabel: (pace, time, score) => `${pace} ${time} · ${score}分`,
   startCta: "進入錦標賽",
   resumeTitle: "進行中的錦標賽",
   resumeBody: (round, total) => `你停在第 ${round} 輪，共 ${total} 輪。`,
@@ -1408,9 +1621,10 @@ const zhHant: typeof es = {
   bracketLocked: "未解鎖",
   trophyLabel: "獎盃",
   nextRivalTitle: "你的下一位對手",
-  sixVsSix: "6對6對戰",
+  versusLabel: (size) => `${size}對${size}對戰`,
   rivalRosterLabel: "對手隊伍",
-  rosterNote: (count) => `每位訓練家都帶6隻寶可夢出戰。你的隊伍：${count}/6。`,
+  rosterNote: (count, size) =>
+    `每位訓練家都帶${size}隻寶可夢出戰。你的隊伍：${count}/${size}。`,
   fightCta: "開始對戰！",
   saveExitCta: "儲存並離開",
   bracketAria: "錦標賽對戰表",
@@ -1440,6 +1654,8 @@ const zhHant: typeof es = {
   championStatTitles: "奪冠次數",
   championStatStreak: "最佳連勝",
   championStatTrainers: "參賽人數",
+  championStatTime: "時間",
+  championStatScore: "分數",
   eliminatedTitle: "遭到淘汰",
   eliminatedBody: (round, trainer) => `你在第 ${round} 輪敗給了${trainer}。`,
   eliminatedStreak: (wins) =>
@@ -1459,9 +1675,12 @@ const zhHant: typeof es = {
     veteran: "資深訓練家",
     ace: "王牌訓練家",
     blackBelt: "空手道王",
+    gymLeader: "道館館主",
+    gymLeaderF: "道館館主",
     champion: "冠軍",
     championF: "冠軍",
     eliteFour: "四天王",
+    scientist: "研究員",
   },
   tierLabel: {
     rookie: "新手",

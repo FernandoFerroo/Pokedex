@@ -22,7 +22,6 @@ function GlassKey({
   glow,
   icon,
   label,
-  primary,
 }: {
   onClick: () => void;
   disabled?: boolean;
@@ -30,8 +29,6 @@ function GlassKey({
   glow: string;
   icon: ReactNode;
   label: string;
-  /** The Fight key is bigger and brighter, like in the games. */
-  primary?: boolean;
 }) {
   const sfx = useSfx();
   return (
@@ -54,7 +51,12 @@ function GlassKey({
         "enabled:hover:scale-[1.025] enabled:active:scale-[0.97]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         "disabled:cursor-not-allowed disabled:opacity-40 disabled:saturate-50",
-        primary ? "h-[3.1rem] px-3.5" : "h-[2.6rem] px-3",
+        // En el móvil las cuatro teclas son iguales y de altura táctil: van en
+        // una rejilla 2x2, y ahí una tecla más alta que las otras rompe la
+        // fila. El «Lucha» grande es cosa del escritorio, donde la columna
+        // puede permitirse jerarquía.
+        "max-sm:gap-2",
+        "h-[3.5rem] px-3.5 max-sm:h-11 max-sm:px-2.5",
       )}
     >
       {/* Gloss sweeping the top half of the capsule. */}
@@ -69,15 +71,16 @@ function GlassKey({
           "relative grid shrink-0 place-items-center rounded-full",
           "bg-[radial-gradient(circle_at_35%_28%,color-mix(in_srgb,var(--glow)_75%,white),color-mix(in_srgb,var(--glow)_60%,#000)_75%)]",
           "text-[#08111f] shadow-[0_0_12px_-2px_var(--glow),inset_0_1px_0_rgba(255,255,255,0.6)]",
-          primary ? "h-9 w-9" : "h-7.5 w-7.5",
+            "h-9 w-9 max-sm:h-7 max-sm:w-7",
         )}
       >
         {icon}
       </span>
       <span
         className={cn(
-          "relative font-display font-bold tracking-widest text-white uppercase",
-          primary ? "text-[15px]" : "text-[13px]",
+          "relative truncate font-display font-bold tracking-widest text-white uppercase",
+          "max-sm:text-[14px] max-sm:tracking-wider",
+          "text-[19px]",
         )}
         style={{ textShadow: "0 1px 3px rgba(0,0,0,0.95)" }}
       >
@@ -120,11 +123,13 @@ export function CommandDial({
       role="group"
       aria-label={a11y.actionsMenuAria}
       onKeyDown={onKeyDown}
-      className="flex flex-col gap-2"
+      // Bloque 2x2 en los dos formatos: es la forma que tiene el cuadro de
+      // comandos en los juegos, y además es la que llena el carril sin
+      // estirar cuatro cápsulas a todo lo ancho.
+      className="grid grid-cols-2 gap-1.5 sm:gap-2"
     >
       <p className="sr-only">{a11y.keyboardHint}</p>
       <GlassKey
-        primary
         glow="#ff5a4d"
         icon={<FistIcon size={20} />}
         label={t.menuFight}

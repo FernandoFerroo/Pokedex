@@ -5,26 +5,32 @@ import { battleDict } from "@/lib/i18n/dictionaries/battle";
 import type { Lang } from "@/lib/i18n/config";
 import { getLang } from "@/lib/i18n/server";
 import { TYPE_LABELS_ES } from "@/lib/pokemon-meta";
-import type { BattleAction, RivalTurnResponse } from "@/types/battle";
 
 const TYPE_SLUGS = Object.keys(TYPE_LABELS_ES);
 
-/** Base prompt stays Spanish; a per-language line pins the dialogue language. */
+/**
+ * La VOZ del rival, y sólo la voz.
+ *
+ * La jugada ya viene decidida por el cerebro del cliente
+ * (`src/lib/battle/ai/`), que calcula el daño con la fórmula del motor. Aquí
+ * sólo se pide la frase, que es lo único en lo que un modelo de lenguaje gana
+ * a una heurística. Antes decidía además la táctica, y cuando contestaba con
+ * un movimiento inexistente el combate caía en la heurística más simple del
+ * repositorio: el rival pasaba de listo a torpe sin que se notara por qué.
+ *
+ * Base en español; una línea por idioma fija en cuál se contesta.
+ */
 const systemPrompt = (lang: Lang) =>
-  `Eres el cerebro táctico de un Entrenador Pokémon rival en un combate 1 contra 1 con banquillo. Cada turno recibes el estado del combate y decides UNA acción, además de una frase corta de diálogo con la personalidad del entrenador.
+  `Eres un Entrenador Pokémon rival en pleno combate. Tu Pokémon acaba de hacer una jugada que YA está decidida; tu único trabajo es decir una frase corta, en personaje, reaccionando a ella.
 
 Responde SOLO con un objeto JSON válido, sin markdown:
 {
-  "accion": "movimiento" | "cambio",
-  "movimiento": "slug del movimiento elegido (si accion=movimiento)",
-  "cambio": "slug del Pokémon del banquillo (si accion=cambio)",
   "frase": "frase de 4-14 palabras, estilo anime"
 }
 
-Cómo decidir:
-- Prioriza el movimiento con mejor daño esperado: eficacia de tipo (te la doy calculada), potencia y STAB. Remata si el rival está bajo de PS.
-- Cambia de Pokémon solo si tu activo está en clara desventaja de tipo o casi debilitado y el banquillo ofrece algo mejor. No cambies dos turnos seguidos.
-- La frase reacciona al momento: chulería si vas ganando, rabia o sorpresa si vas perdiendo ("¡No contaba con ese golpe crítico!"), épica al sacar a tu as.
+Cómo hablar:
+- Reacciona a la jugada concreta y a la intención que te doy: chulería al rematar, cálculo frío al cambiar de Pokémon, rabia o sorpresa si vas perdiendo.
+- Habla del combate, no de números: nadie dice «eficacia por dos» en voz alta.
 - Nunca menciones que eres una IA. Sin emojis.
 - ${battleDict[lang].api.answerIn}`;
 
@@ -92,23 +98,18 @@ function cleanSnapshot(value: Snapshot | undefined) {
 
 const pct = (n: number) => `${Math.round(n)}%`;
 
-/** Heuristic decision used whenever the LLM fails or answers nonsense. */
-function fallbackDecision(
-  rival: ReturnType<typeof cleanSnapshot>,
-  playerTypes: string[],
-  lang: Lang,
-): RivalTurnResponse {
-  const usable = rival.moves.filter((m) => m.pp > 0);
-  const best = [...usable].sort(
-    (a, b) =>
-      b.power * effectiveness(b.type, playerTypes) -
-      a.power * effectiveness(a.type, playerTypes),
-  )[0];
-  return {
-    action: { kind: "move", move: best?.slug ?? rival.moves[0]?.slug ?? "" },
-    dialogue: battleDict[lang].api.turnFallbackDialogue,
-  };
-}
+/** Cómo se dice en voz alta cada intención que manda el cerebro. */
+const INTENT: Record<string, string> = {
+  finisher: "rematar",
+  attack: "pegar fuerte",
+  setup: "prepararte antes de pegar",
+  status: "dejar al rival tocado",
+  pivot: "cambiar a un emparejamiento mejor",
+  sacrifice: "dejar caer a este para entrar bien",
+  heal: "curarte",
+  revive: "revivir a uno del banquillo",
+  stall: "ganar tiempo",
+};
 
 export async function POST(request: Request) {
   const lang = await getLang();
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
     rivalBench?: Snapshot[];
     playerActive?: Snapshot;
     lastEvents?: unknown;
+    decision?: { play?: unknown; reason?: unknown };
   };
   try {
     body = await request.json();
@@ -147,6 +149,10 @@ export async function POST(request: Request) {
   if (!rival.name || rival.moves.length === 0) {
     return NextResponse.json({ error: t.errIncompleteState }, { status: 400 });
   }
+
+  // Qué se acaba de jugar, tal y como lo cuenta el cliente.
+  const play = String(body.decision?.play ?? "").slice(0, 120);
+  const reason = String(body.decision?.reason ?? "").slice(0, 40);
 
   const moveLines = rival.moves
     .map((m) => {
@@ -171,10 +177,11 @@ ${benchLines}
 POKÉMON DEL JUGADOR: ${player.label} (${player.types.join("/")}), PS ${pct(player.hpPct)}.
 ÚLTIMOS SUCESOS:
 ${lastEvents.map((e) => `  · ${e}`).join("\n") || "  · Comienza el combate."}
+TU JUGADA DE ESTE TURNO: ${play || "atacas"}${reason ? ` (intención: ${INTENT[reason] ?? reason})` : ""}.
 
-Decide tu acción y tu frase (JSON).`;
+Di tu frase (JSON).`;
 
-  let decision: RivalTurnResponse | null = null;
+  let frase: string | null = null;
   try {
     const parsed = (await chatJSON(
       apiKey,
@@ -182,41 +189,16 @@ Decide tu acción y tu frase (JSON).`;
         { role: "system", content: systemPrompt(lang) },
         { role: "user", content: userMessage },
       ],
-      { temperature: 0.9, maxTokens: 200 },
+      { temperature: 0.9, maxTokens: 90 },
     )) as Record<string, unknown> | null;
 
-    const frase =
-      typeof parsed?.frase === "string" && parsed.frase.trim()
-        ? parsed.frase.trim().slice(0, 140)
-        : null;
-
-    // The model's choice only survives if it names a legal option.
-    let action: BattleAction | null = null;
-    if (parsed?.accion === "cambio") {
-      const target = bench.find((b) => b.name === parsed?.cambio);
-      if (target) {
-        action = { kind: "switch", to: bench.indexOf(target) };
-      }
-    }
-    if (!action && typeof parsed?.movimiento === "string") {
-      const move = rival.moves.find(
-        (m) => m.slug === parsed.movimiento && m.pp > 0,
-      );
-      if (move) action = { kind: "move", move: move.slug };
-    }
-    if (action) {
-      decision = {
-        action,
-        dialogue: frase ?? t.turnDefaultDialogue,
-      };
+    if (typeof parsed?.frase === "string" && parsed.frase.trim()) {
+      frase = parsed.frase.trim().slice(0, 140);
     }
   } catch (err) {
     console.error("battle/turn LLM failed", err);
   }
 
-  if (!decision) decision = fallbackDecision(rival, player.types, lang);
-
-  // "switch" decisions are returned with the BENCH index; the client maps it
-  // back to a team index because only it knows the full ordering.
-  return NextResponse.json(decision);
+  // Sólo la frase: la acción la decidió el cliente y no vuelve por aquí.
+  return NextResponse.json({ dialogue: frase ?? t.turnDefaultDialogue });
 }

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tcg:odds": "node --import ./scripts/lib/alias-hook.mjs scripts/tcg-odds.mts --assert"
   },
   "dependencies": {
     "@google/model-viewer": "^4.3.1",

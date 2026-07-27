@@ -238,6 +238,9 @@ export function HpBar({
  */
 export const Databox = StatusBox;
 
+/** Cifra de daño y marcador de racha, los dos rótulos que van sobre el campo. */
+export { ComboMeter, DamageNumber } from "./hud/HitFx";
+
 /** Row of mini Poké Balls: one per team member, grayed out when fainted. */
 export function TeamPips({
   team,
@@ -288,7 +291,20 @@ export function TeamPips({
  * `role="status"`, which announces each event once, complete, and without
  * stealing focus mid-turn.
  */
-export function MessageBox({ text }: { text: string }) {
+export function MessageBox({
+  text,
+  speed = 1,
+}: {
+  text: string;
+  /**
+   * A qué velocidad se teclea, respecto al compás normal. Tiene que ser el
+   * MISMO multiplicador con el que la arena acorta sus pausas: el compás de
+   * cada frase está calculado sobre este ritmo de tecleo, así que ir más
+   * despacio aquí significa que la siguiente línea pisa a la anterior a medio
+   * escribir.
+   */
+  speed?: number;
+}) {
   const a11y = useT().a11y;
   // Render-phase reset: a new message restarts the typewriter from zero.
   const [typed, setTyped] = useState({ text, count: text.length });
@@ -297,9 +313,12 @@ export function MessageBox({ text }: { text: string }) {
 
   useEffect(() => {
     // Reduced motion reveals the full line on the first tick.
+    // Se acelera con MÁS letras por tic, no con un intervalo más corto: por
+    // debajo de los 10 ms el navegador impone su propio suelo a setInterval y
+    // el texto sale a tirones en vez de más rápido.
     const step = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? Number.MAX_SAFE_INTEGER
-      : 2;
+      : Math.max(1, Math.round(2 * speed));
     const id = window.setInterval(() => {
       setTyped((t) => {
         if (t.text !== text || t.count >= text.length) {
@@ -310,17 +329,21 @@ export function MessageBox({ text }: { text: string }) {
       });
     }, 18);
     return () => clearInterval(id);
-  }, [text]);
+  }, [text, speed]);
 
   return (
     // Console text window: angled glass panel with a lit leading edge, cut
     // from the same shape language as the status boxes.
     <div
       className={cn(
-        "relative flex min-h-[3.6rem] items-center px-6 py-3",
+        "relative flex min-h-[5rem] items-center px-7 py-4",
+        "max-sm:min-h-[3.4rem] max-sm:px-3 max-sm:py-2.5",
         "[clip-path:polygon(0_14%,1.4%_0,100%_0,100%_86%,98.6%_100%,0_100%)]",
-        "border-y border-white/12 bg-gradient-to-b from-[#1a2b46]/92 to-[#080f1c]/95 backdrop-blur-md",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_-2px_18px_rgba(0,0,0,0.6)]",
+        // Ventana de diálogo de consola: casi opaca y con el filo encendido.
+        // Translúcida sobre un estadio iluminado, la línea que cuenta el
+        // combate competía con el graderío y se perdía.
+        "border-y-2 border-[#22d3ee]/70 bg-gradient-to-b from-[#0d1b30]/97 to-[#05090f]/98 backdrop-blur-md",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_-3px_26px_rgba(0,0,0,0.8),0_0_30px_-12px_#22d3ee]",
       )}
     >
       <span
@@ -329,11 +352,18 @@ export function MessageBox({ text }: { text: string }) {
       />
       <p
         aria-hidden
-        className={cn(outlined, "text-base leading-snug font-semibold sm:text-lg")}
+        className={cn(
+          outlined,
+          // La línea que cuenta el combate: tipografía de titular, como el resto
+          // de la web, y con cuerpo suficiente para leerse de un vistazo
+          // mientras la animación sigue corriendo.
+          "font-display text-xl leading-snug font-bold tracking-wide text-[#fdfbf3]",
+          "max-sm:text-[15px] sm:text-[27px]",
+        )}
       >
         {text.slice(0, count)}
         {count < text.length && (
-          <span className="cursor-blink ml-1 text-[#ff7a7a]">▼</span>
+          <span className="cursor-blink ml-1.5 text-[#ff7a7a]">▼</span>
         )}
       </p>
       <p
@@ -345,6 +375,58 @@ export function MessageBox({ text }: { text: string }) {
       >
         {text}
       </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Rótulo de impacto (supereficaz, crítico)                            */
+/* ------------------------------------------------------------------ */
+
+/** Qué tan fuerte suena el rótulo, que decide su color y su tamaño. */
+export type StingerKind = "super" | "crit" | "resist" | "immune" | "ko";
+
+/**
+ * El grito del golpe: «¡ES SUPEREFICAZ!» en grande, sobre el campo.
+ *
+ * En los juegos esa línea llega en la caja de texto y además con su propio
+ * sonido, y es la información que más decide el turno siguiente. Aquí llegaba
+ * sólo como una línea más del registro, del mismo tamaño que «Pikachu usó
+ * Impactrueno», así que se perdía justo cuando importaba.
+ *
+ * Va `aria-hidden` a propósito: la caja de mensajes ya anuncia exactamente
+ * este mismo texto por su `role="status"`, y una segunda región viva haría que
+ * un lector de pantalla dijera cada golpe dos veces.
+ */
+export function Stinger({ kind, text }: { kind: StingerKind; text: string }) {
+  const tone: Record<StingerKind, string> = {
+    // Colores fijados a mano: el rótulo se dibuja sobre el campo, que mantiene
+    // su noche en los dos temas, así que no deben remapearse con el claro.
+    super: "text-[#fde047] [text-shadow:0_2px_0_#7c2d12,0_0_24px_rgba(253,224,71,0.75)]",
+    crit: "text-[#fca5a5] [text-shadow:0_2px_0_#7f1d1d,0_0_24px_rgba(248,113,113,0.75)]",
+    resist: "text-[#bae6fd] [text-shadow:0_2px_0_#0c4a6e,0_0_18px_rgba(186,230,253,0.6)]",
+    immune: "text-[#e2e8f0] [text-shadow:0_2px_0_#1e293b,0_0_18px_rgba(226,232,240,0.5)]",
+    // El K.O. es el único rótulo con contorno propio: se dibuja encima del
+    // Pokémon que se está desplomando y necesita ganarle al desorden de abajo.
+    ko: "text-[#fff1f2] [text-shadow:0_0_2px_#000,0_4px_0_#7f1d1d,0_0_38px_rgba(244,63,94,0.95)]",
+  };
+  const isKo = kind === "ko";
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-[34%] z-10 flex justify-center"
+    >
+      <span
+        className={cn(
+          "font-display font-black tracking-[0.06em] uppercase",
+          isKo ? "fx-ko" : "fx-stinger",
+          isKo ? "text-5xl sm:text-8xl" : "text-2xl sm:text-5xl",
+          kind === "resist" || kind === "immune" ? "text-xl sm:text-3xl" : "",
+          tone[kind],
+        )}
+      >
+        {text}
+      </span>
     </div>
   );
 }
@@ -421,20 +503,73 @@ const CLASS_ICON: Record<BattleMove["damageClass"], LucideIcon> = {
 };
 
 /**
- * The effectiveness tag is text-only on purpose: it used to be color-coded
- * (amber for super-effective, gray for no effect), which both leaned on color
- * alone to carry meaning — WCAG 1.4.1 — and could not clear 4.5:1 across the
- * eighteen type colors it sits on. Emphasis now comes from weight, and the
- * ink is whatever `typeSurface` guarantees is readable on that pill.
+ * La eficacia de cada ataque, al lado de cada ataque, como en los juegos desde
+ * la sexta generación.
+ *
+ * El TEXTO es quien lleva el significado, y esa decisión no se toca. La
+ * etiqueta llegó a estar coloreada y hubo que quitarle el color por dos cosas
+ * distintas, que conviene no confundir:
+ *
+ * · apoyaba el sentido SÓLO en el color (WCAG 1.4.1) — eso sigue prohibido, y
+ *   por eso aquí van siempre las tres capas: palabra, glifo y tinta, y la
+ *   palabra basta por sí sola;
+ * · la tinta salía sobre la pastilla del tipo, o sea sobre dieciocho fondos
+ *   distintos, y no llegaba al 4.5:1 en varios. Eso lo arregló el chip de
+ *   fondo fijo: hoy la etiqueta se lee sobre negro al 70 %, un único fondo
+ *   medible, y ahí el color vuelve a caber — como REFUERZO del texto, nunca
+ *   en su lugar.
+ *
+ * Verde para lo que castiga, ámbar para lo que rebota, pizarra para lo que no
+ * llega; el neutro se queda en blanco, que es la ausencia de aviso.
  */
-function effectivenessHint(
-  mult: number,
-  t: Dict["battle"],
-): { text: string; strong: boolean } | null {
-  if (mult === 0) return { text: t.hintNoEffect, strong: false };
-  if (mult > 1) return { text: t.hintSuper, strong: true };
-  if (mult < 1) return { text: t.hintNotVery, strong: false };
-  return null;
+interface Hint {
+  text: string;
+  glyph: string;
+  strong: boolean;
+  /** Tinta del chip, medida sobre negro al 70 %: refuerzo, no significado. */
+  tone: string;
+}
+
+function effectivenessHint(mult: number, t: Dict["battle"]): Hint {
+  if (mult === 0)
+    return {
+      text: t.hintNoEffect,
+      glyph: "✕",
+      strong: false,
+      tone: "text-[#cbd5e1]",
+    };
+  if (mult >= 4)
+    return {
+      text: t.hintSuper,
+      glyph: "▲▲",
+      strong: true,
+      tone: "text-[#86efac]",
+    };
+  if (mult > 1)
+    return {
+      text: t.hintSuper,
+      glyph: "▲",
+      strong: true,
+      tone: "text-[#86efac]",
+    };
+  if (mult <= 0.25)
+    return {
+      text: t.hintNotVery,
+      glyph: "▼▼",
+      strong: false,
+      tone: "text-[#fdba74]",
+    };
+  if (mult < 1)
+    return {
+      text: t.hintNotVery,
+      glyph: "▼",
+      strong: false,
+      tone: "text-[#fdba74]",
+    };
+  // Neutro. Antes no dibujaba nada, y el hueco se leía como «todavía no lo ha
+  // calculado» en vez de como «ni bien ni mal»: con cuatro ataques delante, la
+  // pregunta es por los cuatro, no sólo por los que destacan.
+  return { text: t.hintNeutral, glyph: "●", strong: false, tone: "text-white" };
 }
 
 export function MoveMenu({
@@ -463,7 +598,11 @@ export function MoveMenu({
       role="group"
       aria-label={a11y.movesMenuAria}
       onKeyDown={onKeyDown}
-      className="flex flex-col gap-2"
+      // Rejilla 2x2, como en los juegos: los cuatro ataques ocupan el cuadrante
+      // inferior derecho y «Volver» cruza debajo. En columna medían el doble de
+      // alto y empujaban tu ficha hasta la mitad del campo, encima del Pokémon
+      // rival — que es exactamente donde no tiene que estar.
+      className="grid grid-cols-2 gap-1.5 sm:gap-2"
     >
       <KeyboardHint />
       {moves.map((move) => {
@@ -477,11 +616,13 @@ export function MoveMenu({
             : move.damageClass === "special"
               ? dict.battle.classSpecial
               : dict.battle.classStatus;
-        // Status moves show their category instead of a meaningless
-        // effectiveness hint.
+        // La tabla de tipos no se aplica a un movimiento de estado, así que no
+        // lleva etiqueta: cualquier palabra ahí — «eficaz», «estado» — se lee
+        // como un veredicto de eficacia que nadie ha calculado. Su categoría
+        // ya la dice el escudo de la derecha.
         const hint =
           move.damageClass === "status"
-            ? { text: dict.battle.classStatus, strong: false }
+            ? null
             : effectivenessHint(
                 effectiveness(move.type, targetTypes),
                 dict.battle,
@@ -526,24 +667,19 @@ export function MoveMenu({
             }
             className={cn(
               "w-full rounded-[16px_6px_16px_6px] border-2 border-white/30 px-4 py-1.5 text-left transition",
+              "max-sm:h-full max-sm:rounded-[12px_5px_12px_5px] max-sm:border max-sm:px-2 max-sm:py-1",
               "enabled:hover:scale-[1.03] enabled:hover:brightness-110 enabled:active:scale-95",
               "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
             )}
           >
-            <span aria-hidden className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-sm font-bold tracking-wide">
-                {move.label}
-              </span>
-              {hint && (
-                <span
-                  className={cn(
-                    "shrink-0 text-[11px]",
-                    hint.strong ? "font-extrabold" : "font-semibold opacity-90",
-                  )}
-                >
-                  {hint.text}
-                </span>
-              )}
+            {/* El nombre, para él solo y a línea completa. Compartiendo fila
+                con la etiqueta de eficacia se quedaba en «Lanz…», y el nombre
+                del movimiento es lo primero que se lee. */}
+            <span
+              aria-hidden
+              className="block truncate font-display text-base font-bold tracking-wide max-sm:text-[13px] sm:text-lg"
+            >
+              {move.label}
             </span>
             <span
               aria-hidden
@@ -553,13 +689,13 @@ export function MoveMenu({
                   pill in both themes (bg-black flips to white in light mode),
                   and 65% is what keeps its white label above 4.5:1 even on
                   the brightest auras (eléctrico, hielo). */}
-              <span className="flex min-w-0 items-center gap-1 rounded-sm bg-[#000000]/65 px-1.5 py-px text-[10px] font-bold tracking-widest text-white uppercase [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+              <span className="flex min-w-0 items-center gap-1 rounded-sm bg-[#000000]/65 px-1.5 py-px text-[11px] font-bold tracking-widest text-white uppercase [text-shadow:0_1px_2px_rgba(0,0,0,0.9)] max-sm:px-1 max-sm:text-[9px] max-sm:tracking-normal">
                 <TypeIcon size={11} className="shrink-0" />
                 <span className="truncate">{type}</span>
               </span>
               {/* Category glyph + base power, the two numbers that decide the
                   turn, next to the PP counter. */}
-              <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold">
+              <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold max-sm:gap-1 max-sm:text-[10px]">
                 <span
                   title={category}
                   className="flex items-center gap-0.5 opacity-95"
@@ -575,10 +711,45 @@ export function MoveMenu({
                 </span>
               </span>
             </span>
+            {hint && (
+              // La eficacia, a línea completa y para ella sola.
+              //
+              // Compartía sitio con la chapa de tipo, y era el peor sitio
+              // posible: en la rejilla de dos columnas el hueco daba para una
+              // de las dos, así que «Poco eficaz» se quedaba en «Poco…» —
+              // justo la parte que no dice nada— y en móvil desaparecía. Es la
+              // respuesta a la única pregunta que se hace en este menú, así
+              // que ocupa su propio renglón y no compite con nada.
+              //
+              // Chip de fondo FIJO, no derivado del tipo: así hay UN par de
+              // contrastes que verificar en vez de dieciocho, y la etiqueta se
+              // despega de la pastilla de color en lugar de fundirse con ella.
+              // Glifo y color acompañan al texto; ninguno lo sustituye.
+              <span
+                aria-hidden
+                // Ni versalitas ni interletraje: la columna de ataques mide dos
+                // pastillas de ancho, y en mayúsculas «¡Súper eficaz!» se
+                // quedaba en «¡SÚPER E…». Se lee en caja baja, que ocupa un
+                // tercio menos, y si aun así no cabe parte la línea en vez de
+                // cortar la palabra — una etiqueta a medias no informa de nada.
+                className={cn(
+                  "mt-1 flex w-full items-start gap-1 rounded-sm bg-[#000000]/70 px-1.5 py-0.5",
+                  "text-[11px] leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]",
+                  "max-sm:mt-0.5 max-sm:px-1 max-sm:text-[9px]",
+                  hint.tone,
+                  hint.strong ? "font-extrabold" : "font-semibold",
+                )}
+              >
+                <span className="shrink-0">{hint.glyph}</span>
+                <span className="min-w-0">{hint.text}</span>
+              </span>
+            )}
           </button>
         );
       })}
-      <BackPill onClick={onBack} />
+      <span className="max-sm:col-span-2">
+        <BackPill onClick={onBack} />
+      </span>
     </div>
   );
 }
@@ -614,6 +785,14 @@ function BackPill({ onClick }: { onClick: () => void }) {
  * Lo que el jugador metió en la mochila antes del combate. Solo se listan los
  * objetos que quedan; los que ahora mismo no harían nada (una Poción a PS
  * llenos, Revivir sin nadie debilitado) se muestran apagados con el motivo.
+ *
+ * En rejilla 2x2 y con el alto atado al hueco de mandos, por la misma razón que
+ * los ataques y por una peor: el hueco mide 12,5 rem y está pegado ABAJO, así
+ * que una lista en columna crece HACIA ARRIBA. Seis objetos medían el triple
+ * que el hueco, se subían por encima de tu ficha y se salían del marco de la
+ * arena — que recorta (`overflow-hidden`) —, y lo primero en irse era la fila
+ * de arriba: la Poción, que es la que abre `BAG_ITEM_IDS`. O sea que el objeto
+ * más usado del juego era literalmente el único imposible de pulsar.
  */
 export function BagMenu({
   bag,
@@ -640,11 +819,17 @@ export function BagMenu({
       role="group"
       aria-label={a11y.bagMenuAria}
       onKeyDown={onKeyDown}
-      className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto"
+      // `max-h-full` y no `60vh`: el 60vh se mide contra la VENTANA, que no
+      // sabe nada del hueco de mandos, así que no lo contenía. Atado al hueco,
+      // seis objetos caben en tres filas; y si algún día no cupieran, el
+      // desbordamiento se resuelve dentro con barra en vez de saliéndose del
+      // marco. En el teléfono el carril ya es una franja que rueda entera y el
+      // hueco no tiene alto fijo, así que ahí manda el 60vh de siempre.
+      className="grid max-h-[60vh] grid-cols-2 gap-1.5 overflow-y-auto sm:max-h-full sm:gap-2"
     >
       <KeyboardHint />
       {carried.length === 0 && (
-        <p className={cn(glass, outlined, "rounded-lg px-3 py-2 text-xs")}>
+        <p className={cn(glass, outlined, "col-span-2 rounded-lg px-3 py-2 text-xs")}>
           {t.noneLeft}
         </p>
       )}
@@ -676,26 +861,39 @@ export function BagMenu({
               } as CSSProperties
             }
             className={cn(
-              "w-full rounded-[18px_6px_18px_6px] border-2 border-white/30 px-4 py-2 text-left transition",
+              "w-full rounded-[18px_6px_18px_6px] border-2 border-white/30 px-3 py-1.5 text-left transition",
               "enabled:hover:scale-[1.02] enabled:hover:brightness-110 enabled:active:scale-95",
               "disabled:cursor-not-allowed disabled:opacity-45 disabled:saturate-50",
             )}
           >
             <span
-              className={cn(outlined, "flex items-center gap-2 text-sm font-bold")}
+              className={cn(
+                outlined,
+                "flex items-center gap-1.5 text-[13px] font-bold",
+              )}
             >
-              <FlaskRound size={16} /> {t.itemName[id]}
-              <span className="ml-auto">×{count}</span>
+              <FlaskRound size={14} className="shrink-0" />
+              <span className="truncate">{t.itemName[id]}</span>
+              <span className="ml-auto shrink-0">×{count}</span>
             </span>
+            {/* A media columna la descripción es un recordatorio, no la ficha
+                del objeto: se queda en una línea. Quien la necesite entera la
+                tiene en el nombre accesible del botón, que ya la lleva. */}
             <span
-              className={cn(outlined, "mt-0.5 block text-[11px] font-medium")}
+              className={cn(
+                outlined,
+                "mt-px block truncate text-[10px] font-medium",
+              )}
             >
               {t.itemDesc[id]}
             </span>
           </button>
         );
       })}
-      <BackPill onClick={onBack} />
+      {/* «Volver» cruza las dos columnas, igual que bajo los ataques. */}
+      <div className="col-span-2">
+        <BackPill onClick={onBack} />
+      </div>
     </div>
   );
 }
@@ -753,7 +951,7 @@ export function SwitchMenu({
       <div
         role="group"
         aria-label={a11y.partyMenuAria}
-        className="grid flex-1 content-start gap-2 sm:grid-cols-2"
+        className="grid flex-1 grid-cols-2 content-start gap-2 max-sm:gap-1"
       >
         {team.map((b, i) => {
           const fainted = b.hp <= 0;
@@ -867,10 +1065,17 @@ export function DialogueBubble({
   avatar,
   name,
   text,
+  pixel = false,
 }: {
   avatar: string | null;
   name: string;
   text: string;
+  /**
+   * El retrato es un sprite de Entrenador (80×80 de pixel art) y no un busto
+   * pintado: se acerca a la cara, que en esos sprites vive en el tercio de
+   * arriba, y se escala sin suavizar.
+   */
+  pixel?: boolean;
 }) {
   const a11y = useT().a11y;
   return (
@@ -879,26 +1084,36 @@ export function DialogueBubble({
     <div
       role="group"
       aria-label={a11y.dialogueAria(name)}
-      className="fx-bubble-pop pointer-events-none flex max-w-sm items-start gap-2"
+      className="fx-bubble-pop pointer-events-none flex max-w-md items-start gap-2.5"
     >
       <span
         aria-hidden
-        className="relative mt-1 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-[#101c2e] shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+        className="relative mt-1 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-[#101c2e] shadow-[0_2px_8px_rgba(0,0,0,0.6)] max-sm:h-10 max-sm:w-10"
       >
         {avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} alt="" className="h-full w-full object-cover" />
+          <img
+            src={avatar}
+            alt=""
+            className={cn(
+              "h-full w-full",
+              pixel
+                ? "origin-top scale-[2.1] object-contain object-top"
+                : "object-cover",
+            )}
+            style={pixel ? { imageRendering: "pixelated" } : undefined}
+          />
         ) : (
-          <span className="font-display text-sm font-bold text-[#f87171]">
+          <span className="font-display text-base font-bold text-[#f87171]">
             {name.charAt(0)}
           </span>
         )}
       </span>
       <div className={cn(glass, "rounded-2xl rounded-tl-sm px-3.5 py-2")}>
-        <p className="text-[11px] font-bold tracking-wider text-[#fca5a5] uppercase">
+        <p className="font-display text-[13px] font-bold tracking-[0.14em] text-[#fca5a5] uppercase max-sm:text-[11px]">
           {name}
         </p>
-        <p className={cn(outlined, "mt-0.5 text-xs leading-snug font-semibold")}>
+        <p className={cn(outlined, "mt-1 text-base leading-snug font-semibold max-sm:text-[13px]")}>
           {text}
         </p>
       </div>

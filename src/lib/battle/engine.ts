@@ -19,7 +19,7 @@ import type {
   Side,
   StageStat,
 } from "@/types/battle";
-import { BAG_ITEMS, type BagItemId } from "./items";
+import { BAG_ITEMS, healValue, type BagItemId } from "./items";
 import { effectiveness } from "./type-chart";
 
 /**
@@ -113,8 +113,13 @@ export const TWO_TURN_MOVES: Record<string, ChargeStance> = {
 /**
  * Moves that pierce each semi-invulnerable stance, with their damage
  * multiplier from the games (Earthquake hits a digging target for double).
+ *
+ * Exportada porque la lee también el cerebro rival: un movimiento que no está
+ * aquí sencillamente NO alcanza a quien se ha enterrado, y atacar a un hueco
+ * es el turno más caro que se puede tirar. Sin esta tabla a mano, la IA lo
+ * hacía cada vez.
  */
-const STANCE_BREAKERS: Record<
+export const STANCE_BREAKERS: Record<
   Exclude<ChargeStance, "charging">,
   Record<string, number>
 > = {
@@ -131,6 +136,18 @@ const STANCE_BREAKERS: Record<
   underwater: { surf: 2, whirlpool: 2 },
   vanished: {},
 };
+
+/**
+ * Movimientos que dejan K.O. a quien los usa, como en los juegos. Explosión y
+ * Autodestrucción se llevan al usuario por delante; Sacrificio le deja los PS
+ * que le quedaban al rival y a él, ninguno.
+ */
+const SELF_KO_MOVES = new Set([
+  "explosion",
+  "self-destruct",
+  "misty-explosion",
+  "final-gambit",
+]);
 
 /** Below this fraction of max HP the rival reaches for a healing item. */
 const RIVAL_HEAL_THRESHOLD = 0.35;
@@ -167,12 +184,12 @@ export interface DamageRoll {
 const STAGE_CAP = 6;
 
 /** Main-series stage multiplier: ±6 → ×4 / ×¼. */
-function stageMult(stage: number): number {
+export function stageMult(stage: number): number {
   return stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
 }
 
 /** Accuracy/evasion use a 3-based table instead. */
-function accuracyMult(stage: number): number {
+export function accuracyMult(stage: number): number {
   return stage >= 0 ? (3 + stage) / 3 : 3 / (3 - stage);
 }
 
@@ -181,7 +198,7 @@ function getStage(b: Battler, stat: StageStat): number {
 }
 
 /** Battle-effective stat: base × stage, with burn/paralysis penalties. */
-function effStat(
+export function effStat(
   b: Battler,
   stat: "atk" | "def" | "spa" | "spd" | "spe",
 ): number {
@@ -192,7 +209,7 @@ function effStat(
 }
 
 /** Type-based condition immunities, like the games. */
-const AILMENT_IMMUNE: Partial<Record<Ailment, string[]>> = {
+export const AILMENT_IMMUNE: Partial<Record<Ailment, string[]>> = {
   burn: ["fire"],
   paralysis: ["electric"],
   poison: ["poison", "steel"],
@@ -360,21 +377,42 @@ export function estimatePower(move: BattleMove): number {
 }
 
 /**
- * Simplified main-series damage formula (crit 1/16 ×1.5, roll 0.85-1).
- * `damageTaken` (damage the attacker received earlier this turn) feeds
- * Counter-style moves; fixed-damage moves skip the formula entirely.
+ * Los dos dados que el motor tira dentro de la fórmula del daño, sacados
+ * fuera para poder FIJARLOS.
+ *
+ * `crit` y `roll` los sortea `rollDamage` en el combate real; el cerebro
+ * rival, en cambio, necesita preguntar «¿cuánto haría este movimiento de
+ * media?» sin tirar ningún dado y sin reimplementar la fórmula por su cuenta
+ * — una segunda copia de la fórmula es una copia que se queda atrás.
  */
-export function rollDamage(
+export interface DamageDice {
+  crit: boolean;
+  /** Variación 0.85-1.0. La media exacta de ese intervalo es 0.925. */
+  roll: number;
+  /** Dado de los movimientos de potencia variable (Magnitud, Regalo). */
+  powerRoll?: number;
+}
+
+/**
+ * Simplified main-series damage formula (crit ×1.5, roll 0.85-1) with the
+ * dice supplied by the caller. `damageTaken` (damage the attacker received
+ * earlier this turn) feeds Counter-style moves; fixed-damage moves skip the
+ * formula entirely.
+ */
+export function damageWith(
   attacker: Battler,
   defender: Battler,
   move: BattleMove,
-  rng: Rng,
+  dice: DamageDice,
   damageTaken = 0,
 ): DamageRoll {
   const eff = effectiveness(move.type, defender.types);
   if (eff === 0) return { damage: 0, effectiveness: 0, crit: false };
 
-  const resolved = resolveMovePower(attacker, defender, move, rng, damageTaken);
+  // La potencia variable consume su propio dado; con uno fijo, la estimación
+  // de la IA es reproducible y no depende del orden en que se tiren.
+  const powerRng: Rng = () => dice.powerRoll ?? 0.5;
+  const resolved = resolveMovePower(attacker, defender, move, powerRng, damageTaken);
   if (resolved.kind === "fixed") {
     return { damage: Math.max(0, resolved.value), effectiveness: 1, crit: false };
   }
@@ -388,15 +426,35 @@ export function rollDamage(
       ? effStat(defender, "def")
       : effStat(defender, "spd");
   const stab = attacker.types.includes(move.type) ? 1.5 : 1;
-  const crit = rng() < 1 / 16;
-  const roll = 0.85 + rng() * 0.15;
 
   const core = ((2 * attacker.level) / 5 + 2) * resolved.value * (atk / def);
   const damage = Math.max(
     1,
-    Math.floor((core / 50 + 2) * stab * eff * (crit ? 1.5 : 1) * roll),
+    Math.floor(
+      (core / 50 + 2) * stab * eff * (dice.crit ? 1.5 : 1) * dice.roll,
+    ),
   );
-  return { damage, effectiveness: eff, crit };
+  return { damage, effectiveness: eff, crit: dice.crit };
+}
+
+/**
+ * Un golpe real: los mismos cálculos, con los dados tirados aquí (crítico
+ * 1/16, variación 0.85-1).
+ */
+export function rollDamage(
+  attacker: Battler,
+  defender: Battler,
+  move: BattleMove,
+  rng: Rng,
+  damageTaken = 0,
+): DamageRoll {
+  return damageWith(
+    attacker,
+    defender,
+    move,
+    { powerRoll: rng(), crit: rng() < 1 / 16, roll: 0.85 + rng() * 0.15 },
+    damageTaken,
+  );
 }
 
 const active = (state: BattleState, side: Side): Battler =>
@@ -788,18 +846,40 @@ function performMove(
     text: notes,
   });
 
-  if (defender.hp === 0) {
-    defender.charging = null;
+  // Los que se llevan por delante a quien los usa. El motor se lo saltaba, y
+  // Sacrificio en particular quedaba como un cañonazo gratis: pegaba tantos PS
+  // como le quedaban al usuario y el usuario seguía en pie. Un cerebro que
+  // busca el mejor valor esperado encuentra eso y no lo suelta.
+  const selfKo = SELF_KO_MOVES.has(move.slug);
+  const targetFainted = defender.hp === 0;
+  if (targetFainted) defender.charging = null;
+  if (selfKo) {
+    attacker.hp = 0;
+    attacker.charging = null;
+    events.push({
+      kind: "faint",
+      side,
+      text: texts.faint(attacker.label, side),
+    });
+  }
+  if (targetFainted) {
     events.push({
       kind: "faint",
       side: target,
       text: texts.faint(defender.label, target),
     });
-    if (!alive(state, target)) {
+  }
+  if (selfKo || targetFainted) {
+    const attackerStanding = alive(state, side);
+    const targetStanding = alive(state, target);
+    if (!attackerStanding || !targetStanding) {
+      // Si caen los dos últimos a la vez, el combate lo gana quien encajó el
+      // golpe: el que lo lanzó se fue con él.
+      const winner: Side = targetStanding ? target : side;
       events.push({
         kind: "end",
-        winner: side,
-        text: side === "player" ? texts.win : texts.lose,
+        winner,
+        text: winner === "player" ? texts.win : texts.lose,
       });
     }
     return true;
@@ -903,9 +983,10 @@ function spendItem(
   // Work out the effect first, so a useless item is never consumed.
   const healed = spec.revives
     ? Math.max(1, Math.floor(target.maxHp / 2))
-    : spec.healAll
-      ? target.maxHp - target.hp
-      : Math.min(spec.heal, target.maxHp - target.hp);
+    : Math.min(
+        healValue(action.item, target.maxHp),
+        target.maxHp - target.hp,
+      );
   const cures = Boolean(spec.curesStatus && target.status);
   if (healed <= 0 && !cures && !spec.stage) return;
 
@@ -1029,14 +1110,24 @@ export function resolveTurn(
   return events;
 }
 
-/** Best bench index for a forced rival replacement (type edge, then HP). */
-export function pickRivalReplacement(state: BattleState): number | null {
-  const playerActive = active(state, "player");
+/**
+ * Best bench index for a forced replacement (type edge, then HP).
+ *
+ * `side` va con valor por defecto para que las llamadas de la arena sigan
+ * igual; lo necesita el banco de pruebas, que juega los dos asientos.
+ */
+export function pickRivalReplacement(
+  state: BattleState,
+  side: Side = "rival",
+): number | null {
+  const foeSide: Side = side === "rival" ? "player" : "rival";
+  const playerActive = active(state, foeSide);
+  const bench = state[side];
   let bestIndex = -1;
   let bestScore = -Infinity;
-  for (let index = 0; index < state.rival.team.length; index++) {
-    const b = state.rival.team[index];
-    if (b.hp <= 0 || index === state.rival.active) continue;
+  for (let index = 0; index < bench.team.length; index++) {
+    const b = bench.team[index];
+    if (b.hp <= 0 || index === bench.active) continue;
     const offense = Math.max(
       ...b.moves.map((m) => effectiveness(m.type, playerActive.types)),
       0,
@@ -1059,19 +1150,22 @@ export function pickRivalReplacement(state: BattleState): number | null {
  * doesn't waste a Full Restore on a scratch. Returns null when it should just
  * keep attacking — which is most turns.
  */
-export function pickRivalItem(state: BattleState): BattleAction | null {
-  const b = active(state, "rival");
+export function pickRivalItem(
+  state: BattleState,
+  side: Side = "rival",
+): BattleAction | null {
+  const b = active(state, side);
   const missing = b.maxHp - b.hp;
   if (b.hp <= 0 || b.hp / b.maxHp > RIVAL_HEAL_THRESHOLD) return null;
 
-  const usable = (Object.keys(state.rival.bag) as BagItemId[]).filter(
-    (id) => (state.rival.bag[id] ?? 0) > 0,
+  const bag = state[side].bag;
+  const usable = (Object.keys(bag) as BagItemId[]).filter(
+    (id) => (bag[id] ?? 0) > 0,
   );
   const healers = usable
     .filter((id) => BAG_ITEMS[id].heal > 0 || BAG_ITEMS[id].healAll)
     .sort((a, c) => {
-      const value = (id: BagItemId) =>
-        BAG_ITEMS[id].healAll ? b.maxHp : BAG_ITEMS[id].heal;
+      const value = (id: BagItemId) => healValue(id, b.maxHp);
       // Smallest item that covers the damage taken; otherwise the biggest.
       const coversA = value(a) >= missing;
       const coversC = value(c) >= missing;

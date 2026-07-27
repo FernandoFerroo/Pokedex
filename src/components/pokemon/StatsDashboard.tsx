@@ -91,7 +91,10 @@ export function StatsDashboard({
     .join(" · ");
 
   return (
-    <div className="grid items-center gap-8 md:grid-cols-[minmax(0,440px)_1fr]">
+    // Radar y lecturas conviven en dos columnas también en el móvil: es la
+    // composición de escritorio, y leer el hexágono junto a sus barras es justo
+    // lo que hace útil al panel.
+    <div className="grid grid-cols-[minmax(0,44%)_1fr] items-center gap-8 max-sm:gap-2 md:grid-cols-[minmax(0,440px)_1fr]">
       <svg
         viewBox="0 0 380 348"
         role="img"
@@ -172,9 +175,9 @@ export function StatsDashboard({
             return (
               <div
                 key={axis.name}
-                className="grid grid-cols-[6.5rem_2.75rem_1fr] items-center gap-3 text-sm"
+                className="grid grid-cols-[6.5rem_2.75rem_1fr] items-center gap-3 text-sm max-sm:grid-cols-[3.6rem_1.9rem_1fr] max-sm:gap-1.5"
               >
-                <dt className="font-mono text-xs tracking-wider text-slate-400 uppercase">
+                <dt className="font-mono text-xs tracking-wider text-slate-400 uppercase max-sm:text-[9px] max-sm:tracking-normal">
                   {axis.label}
                   {axis.value === best && (
                     <span

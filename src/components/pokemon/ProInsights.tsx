@@ -28,12 +28,14 @@ function Cell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="data-pill rounded-2xl px-4 py-3">
-      <p className="flex items-center gap-1.5 font-mono text-xs tracking-widest text-slate-400 uppercase">
-        <span aria-hidden className="text-[var(--aura)]">
+    <div className="data-pill rounded-2xl px-4 py-3 max-sm:rounded-lg max-sm:px-1.5 max-sm:py-1.5">
+      <p className="flex items-center gap-1.5 font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:gap-0.5 max-sm:text-[9px] max-sm:leading-[1.2] max-sm:tracking-normal">
+        <span aria-hidden className="shrink-0 text-[var(--aura)]">
           {icon}
         </span>
-        {label}
+        {/* Con seis casillas en fila el móvil deja ~52px por etiqueta: el
+            rótulo parte por donde haga falta antes que salirse de la casilla. */}
+        <span className="min-w-0 max-sm:[overflow-wrap:anywhere]">{label}</span>
       </p>
       <div className="mt-1.5">{children}</div>
     </div>
@@ -67,73 +69,73 @@ export function ProInsights({
 
   return (
     <section aria-label={d.competitiveRead}>
-      <h2 className="mb-4 font-display text-sm font-bold tracking-[0.25em] text-slate-300 uppercase">
+      <h2 className="mb-4 font-display text-sm font-bold tracking-[0.25em] text-slate-300 uppercase max-sm:mb-2 max-sm:tracking-[0.12em]">
         <span aria-hidden className="neon-aura mr-2">
           ▰
         </span>
         {d.competitiveRead}
       </h2>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Cell label={d.baseTotal} icon={<Trophy size={14} />}>
-          <p className="flex flex-wrap items-center gap-2">
-            <span className="neon-value font-mono text-xl font-bold text-slate-50 tabular-nums">
+      <div className="grid grid-cols-6 gap-3 max-sm:gap-1">
+        <Cell label={d.baseTotal} icon={<Trophy size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
+          <p className="flex flex-wrap items-center gap-2 max-sm:gap-0.5">
+            <span className="neon-value font-mono text-xl font-bold text-slate-50 tabular-nums max-sm:text-[11px]">
               {total}
             </span>
             <span
-              className={`rounded-full border px-2 py-0.5 font-mono text-xs tracking-widest uppercase ${rank.className}`}
+              className={`rounded-full border px-2 py-0.5 font-mono text-xs tracking-widest uppercase max-sm:px-1 max-sm:text-[8px] max-sm:tracking-normal ${rank.className}`}
             >
               {rank.label}
             </span>
           </p>
         </Cell>
 
-        <Cell label={d.starStat} icon={<Star size={14} />}>
-          <p className="font-mono text-sm font-semibold text-slate-100">
+        <Cell label={d.starStat} icon={<Star size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
+          <p className="font-mono text-sm font-semibold text-slate-100 max-sm:text-[9px] max-sm:leading-snug">
             {statLabels[best.name] ?? best.name}{" "}
-            <span className="neon-value text-lg font-bold tabular-nums">
+            <span className="neon-value text-lg font-bold tabular-nums max-sm:text-[11px]">
               {best.value}
             </span>
           </p>
         </Cell>
 
-        <Cell label={d.speedLv100} icon={<Gauge size={14} />}>
-          <p className="font-mono text-sm text-slate-200">
+        <Cell label={d.speedLv100} icon={<Gauge size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
+          <p className="font-mono text-sm text-slate-200 max-sm:text-[9px] max-sm:leading-snug">
             <span className="neon-value font-bold text-slate-50 tabular-nums">
               {speed100.min}–{speed100.max}
             </span>
-            <span className="ml-1.5 text-xs text-slate-400">
+            <span className="ml-1.5 text-xs text-slate-400 max-sm:ml-0 max-sm:block max-sm:text-[8px]">
               {d.baseOf(speed)}
             </span>
           </p>
         </Cell>
 
-        <Cell label={d.evYield} icon={<Swords size={14} />}>
-          <p className="font-mono text-sm font-semibold text-slate-200">
+        <Cell label={d.evYield} icon={<Swords size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
+          <p className="font-mono text-sm font-semibold text-slate-200 max-sm:text-[9px] max-sm:leading-snug">
             {evYield || "—"}
           </p>
         </Cell>
 
-        <Cell label={d.danger(dangerFactor)} icon={<ShieldAlert size={14} />}>
+        <Cell label={d.danger(dangerFactor)} icon={<ShieldAlert size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
           {dangers.length === 0 ? (
-            <p className="font-mono text-sm text-emerald-300">
+            <p className="font-mono text-sm text-emerald-300 max-sm:text-[9px]">
               {d.noWeaknesses}
             </p>
           ) : (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 max-sm:gap-0.5">
               {dangers.map((type) => (
-                <TypeBadge key={type} type={type} />
+                <TypeBadge key={type} type={type} compactOnMobile />
               ))}
             </div>
           )}
         </Cell>
 
-        <Cell label={d.immunities} icon={<ShieldCheck size={14} />}>
+        <Cell label={d.immunities} icon={<ShieldCheck size={14} className="max-sm:h-2.5 max-sm:w-2.5" />}>
           {matchups.x0.length === 0 ? (
-            <p className="font-mono text-sm text-slate-500">{d.none}</p>
+            <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">{d.none}</p>
           ) : (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1 max-sm:gap-0.5">
               {matchups.x0.map((type) => (
-                <TypeBadge key={type} type={type} />
+                <TypeBadge key={type} type={type} compactOnMobile />
               ))}
             </div>
           )}

@@ -18,6 +18,17 @@ export type BagItemId =
 export interface BagItemSpec {
   /** Flat HP restored; 0 for items that don't heal. */
   heal: number;
+  /**
+   * Fraction of max HP restored, when it beats the flat value.
+   *
+   * Los combates de aquí son a nivel 50 y seis contra seis: un Pokémon pasa de
+   * 150 PS, así que la Poción de 20 PS de los juegos —pensada para las
+   * primeras rutas— devolvía menos de lo que el rival quitaba en ese mismo
+   * turno. Gastabas el turno y el objeto para nada. Con la fracción, cada
+   * frasco cura lo que promete su nombre a cualquier nivel, y la escalera
+   * Poción < Superpoción < Hiperpoción se mantiene.
+   */
+  healFraction?: number;
   /** Restores every HP instead of `heal` (Full Restore). */
   healAll?: boolean;
   /** Clears the major status condition (burn, poison, sleep…). */
@@ -30,11 +41,15 @@ export interface BagItemSpec {
   tint: string;
 }
 
-/** Values follow the modern main-series games. */
+/**
+ * Values follow the modern main-series games, with their flat HP acting as the
+ * floor of a fraction of max HP: an item never heals less than it does in the
+ * games, and at battle levels it heals what its name promises (`healFraction`).
+ */
 export const BAG_ITEMS: Record<BagItemId, BagItemSpec> = {
-  potion: { heal: 20, tint: "#f472b6" },
-  "super-potion": { heal: 60, tint: "#c084fc" },
-  "hyper-potion": { heal: 120, tint: "#a855f7" },
+  potion: { heal: 20, healFraction: 1 / 3, tint: "#f472b6" },
+  "super-potion": { heal: 60, healFraction: 1 / 2, tint: "#c084fc" },
+  "hyper-potion": { heal: 120, healFraction: 4 / 5, tint: "#a855f7" },
   "full-restore": { heal: 0, healAll: true, curesStatus: true, tint: "#38bdf8" },
   revive: { heal: 0, revives: true, tint: "#fbbf24" },
   "full-heal": { heal: 0, curesStatus: true, tint: "#34d399" },
@@ -60,6 +75,18 @@ export const BAG_ITEM_IDS = Object.keys(BAG_ITEMS) as BagItemId[];
  */
 export function itemSpriteUrl(id: BagItemId): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${id}.png`;
+}
+
+/**
+ * PS que devuelve el objeto a un Pokémon de ese aguante: lo mayor entre su
+ * valor de los juegos y su fracción de PS máximos. Un único sitio del que sale
+ * la cuenta, para que el motor, el cerebro rival y la mochila digan lo mismo.
+ */
+export function healValue(id: BagItemId, maxHp: number): number {
+  const spec = BAG_ITEMS[id];
+  if (spec.healAll) return maxHp;
+  if (!spec.heal && !spec.healFraction) return 0;
+  return Math.max(spec.heal, Math.round(maxHp * (spec.healFraction ?? 0)));
 }
 
 /** How many of each item a side carries. Missing key = none left. */

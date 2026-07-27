@@ -231,7 +231,7 @@ export function SoundtrackPlayer() {
         // from the eye but not from Tab or a screen reader: `inert` keeps the
         // two states from both being reachable at once.
         inert={open}
-        className={`flex items-center gap-2 rounded-full border border-slate-700/80 bg-hud-1/80 py-1.5 pr-1.5 pl-1.5 shadow-[0_0_18px_-2px_rgba(34,211,238,0.4)] backdrop-blur-md transition hover:border-cyan-400/60 hover:shadow-[0_0_24px_-2px_rgba(34,211,238,0.65)] sm:pr-3.5 ${open ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        className={`flex items-center gap-2 rounded-full border border-slate-700/80 bg-hud-1/80 py-1.5 pr-1.5 pl-1.5 shadow-[0_0_18px_-2px_rgba(34,211,238,0.4)] backdrop-blur-md transition hover:border-cyan-400/60 hover:opacity-100 hover:shadow-[0_0_24px_-2px_rgba(34,211,238,0.65)] focus-within:opacity-100 sm:pr-3.5 ${open ? "pointer-events-none opacity-0" : "opacity-85"}`}
       >
         <button
           type="button"

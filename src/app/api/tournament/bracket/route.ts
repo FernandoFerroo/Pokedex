@@ -9,8 +9,9 @@ import { getPokemonIndex } from "@/lib/index/build-index";
 import { formatName } from "@/lib/pokemon-meta";
 import {
   isTournamentFormat,
+  isTournamentPace,
   ladderTrainer,
-  RIVAL_ROSTER_SIZE,
+  rosterSizeFor,
   tierForRound,
 } from "@/lib/tournament/config";
 import type { PokemonIndexEntry } from "@/types/pokemon";
@@ -21,6 +22,7 @@ import {
   type TournamentBracketResponse,
   type TournamentDifficulty,
   type TournamentFormat,
+  type TournamentPace,
   type TournamentTrainer,
   type TrainerLines,
 } from "@/types/tournament";
@@ -171,7 +173,7 @@ export async function POST(request: Request) {
   const lang = await getLang();
   const t = tournamentDict[lang];
 
-  let body: { team?: unknown; format?: unknown };
+  let body: { team?: unknown; format?: unknown; pace?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -189,6 +191,14 @@ export async function POST(request: Request) {
     ? body.format
     : 4;
   const difficulty = difficultyOf(format);
+  // El ritmo decide cuántos Pokémon planta cada rung. Se sortea aquí y no se
+  // recorta en el cliente porque el plantel dibujado ES el que pelea: la ficha
+  // del rival y la fila de bolas del intro pintan `species` tal cual, y seis
+  // retratos para tres que combaten sería mentira en dos pantallas.
+  const pace: TournamentPace = isTournamentPace(body.pace)
+    ? body.pace
+    : "classic";
+  const rosterSize = rosterSizeFor(pace);
 
   const index = await getPokemonIndex();
   const pools: Record<RivalTier, PokemonIndexEntry[]> = {
@@ -206,7 +216,7 @@ export async function POST(request: Request) {
   const rounds = Array.from({ length: format }, (_, i) => {
     const round = i + 1;
     const tier = tierForRound(round, format, difficulty);
-    const picks = draw(pools[tier], RIVAL_ROSTER_SIZE, used);
+    const picks = draw(pools[tier], rosterSize, used);
     const rung = ladderTrainer(round);
     return {
       round,

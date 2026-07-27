@@ -20,6 +20,7 @@ import { TypeBadge } from "@/components/ui/TypeBadge";
 import { LOCALE } from "@/lib/i18n/config";
 import { getDict } from "@/lib/i18n";
 import { getLang } from "@/lib/i18n/server";
+import { getPokemonIndex } from "@/lib/index/build-index";
 import { getDefensiveMatchups } from "@/lib/matchups";
 import { ogDefaults } from "@/lib/site";
 import {
@@ -82,6 +83,22 @@ export async function generateMetadata({
   const displayName = formatName(slug);
   const lang = await getLang();
   const d = getDict(lang).detail;
+
+  // Una ruta inventada (/pokemon/lo-que-sea) acaba en el 404, pero la pestaña
+  // y la tarjeta de enlace se generan igual: sin esta comprobación anuncian
+  // «Lo Que Sea | Pokédex» como si existiera, y un buscador se lleva a su
+  // índice una ficha vacía. El índice ya está en memoria — es el mismo que
+  // pinta el listado —, así que comprobarlo no cuesta una petición.
+  const index = await getPokemonIndex();
+  if (!index.entries.some((entry) => entry.name === slug)) {
+    const layout = getDict(lang).layout;
+    return {
+      title: layout.notFoundFled,
+      description: layout.notFoundBody,
+      robots: { index: false, follow: true },
+    };
+  }
+
   const description = d.metaDescription(displayName);
   const url = `/pokemon/${encodeURIComponent(slug)}`;
   return {
@@ -406,9 +423,9 @@ export default async function PokemonDetailPage({ params }: PageProps) {
     return (
       <section
         aria-label={label ?? title}
-        className="glass-aura hud-panel rounded-2xl p-5"
+        className="glass-aura hud-panel rounded-2xl p-5 max-sm:rounded-xl max-sm:p-2.5"
       >
-        <h2 className="mb-4 font-display text-sm font-bold tracking-[0.25em] text-slate-300 uppercase">
+        <h2 className="mb-4 font-display text-sm font-bold tracking-[0.25em] text-slate-300 uppercase max-sm:mb-2 max-sm:tracking-[0.12em]">
           <span aria-hidden className="neon-aura mr-2">
             ▰
           </span>
@@ -447,15 +464,19 @@ export default async function PokemonDetailPage({ params }: PageProps) {
       />
       <BackButton lang={lang} />
 
-      <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,340px)_1fr]">
+      {/* Misma composición que en escritorio también en el móvil: escaparate a
+          la izquierda y ficha a la derecha. Abajo de `md` la columna del
+          escaparate pasa de 340px fijos a un 42% fluido, que es lo que deja
+          respirar a los datos sin que el sprite se quede en una miniatura. */}
+      <div className="mt-4 grid grid-cols-[minmax(0,42%)_1fr] gap-2.5 max-sm:mt-2 md:grid-cols-[minmax(0,340px)_1fr] md:gap-6">
         {/* Escaparate: cristal neón enmarcado por el aura del tipo. */}
-        <div className="glass-aura relative overflow-hidden rounded-3xl p-6">
+        <div className="glass-aura relative overflow-hidden rounded-3xl p-6 max-sm:rounded-xl max-sm:p-2">
           <div
             aria-hidden
             className="hud-corners absolute inset-2 opacity-60"
           />
           {crySrc && (
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-4 right-4 z-10 max-sm:top-1.5 max-sm:right-1.5">
               <CryButton src={crySrc} name={formatName(species.name)} />
             </div>
           )}
@@ -472,7 +493,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               {formatDexNumber(species.id)}
             </p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="font-display text-4xl font-bold tracking-wide text-slate-50">
+              <h1 className="font-display text-4xl font-bold tracking-wide text-slate-50 max-sm:text-2xl">
                 {formatName(species.name)}
               </h1>
               <span className="rounded-full border border-slate-700/80 px-2.5 py-0.5 font-mono text-xs tracking-wider text-slate-300 uppercase">
@@ -501,7 +522,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
           </div>
 
           {flavorText && (
-            <div className="rounded-r-xl border-l-2 border-[var(--aura)]/60 bg-slate-400/[0.04] p-4">
+            <div className="rounded-r-xl border-l-2 border-[var(--aura)]/60 bg-slate-400/[0.04] p-4 max-sm:p-2.5">
               <p className="font-mono text-xs tracking-[0.2em] text-slate-500 uppercase">
                 {d.dexEntry}
                 {flavorVersion && (
@@ -514,18 +535,21 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          <dl className="grid grid-cols-2 gap-2.5 text-sm sm:grid-cols-3">
+          <dl className="grid grid-cols-3 gap-2.5 text-sm max-sm:gap-1.5">
             {[
               [d.height, `${pokemon.height / 10} m`],
               [d.weight, `${pokemon.weight / 10} kg`],
               [d.baseExp, `${pokemon.base_experience ?? "—"}`],
               [d.growth, growthLabel(species.growth_rate?.name, lang)],
             ].map(([label, value]) => (
-              <div key={label} className="data-pill rounded-2xl px-3.5 py-2.5">
-                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+              <div
+                key={label}
+                className="data-pill rounded-2xl px-3.5 py-2.5 max-sm:rounded-lg max-sm:px-2 max-sm:py-1.5"
+              >
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                   {label}
                 </dt>
-                <dd className="neon-value mt-0.5 font-mono text-sm font-bold text-slate-100">
+                <dd className="neon-value mt-0.5 font-mono text-sm font-bold text-slate-100 max-sm:text-[11px]">
                   {value}
                 </dd>
               </div>
@@ -536,16 +560,19 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 [d.happiness, species.base_happiness, null],
               ] as const
             ).map(([label, value, note]) => (
-              <div key={label} className="data-pill rounded-2xl px-3.5 py-2.5">
-                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+              <div
+                key={label}
+                className="data-pill rounded-2xl px-3.5 py-2.5 max-sm:rounded-lg max-sm:px-2 max-sm:py-1.5"
+              >
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                   {label}
                 </dt>
                 <dd className="mt-0.5">
-                  <p className="neon-value font-mono text-sm font-bold text-slate-100">
+                  <p className="neon-value font-mono text-sm font-bold text-slate-100 max-sm:text-[11px]">
                     {value ?? "—"}
                     <span className="text-slate-500">/255</span>
                     {note && (
-                      <span className="ml-1.5 text-xs font-normal text-slate-300 [text-shadow:none]">
+                      <span className="ml-1.5 text-xs font-normal text-slate-300 [text-shadow:none] max-sm:ml-0 max-sm:block max-sm:text-[9px]">
                         {note}
                       </span>
                     )}
@@ -610,11 +637,11 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               />
 
               <Panel title={d.abilities}>
-                <ul className="grid items-start gap-3 lg:grid-cols-2">
+                <ul className="grid grid-cols-2 items-start gap-3 max-sm:gap-1.5">
                   {abilities.map((ability, index) => (
                     <li
                       key={ability.label}
-                      className="data-pill rounded-2xl px-4 py-3.5"
+                      className="data-pill rounded-2xl px-4 py-3.5 max-sm:rounded-lg max-sm:px-2 max-sm:py-2"
                     >
                       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                         <span
@@ -677,7 +704,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
               <Panel title={d.breedingProfile}>
                 <dl className="flex flex-col divide-y divide-slate-800/60 text-sm">
             <div className="py-3.5 first:pt-0 last:pb-0">
-              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                 {d.gender}
               </dt>
               <dd className="mt-2">
@@ -709,7 +736,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
             </div>
 
             <div className="py-3.5 first:pt-0 last:pb-0">
-              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+              <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                 {d.eggGroups}
               </dt>
               <dd className="mt-1 font-mono text-sm font-semibold tracking-wide text-slate-200 uppercase">
@@ -734,7 +761,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
             {species.hatch_counter !== null && (
               <div className="py-3.5 first:pt-0 last:pb-0">
-                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                   {d.eggCycles}
                 </dt>
                 <dd className="mt-1 font-mono text-sm text-slate-400">
@@ -752,7 +779,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
             {heldItems.length > 0 && (
               <div className="py-3.5 first:pt-0 last:pb-0">
-                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                   {d.wildItems}
                 </dt>
                 <dd className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
@@ -797,7 +824,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 ] as const
               ).map(([label, value]) => (
                 <div key={label}>
-                  <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+                  <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                     {label}
                   </dt>
                   <dd className="mt-1 font-mono text-sm font-semibold text-slate-200">
@@ -806,7 +833,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
                 </div>
               ))}
               <div>
-                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+                <dt className="font-mono text-xs tracking-widest text-slate-400 uppercase max-sm:text-[8px] max-sm:leading-[1.25] max-sm:tracking-normal max-sm:[overflow-wrap:anywhere]">
                   {d.color}
                 </dt>
                 <dd className="mt-1 flex items-center gap-1.5 font-mono text-sm font-semibold text-slate-200">
@@ -844,7 +871,7 @@ export default async function PokemonDetailPage({ params }: PageProps) {
 
       <section
         aria-label={d.tcgGalleryAria}
-        className="glass-aura hud-panel mt-8 rounded-2xl p-5"
+        className="glass-aura hud-panel mt-8 rounded-2xl p-5 max-sm:mt-4 max-sm:rounded-xl max-sm:p-2.5"
       >
         <h2 className="mb-4 font-display text-sm font-bold tracking-[0.25em] text-slate-300 uppercase">
           <span aria-hidden className="neon-aura mr-2">

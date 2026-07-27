@@ -127,7 +127,7 @@ export function SpeciesGridPicker({
             </p>
           )}
 
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5 md:grid-cols-5 lg:grid-cols-6">
+          <ul className="grid grid-cols-6 gap-2 max-sm:gap-1 sm:gap-2.5">
             {results.map((entry) => {
               const isSelected = entry.name === selected;
               return (

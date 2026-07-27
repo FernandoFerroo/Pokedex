@@ -49,7 +49,7 @@ export async function CardGallery({
 
 export function CardGallerySkeleton() {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <ul className="grid grid-cols-6 gap-3 max-sm:gap-1">
       {Array.from({ length: 6 }, (_, i) => (
         <li
           key={i}

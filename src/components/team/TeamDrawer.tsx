@@ -128,13 +128,13 @@ export function EntryButton({
       }
       style={{ "--aura": typeAura(entry.types[0]) } as CSSProperties}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg border border-slate-700/70 bg-black/40 p-2 text-left transition",
+        "flex w-full items-center gap-2.5 rounded-lg border border-slate-700/70 bg-black/40 p-2 text-left transition max-sm:gap-1 max-sm:p-1",
         disabled
           ? "opacity-45"
           : "hover:border-[color-mix(in_srgb,var(--aura)_55%,transparent)] hover:bg-hud-1 hover:shadow-[0_0_16px_-6px_var(--aura)]",
       )}
     >
-      <span className="relative h-12 w-12 shrink-0">
+      <span className="relative h-12 w-12 shrink-0 max-sm:h-7 max-sm:w-7">
         <Image
           src={artworkUrl(entry.id)}
           alt=""
@@ -144,10 +144,10 @@ export function EntryButton({
         />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-mono text-sm font-semibold text-slate-100">
+        <span className="block truncate font-mono text-sm font-semibold text-slate-100 max-sm:text-[9px]">
           {formatName(entry.name)}
         </span>
-        <span className="block truncate font-mono text-xs text-slate-400">
+        <span className="block truncate font-mono text-xs text-slate-400 max-sm:text-[8px]">
           {entry.types.map((type) => typeLabel(type, lang)).join(" / ")}
         </span>
       </span>
@@ -155,7 +155,7 @@ export function EntryButton({
         aria-hidden
         className={cn("shrink-0", inTeam ? "text-emerald-400" : "text-slate-500")}
       >
-        {inTeam ? "✓" : <Plus size={18} />}
+        {inTeam ? "✓" : <Plus size={18} className="max-sm:h-3 max-sm:w-3" />}
       </span>
     </button>
   );
@@ -256,16 +256,16 @@ function TeamPicker({ slot, onClose }: { slot: number; onClose: () => void }) {
             </p>
           )}
           {!entries && !failed && (
-            <p className="font-mono text-sm text-slate-500">
+            <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">
               {t.loadingSpecies}
             </p>
           )}
           {entries && results.length === 0 && (
-            <p className="font-mono text-sm text-slate-500">
+            <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">
               {t.noResultsEnglishNames(query.trim())}
             </p>
           )}
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-3 gap-2 max-sm:gap-1">
             {results.map((entry) => (
               <li key={entry.id}>
                 <EntryButton
@@ -305,13 +305,13 @@ function TeamSlot({
         onClick={() => onOpenPicker(index)}
         aria-label={t.pickerDialogAria(index + 1)}
         title={t.choosePokemon}
-        className="flex aspect-[5/6] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-400/25 bg-black/30 text-slate-500 transition hover:border-emerald-400/60 hover:bg-emerald-400/10 hover:text-emerald-300 hover:shadow-[0_0_24px_-2px_rgba(16,185,129,0.8)]"
+        className="flex aspect-[5/6] flex-col items-center max-sm:aspect-[2/5] justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-400/25 bg-black/30 text-slate-500 transition hover:border-emerald-400/60 hover:bg-emerald-400/10 hover:text-emerald-300 hover:shadow-[0_0_24px_-2px_rgba(16,185,129,0.8)] max-sm:gap-0.5 max-sm:rounded-md"
       >
-        <Plus size={34} />
-        <span className="font-mono text-xs tracking-wider uppercase">
+        <Plus size={34} className="max-sm:h-4 max-sm:w-4" />
+        <span className="font-mono text-xs tracking-wider uppercase max-sm:text-[7px] max-sm:tracking-normal">
           {t.choose}
         </span>
-        <span className="font-pixel text-[10px] text-slate-600">
+        <span className="font-pixel text-[10px] text-slate-600 max-sm:text-[6px]">
           {index + 1}
         </span>
       </button>
@@ -321,17 +321,17 @@ function TeamSlot({
   return (
     <div
       style={{ "--aura": typeAura(member.types[0]) } as CSSProperties}
-      className="group relative flex aspect-[5/6] flex-col items-center gap-1.5 rounded-xl border border-[color-mix(in_srgb,var(--aura)_45%,transparent)] bg-gradient-to-b from-hud-1 to-hud-3 p-3 shadow-[0_0_22px_-6px_var(--aura)]"
+      className="group relative flex aspect-[5/6] flex-col items-center max-sm:aspect-[2/5] gap-1.5 rounded-xl border border-[color-mix(in_srgb,var(--aura)_45%,transparent)] bg-gradient-to-b from-hud-1 to-hud-3 p-3 shadow-[0_0_22px_-6px_var(--aura)] max-sm:gap-0.5 max-sm:rounded-md max-sm:p-1"
     >
       <button
         type="button"
         onClick={() => remove(member.id)}
         aria-label={t.removeNameFromTeam(formatName(member.name))}
-        className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-red-500/60 bg-hud-1 text-red-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20 focus-visible:opacity-100 max-sm:opacity-100"
+        className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-red-500/60 bg-hud-1 text-red-400 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20 focus-visible:opacity-100 max-sm:-top-1 max-sm:-right-1 max-sm:h-4 max-sm:w-4 max-sm:opacity-100"
       >
-        <X size={15} />
+        <X size={15} className="max-sm:h-2.5 max-sm:w-2.5" />
       </button>
-      <p className="font-pixel text-[10px] text-slate-500">
+      <p className="font-pixel text-[10px] text-slate-500 max-sm:text-[6px]">
         {formatDexNumber(member.id)}
       </p>
       {/* Clicking the Pokémon opens its combat build (ability + 4 moves). */}
@@ -353,17 +353,17 @@ function TeamSlot({
       <Link
         href={`/pokemon/${member.name}`}
         title={t.viewEntryTitle(formatName(member.name))}
-        className="w-full truncate text-center font-mono text-sm font-semibold tracking-wide text-slate-100 transition hover:text-emerald-300"
+        className="w-full truncate text-center font-mono text-sm font-semibold tracking-wide text-slate-100 transition hover:text-emerald-300 max-sm:text-[8px] max-sm:tracking-normal"
       >
         {formatName(member.name)}
       </Link>
-      <div className="flex flex-wrap justify-center gap-1">
+      <div className="flex w-full flex-wrap justify-center gap-1 max-sm:gap-0.5">
         {member.types.map((type) => (
-          <TypeBadge key={type} type={type} />
+          <TypeBadge key={type} type={type} compactOnMobile />
         ))}
       </div>
       {/* Nivel de combate. */}
-      <label className="flex items-center gap-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase">
+      <label className="flex items-center gap-1 font-mono text-[11px] tracking-wider text-slate-400 uppercase max-sm:gap-0.5 max-sm:text-[7px] max-sm:tracking-normal">
         {t.levelAbbr}
         <input
           type="number"
@@ -375,7 +375,7 @@ function TeamSlot({
             if (!Number.isNaN(value)) setLevel(member.id, value);
           }}
           aria-label={t.levelOfAria(formatName(member.name))}
-          className="h-6 w-12 rounded border border-slate-700/80 bg-black/40 px-1 text-center font-mono text-xs text-slate-100 outline-none transition focus:border-[var(--aura)]"
+          className="h-6 w-12 rounded border border-slate-700/80 bg-black/40 px-1 text-center font-mono text-xs text-slate-100 outline-none transition focus:border-[var(--aura)] max-sm:h-5 max-sm:w-8 max-sm:px-0 max-sm:[appearance:textfield] max-sm:[&::-webkit-inner-spin-button]:appearance-none"
         />
       </label>
       {/* Acceso a la build vestido como función premium: chip de jade macizo
@@ -387,10 +387,10 @@ function TeamSlot({
         aria-label={t.buildConfigureAria(formatName(member.name))}
         title={member.build ? t.buildCustomTitle : t.buildChooseTitle}
         className={cn(
-          // Three slots per row on phones leaves each ~105px, so below `sm`
-          // the chip drops its letter-spacing and side padding to fit the
-          // label instead of ellipsing it.
-          "team-sweep relative flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-md border px-1 py-1.5 font-mono text-[11px] font-bold uppercase transition max-sm:gap-1 sm:px-2 sm:tracking-wider",
+          // Los seis huecos en fila dejan ~52px por chapa en el móvil, así que
+          // ahí pierde el espaciado, el margen lateral y la corona: lo que
+          // queda es la etiqueta, que es lo que dice para qué sirve.
+          "team-sweep relative flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-md border px-1 py-1.5 font-mono text-[11px] font-bold uppercase transition max-sm:gap-0.5 max-sm:rounded max-sm:px-0 max-sm:py-0.5 max-sm:text-[7px] sm:px-2 sm:tracking-wider",
           member.build
             ? "border-emerald-400/70 bg-emerald-400/15 text-emerald-300 shadow-[inset_0_0_14px_-8px_rgba(16,185,129,0.8)] hover:bg-emerald-400/25 hover:shadow-[0_0_16px_-4px_rgba(16,185,129,0.7)]"
             : "border-emerald-300/80 bg-gradient-to-b from-[#6ee7b7] to-[#059669] text-[#03150f] shadow-[0_0_16px_-4px_rgba(16,185,129,0.7)] hover:from-[#a7f3d0] hover:to-[#34d399] hover:shadow-[0_0_22px_-2px_rgba(16,185,129,0.9)]",
@@ -461,7 +461,7 @@ function TeamSearch() {
       )}
 
       {results.length > 0 && (
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="mt-3 grid grid-cols-4 gap-2 max-sm:gap-1">
           {results.map((entry) => (
             <li key={entry.id}>
               <EntryButton
@@ -777,7 +777,9 @@ export function TeamDrawer() {
 
         <div className="flex flex-col gap-6 overscroll-contain overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {/* Slots */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
+          {/* Los seis huecos en una sola fila, igual que en escritorio: el
+              equipo se lee como la caja de combate del juego. */}
+          <div className="grid grid-cols-6 gap-3 max-sm:gap-1 sm:gap-4">
             {Array.from({ length: TEAM_SIZE }, (_, i) => (
               <TeamSlot
                 key={team[i]?.id ?? `empty-${i}`}
@@ -793,14 +795,14 @@ export function TeamDrawer() {
 
           {/* Coverage analysis */}
           {team.length > 0 && (
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className="grid grid-cols-3 gap-5 max-sm:gap-2">
               <div>
-                <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-red-400 uppercase">
-                  <Swords size={15} /> {t.criticalWeaknesses}
+                <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-red-400 uppercase max-sm:mb-1 max-sm:gap-1 max-sm:text-[9px] max-sm:tracking-normal">
+                  <Swords size={15} className="shrink-0 max-sm:h-2.5 max-sm:w-2.5" /> {t.criticalWeaknesses}
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 max-sm:gap-1">
                   {analysis.criticalWeaknesses.length === 0 ? (
-                    <p className="font-mono text-sm text-slate-500">
+                    <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">
                       {t.noCriticalWeaknesses(PRESSURE_THRESHOLD)}
                     </p>
                   ) : (
@@ -814,12 +816,12 @@ export function TeamDrawer() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-emerald-400 uppercase">
-                  <Shield size={15} /> {t.strongResistances}
+                <h3 className="mb-2.5 flex items-center gap-1.5 font-mono text-sm tracking-widest text-emerald-400 uppercase max-sm:mb-1 max-sm:gap-1 max-sm:text-[9px] max-sm:tracking-normal">
+                  <Shield size={15} className="shrink-0 max-sm:h-2.5 max-sm:w-2.5" /> {t.strongResistances}
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 max-sm:gap-1">
                   {analysis.strongResistances.length === 0 ? (
-                    <p className="font-mono text-sm text-slate-500">
+                    <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">
                       {t.noStrongResistances(PRESSURE_THRESHOLD)}
                     </p>
                   ) : (
@@ -835,12 +837,12 @@ export function TeamDrawer() {
               <div>
                 {/* Amber, like its chips: this column is the "gap" side of the
                     red / green / amber analysis, not the team livery. */}
-                <h3 className="mb-2.5 font-mono text-sm tracking-widest text-amber-400 uppercase">
+                <h3 className="mb-2.5 font-mono text-sm tracking-widest text-amber-400 uppercase max-sm:mb-1 max-sm:text-[9px] max-sm:tracking-normal">
                   {t.missingCoverage}
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 max-sm:gap-1">
                   {analysis.missingCoverage.length === 0 ? (
-                    <p className="font-mono text-sm text-slate-500">
+                    <p className="font-mono text-sm text-slate-500 max-sm:text-[9px]">
                       {t.fullCoverage}
                     </p>
                   ) : (
