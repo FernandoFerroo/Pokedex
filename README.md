@@ -27,7 +27,7 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
-**Opción B — Docker (un solo comando):**
+**Opción B — Docker (un solo comando):** 
 
 ```bash
 docker compose up
